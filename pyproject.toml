@@ -21,8 +21,8 @@ dynamic = ["version"]
 dependencies = [
     "gevent==25.4.2",
     "greenlet==3.2.3",
-    "gevent-websocket==0.10.1",  # like the below is abandoned
-    "wsaccel==0.6.7",  # recommended for acceleration of gevent-websocket. But abandoned.
+    "gevent-websocket==0.10.1", # like the below is abandoned
+    "wsaccel==0.6.7", # recommended for acceleration of gevent-websocket. But abandoned.
     "web3==7.10.0",
     "eth-typing==5.2.1",
     "content-hash==2.0.0",
@@ -45,8 +45,8 @@ dependencies = [
     "miniupnpc==2.3.2",
     "cryptography==44.0.2",
     "py-machineid==0.7.0",
-    "more-itertools==10.6.0",  # for peekable iterators
-    "regex==2024.11.6",  # used for unicode information in detection of spam tokens
+    "more-itertools==10.6.0", # for peekable iterators
+    "regex==2024.11.6", # used for unicode information in detection of spam tokens
     "eth-abi==5.2.0",
     "polars-lts-cpu==1.29.0",
     "eth-utils==5.3.0",
@@ -70,6 +70,7 @@ dependencies = [
     # SQLAlchemy ORM
     "SQLAlchemy==2.0.25",
     "alembic==1.13.1",
+    "sqlmodel>=0.0.24",
 ]
 
 [project.urls]

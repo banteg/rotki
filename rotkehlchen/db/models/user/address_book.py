@@ -1,0 +1,23 @@
+"""Address book models for user database using SQLModel"""
+
+from typing import Optional
+
+from sqlalchemy import TEXT, VARCHAR, Column
+from sqlmodel import Field
+
+from rotkehlchen.db.models.user.base import Base
+
+
+class AddressBook(Base, table=True):
+    """Model for address book table"""
+    __tablename__ = 'address_book'
+
+    address: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
+    blockchain: Optional[str] = Field(
+        default=None, 
+        sa_column=Column(VARCHAR(24), primary_key=True)
+    )
+    name: str = Field(sa_column=Column(TEXT, nullable=False))
+
+    def __repr__(self) -> str:
+        return f"<AddressBook(address='{self.address}', name='{self.name}')>"

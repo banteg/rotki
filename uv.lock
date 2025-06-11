@@ -1953,6 +1953,7 @@ dependencies = [
     { name = "rotki-pysqlcipher3" },
     { name = "scalecodec" },
     { name = "sqlalchemy" },
+    { name = "sqlmodel" },
     { name = "substrate-interface" },
     { name = "urllib3" },
     { name = "web3" },
@@ -2062,6 +2063,7 @@ requires-dist = [
     { name = "rotki-pysqlcipher3", specifier = "==2024.10.1" },
     { name = "scalecodec", specifier = "==1.2.11" },
     { name = "sqlalchemy", specifier = "==2.0.25" },
+    { name = "sqlmodel", specifier = ">=0.0.24" },
     { name = "substrate-interface", specifier = "==1.7.11" },
     { name = "urllib3", specifier = "==2.4.0" },
     { name = "web3", specifier = "==7.10.0" },
@@ -2483,6 +2485,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/8a/65/dc3d4c5fa5ae8f0f14ff468c4f8dd366f35d8e59504708d2a0a305bdb250/SQLAlchemy-2.0.25-cp311-cp311-win32.whl", hash = "sha256:e607cdd99cbf9bb80391f54446b86e16eea6ad309361942bf88318bcd452363c", size = 2043765, upload-time = "2024-01-03T02:42:00.901Z" },
     { url = "https://files.pythonhosted.org/packages/22/80/43ddb1ddeafdcbc3073c0e7a7d45b17678eeac4830c7e91bd6556527f311/SQLAlchemy-2.0.25-cp311-cp311-win_amd64.whl", hash = "sha256:7d505815ac340568fd03f719446a589162d55c52f08abd77ba8964fbb7eb5b5f", size = 2069835, upload-time = "2024-01-03T02:42:03.991Z" },
     { url = "https://files.pythonhosted.org/packages/1b/9e/3f86cf00c2245afb236205ab0fbdf7b77ac4ee931603e18b7e192315a514/SQLAlchemy-2.0.25-py3-none-any.whl", hash = "sha256:a86b4240e67d4753dc3092d9511886795b3c2852abe599cffe108952f7af7ac3", size = 1865129, upload-time = "2024-01-03T02:26:11.385Z" },
+]
+
+[[package]]
+name = "sqlmodel"
+version = "0.0.24"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "sqlalchemy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/86/4b/c2ad0496f5bdc6073d9b4cef52be9c04f2b37a5773441cc6600b1857648b/sqlmodel-0.0.24.tar.gz", hash = "sha256:cc5c7613c1a5533c9c7867e1aab2fd489a76c9e8a061984da11b4e613c182423", size = 116780, upload-time = "2025-03-07T05:43:32.887Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/16/91/484cd2d05569892b7fef7f5ceab3bc89fb0f8a8c0cde1030d383dbc5449c/sqlmodel-0.0.24-py3-none-any.whl", hash = "sha256:6778852f09370908985b667d6a3ab92910d0d5ec88adcaf23dbc242715ff7193", size = 28622, upload-time = "2025-03-07T05:43:30.37Z" },
 ]
 
 [[package]]
