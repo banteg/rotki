@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy import TEXT, VARCHAR, Column
 from sqlmodel import Field
 
-from rotkehlchen.db.orm.types import BooleanType
+from rotkehlchen.db.models.types import BooleanType
 from rotkehlchen.db.models.global.base import Base
 
 

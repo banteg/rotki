@@ -7,11 +7,11 @@ from sqlalchemy import (
 )
 from sqlmodel import Field, Relationship
 
-from rotkehlchen.db.orm.types import BooleanType, FValType
-from rotkehlchen.db.orm.userdb.base import Base
+from rotkehlchen.db.models.types import BooleanType, FValType
+from rotkehlchen.db.models.user.base import Base
 
 if TYPE_CHECKING:
-    from rotkehlchen.db.orm.userdb.models import Asset
+    from rotkehlchen.db.models.user.models import Asset
 
 
 class NFT(Base, table=True):

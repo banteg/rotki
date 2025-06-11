@@ -5,7 +5,7 @@ from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy import INTEGER, TEXT, Column, ForeignKey, UniqueConstraint
 from sqlmodel import Field, Relationship
 
-from rotkehlchen.db.orm.types import BooleanType, TimestampType
+from rotkehlchen.db.models.types import BooleanType, TimestampType
 from rotkehlchen.db.models.user.base import Base
 
 if TYPE_CHECKING:

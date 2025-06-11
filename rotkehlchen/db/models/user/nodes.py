@@ -3,8 +3,8 @@
 from sqlalchemy import INTEGER, TEXT, UniqueConstraint, Column
 from sqlmodel import Field
 
-from rotkehlchen.db.orm.types import BooleanType, FValType
-from rotkehlchen.db.orm.userdb.base import Base
+from rotkehlchen.db.models.types import BooleanType, FValType
+from rotkehlchen.db.models.user.base import Base
 
 
 class RPCNode(Base, table=True):

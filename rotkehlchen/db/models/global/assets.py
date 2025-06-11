@@ -7,7 +7,7 @@ from sqlalchemy import (
 )
 from sqlmodel import Field, Relationship
 
-from rotkehlchen.db.orm.types import BooleanType, FValType, TimestampType
+from rotkehlchen.db.models.types import BooleanType, FValType, TimestampType
 from rotkehlchen.db.models.global.base import Base
 
 if TYPE_CHECKING:

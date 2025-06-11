@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy import CHAR, INTEGER, TEXT, Column, ForeignKey
 from sqlmodel import Field
 
-from rotkehlchen.db.orm.types import FValType, TimestampType
+from rotkehlchen.db.models.types import FValType, TimestampType
 from rotkehlchen.db.models.global.base import Base
 
 

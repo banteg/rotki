@@ -5,7 +5,7 @@ from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy import INTEGER, TEXT, VARCHAR, Column, ForeignKey
 from sqlmodel import Field, Relationship
 
-from rotkehlchen.db.orm.userdb.base import Base
+from rotkehlchen.db.models.user.base import Base
 
 if TYPE_CHECKING:
     from rotkehlchen.db.orm.userdb.accounts import BlockchainAccount

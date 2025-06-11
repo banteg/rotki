@@ -3,7 +3,7 @@
 from sqlalchemy import CHAR, VARCHAR, Column
 from sqlmodel import Field
 
-from rotkehlchen.db.orm.userdb.base import Base
+from rotkehlchen.db.models.user.base import Base
 
 
 class Location(Base, table=True):

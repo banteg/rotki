@@ -5,8 +5,8 @@ from typing import Optional
 from sqlalchemy import CHAR, INTEGER, TEXT, Column, ForeignKey
 from sqlmodel import Field
 
-from rotkehlchen.db.orm.types import FValType, TimestampType
-from rotkehlchen.db.orm.userdb.base import Base
+from rotkehlchen.db.models.types import FValType, TimestampType
+from rotkehlchen.db.models.user.base import Base
 
 
 class MarginPosition(Base, table=True):

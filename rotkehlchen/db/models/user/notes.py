@@ -5,11 +5,11 @@ from typing import Optional, TYPE_CHECKING
 from sqlalchemy import CHAR, INTEGER, TEXT, Column, ForeignKey
 from sqlmodel import Field, Relationship
 
-from rotkehlchen.db.orm.types import BooleanType, TimestampType
-from rotkehlchen.db.orm.userdb.base import Base
+from rotkehlchen.db.models.types import BooleanType, TimestampType
+from rotkehlchen.db.models.user.base import Base
 
 if TYPE_CHECKING:
-    from rotkehlchen.db.orm.userdb.enums import Location
+    from rotkehlchen.db.models.user.enums import Location
 
 
 class UserNote(Base, table=True):

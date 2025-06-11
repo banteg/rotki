@@ -5,8 +5,8 @@ from typing import Optional
 from sqlalchemy import TEXT, UniqueConstraint, Column
 from sqlmodel import Field
 
-from rotkehlchen.db.orm.types import TimestampType
-from rotkehlchen.db.orm.userdb.base import Base
+from rotkehlchen.db.models.types import TimestampType
+from rotkehlchen.db.models.user.base import Base
 
 
 class ENSMapping(Base, table=True):

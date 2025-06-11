@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy import INTEGER, TEXT, VARCHAR, Column
 from sqlmodel import Field
 
-from rotkehlchen.db.orm.userdb.base import Base
+from rotkehlchen.db.models.user.base import Base
 
 
 class ExternalServiceCredentials(Base, table=True):
