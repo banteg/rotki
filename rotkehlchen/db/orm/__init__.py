@@ -1,238 +1,28 @@
-"""SQLAlchemy ORM models for rotkehlchen database"""
+"""SQLAlchemy ORM models for rotkehlchen database
 
-# Base setup
-from rotkehlchen.db.orm.base import (
-    Base,
-    GeventSafeDatabase,
-    GlobalDBBase,
-    TransientDBBase,
-    UserDBBase,
-)
+This module serves as a compatibility layer during migration to SQLModel.
+It re-exports models from the new db.models package structure.
+"""
 
-# Enum models
-from rotkehlchen.db.orm.enums import (
-    AssetType,
-    BalanceCategory,
-    Location,
-    PriceHistorySourceType,
-    TokenKind,
-    ZkSyncLiteTxType,
-)
+# Import everything from the new model packages
+from rotkehlchen.db.models.user import *  # noqa: F403
+from rotkehlchen.db.models.global import *  # noqa: F403
+from rotkehlchen.db.models.transient import *  # noqa: F403
 
-# ETH2 models
-from rotkehlchen.db.orm.eth2 import (
-    Eth2DailyStakingDetails,
-    Eth2Validator,
-    EthValidatorsDataCache,
-)
+# Re-export base classes with old names for compatibility
+from rotkehlchen.db.models.user import Base as UserDBBase
+from rotkehlchen.db.models.global import Base as GlobalDBBase
+from rotkehlchen.db.models.transient import Base as TransientDBBase
 
-# Global database models
-from rotkehlchen.db.orm.global_db_models import (
-    AssetCollection,
-    BinancePair,
-    CommonAssetDetails,
-    ContractABI,
-    ContractData,
-    CounterpartyAssetMapping,
-    CustomAsset,
-    DefaultRPCNode,
-    EvmToken,
-    GeneralCache,
-    GlobalAddressBook,
-    GlobalAsset,
-    GlobalSettings,
-    LocationAssetMapping,
-    LocationUnsupportedAsset,
-    MultiassetMapping,
-    PriceHistory,
-    UnderlyingTokensList,
-    UniqueCache,
-    UserOwnedAsset,
-)
+# Create a generic Base for compatibility
+Base = UserDBBase
 
-# History event models
-from rotkehlchen.db.orm.history_events import (
-    EthStakingEventInfo,
-    EvmEventInfo,
-    HistoryEvent,
-    HistoryEventMapping,
-    SkippedExternalEvent,
-)
-
-# Core models
-from rotkehlchen.db.orm.models import (
-    Asset,
-    BlockchainAccount,
-    ManuallyTrackedBalance,
-    UserSettings,
-    Tag,
-    TimedBalance,
-    TimedLocationData,
-    UserCredentialMapping,
-    UserCredentials,
-)
-
-# NFT models
-from rotkehlchen.db.orm.nfts import NFT
-
-# Protocol models
-from rotkehlchen.db.orm.protocols import (
-    CowswapOrder,
-    GnosisPayData,
-)
-
-# Transaction models
-from rotkehlchen.db.orm.transactions import (
-    EvmInternalTransaction,
-    EvmTransaction,
-    EvmTransactionAuthorization,
-    EvmTxAddressMapping,
-    EvmTxMapping,
-    EvmTxReceipt,
-    EvmTxReceiptLog,
-    EvmTxReceiptLogTopic,
-    OptimismTransaction,
-)
-
-# Transient database models
-from rotkehlchen.db.orm.transient_db_models import (
-    PnlEvent,
-    PnlReport,
-    PnlReportSetting,
-    PnlReportTotal,
-    TransientSettings,
-)
-
-# Additional user database models
-from rotkehlchen.db.orm.user_db_models import (
-    AccountingRule,
-    AddressBook,
-    Calendar,
-    CalendarReminder,
-    ENSMapping,
-    EvmAccountDetails,
-    ExternalServiceCredentials,
-    IgnoredAction,
-    KeyValueCache,
-    LinkedRuleProperty,
-    MarginPosition,
-    MultiSettings,
-    RPCNode,
-    UnresolvedRemoteConflict,
-    UsedQueryRange,
-    UserNote,
-    Xpub,
-    XpubMapping,
-)
-
-# ZkSync models
-from rotkehlchen.db.orm.zksync import (
-    ZkSyncLiteSwap,
-    ZkSyncLiteTransaction,
-)
-
+# Additional exports that might be needed
 __all__ = [
-    # NFT
-    'NFT',
-    'AccountingRule',
-    'AddressBook',
-    'Asset',
-    'AssetCollection',
-    'AssetType',
-    'BalanceCategory',
-    # Base
+    # Base classes
     'Base',
-    'UserDBBase',
+    'UserDBBase', 
     'GlobalDBBase',
     'TransientDBBase',
-    'BinancePair',
-    'BlockchainAccount',
-    'Calendar',
-    'CalendarReminder',
-    'CommonAssetDetails',
-    'ContractABI',
-    'ContractData',
-    'CounterpartyAssetMapping',
-    # Protocols
-    'CowswapOrder',
-    'CustomAsset',
-    'DefaultRPCNode',
-    'ENSMapping',
-    'Eth2DailyStakingDetails',
-    # ETH2
-    'Eth2Validator',
-    'EthStakingEventInfo',
-    'EthValidatorsDataCache',
-    'EvmAccountDetails',
-    'EvmEventInfo',
-    'EvmInternalTransaction',
-    'EvmToken',
-    # Transactions
-    'EvmTransaction',
-    'EvmTransactionAuthorization',
-    'EvmTxAddressMapping',
-    'EvmTxMapping',
-    'EvmTxReceipt',
-    'EvmTxReceiptLog',
-    'EvmTxReceiptLogTopic',
-    # Additional user DB
-    'ExternalServiceCredentials',
-    'GeneralCache',
-    'GeventSafeDatabase',
-    'GlobalAddressBook',
-    # Global DB
-    'GlobalAsset',
-    'GlobalSettings',
-    'GnosisPayData',
-    # History events
-    'HistoryEvent',
-    'HistoryEventMapping',
-    'IgnoredAction',
-    'KeyValueCache',
-    'LinkedRuleProperty',
-    # Enums
-    'Location',
-    'LocationAssetMapping',
-    'LocationUnsupportedAsset',
-    'ManuallyTrackedBalance',
-    'MarginPosition',
-    'MultiSettings',
-    'MultiassetMapping',
-    'OptimismTransaction',
-    'PnlEvent',
-    # Transient DB
-    'PnlReport',
-    'PnlReportSetting',
-    'PnlReportTotal',
-    'PriceHistory',
-    'PriceHistorySourceType',
-    'RPCNode',
-    # Core models
-    'UserSettings',
-    'SkippedExternalEvent',
-    'Tag',
-    'TimedBalance',
-    'TimedLocationData',
-    'TokenKind',
-    'TransientSettings',
-    'UnderlyingTokensList',
-    'UniqueCache',
-    'UnresolvedRemoteConflict',
-    'UsedQueryRange',
-    'UserCredentialMapping',
-    'UserCredentials',
-    'UserNote',
-    'UserOwnedAsset',
-    'Xpub',
-    'XpubMapping',
-    'ZkSyncLiteSwap',
-    # ZkSync
-    'ZkSyncLiteTransaction',
-    'ZkSyncLiteTxType',
-    'get_global_db',
-    'get_transient_db',
-    'get_user_db',
-    'init_global_db',
-    'init_transient_db',
-    'init_user_db',
+    # All models are re-exported via star imports above
 ]
