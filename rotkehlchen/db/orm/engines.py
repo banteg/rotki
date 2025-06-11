@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.pool import NullPool, StaticPool
 
-from rotkehlchen.db.drivers.gevent import GeventConnector
+# GeventConnector import removed - not needed for SQLAlchemy engines
 from rotkehlchen.logging import RotkehlchenLogsAdapter
 
 logger = RotkehlchenLogsAdapter(__name__)

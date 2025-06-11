@@ -151,8 +151,8 @@ class MultiSettings(Base):
     """Model for multisettings table"""
     __tablename__ = 'multisettings'
 
-    name: Mapped[str] = mapped_column(VARCHAR(24), nullable=False)
-    value: Mapped[str | None] = mapped_column(TEXT)
+    name: Mapped[str] = mapped_column(VARCHAR(24), primary_key=True, nullable=False)
+    value: Mapped[str | None] = mapped_column(TEXT, primary_key=True)
 
     __table_args__ = (
         UniqueConstraint('name', 'value'),

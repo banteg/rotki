@@ -6,7 +6,7 @@ from sqlalchemy import delete, select
 from rotkehlchen.chain.accounts import BlockchainAccountData, SingleBlockchainAccountData
 from rotkehlchen.db.orm.models import BlockchainAccount, tag_mappings
 from rotkehlchen.db.orm.repositories.base import BaseRepository
-from rotkehlchen.types import BlockchainAccountAddress, SupportedBlockchain
+from rotkehlchen.types import BlockchainAddress, SupportedBlockchain
 
 
 class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
@@ -18,7 +18,7 @@ class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
     def get_account(
         self,
         blockchain: SupportedBlockchain,
-        address: BlockchainAccountAddress,
+        address: BlockchainAddress,
     ) -> BlockchainAccount | None:
         """Get a specific blockchain account"""
         return self.get(blockchain=blockchain.value, account=address)
@@ -41,7 +41,7 @@ class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
     def add_account(
         self,
         blockchain: SupportedBlockchain,
-        address: BlockchainAccountAddress,
+        address: BlockchainAddress,
     ) -> BlockchainAccount:
         """Add a new blockchain account"""
         account = BlockchainAccount(
@@ -67,7 +67,7 @@ class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
     def remove_account(
         self,
         blockchain: SupportedBlockchain,
-        address: BlockchainAccountAddress,
+        address: BlockchainAddress,
     ) -> bool:
         """Remove a blockchain account"""
         return self.delete_by(
@@ -116,7 +116,7 @@ class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
     def account_exists(
         self,
         blockchain: SupportedBlockchain,
-        address: BlockchainAccountAddress,
+        address: BlockchainAddress,
     ) -> bool:
         """Check if an account exists"""
         return self.exists(
@@ -136,7 +136,7 @@ class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
     def replace_blockchain_accounts(
         self,
         blockchain: SupportedBlockchain,
-        accounts: list[BlockchainAccountAddress],
+        accounts: list[BlockchainAddress],
     ) -> list[BlockchainAccount]:
         """Replace all accounts for a blockchain"""
         # Delete existing accounts

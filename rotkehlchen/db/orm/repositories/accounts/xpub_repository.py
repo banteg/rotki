@@ -4,7 +4,7 @@
 from sqlalchemy import select
 
 from rotkehlchen.chain.bitcoin.xpub import XpubData
-from rotkehlchen.db.orm.models import Xpub, XpubMapping
+from rotkehlchen.db.orm.user_db_models import Xpub, XpubMapping
 from rotkehlchen.db.orm.repositories.base import BaseRepository
 from rotkehlchen.types import BTCAddress, HDKey, SupportedBlockchain
 
