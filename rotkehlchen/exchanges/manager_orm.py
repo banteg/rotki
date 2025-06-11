@@ -4,13 +4,11 @@ import logging
 from collections import defaultdict
 from collections.abc import Iterator
 from importlib import import_module
-from types import ModuleType
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
-from rotkehlchen.db.constants import BINANCE_MARKETS_KEY, KRAKEN_ACCOUNT_TYPE_KEY
 from rotkehlchen.errors.misc import InputError
 from rotkehlchen.exchanges.binance import BINANCE_BASE_URL, BINANCEUS_BASE_URL
-from rotkehlchen.exchanges.exchange import ExchangeInterface, ExchangeWithExtras
+from rotkehlchen.exchanges.exchange import ExchangeInterface
 from rotkehlchen.logging import RotkehlchenLogsAdapter
 from rotkehlchen.types import (
     ApiKey,
@@ -72,14 +70,14 @@ class ExchangeManager:
         """Iterate all connected and syncing exchanges"""
         if not self.database:
             return
-            
+
         # Get non-syncing exchanges from settings using ORM
         non_syncing_exchanges_str = self.database.repos.settings.get_setting('non_syncing_exchanges')
         excluded = set()
         if non_syncing_exchanges_str:
             # TODO: Parse the serialized list of excluded exchanges
             pass
-            
+
         for exchanges in self.connected_exchanges.values():
             for exchange in exchanges:
                 # We are not yielding excluded exchanges
@@ -128,7 +126,7 @@ class ExchangeManager:
         # Update database using ORM
         if not self.database:
             return False, 'Database not initialized'
-            
+
         with self.database.repos.unit_of_work():
             # Update credential
             updated = self.database.repos.credentials.update_credential(
@@ -140,10 +138,10 @@ class ExchangeManager:
                 passphrase=passphrase,
                 kraken_account_type=kraken_account_type.serialize() if kraken_account_type else None,
             )
-            
+
             if not updated:
                 return False, f'Failed to update {location!s} exchange {name} in database'
-            
+
             # TODO: Handle binance_selected_trade_pairs update
             # TODO: This might need a separate table or stored as JSON
 
@@ -208,11 +206,11 @@ class ExchangeManager:
                         passphrase=passphrase,
                         kraken_account_type=kraken_account_type.serialize() if kraken_account_type else None,
                     )
-                    
+
                     # TODO: Save binance_selected_trade_pairs if needed
-                    
+
                 except Exception as e:
-                    return False, f'Failed to save exchange to database: {str(e)}'
+                    return False, f'Failed to save exchange to database: {e!s}'
 
         # Now initialize the exchange
         try:
@@ -249,16 +247,16 @@ class ExchangeManager:
         # Import the exchange module
         module_name = self._get_exchange_module_name(location)
         module = import_module(f'rotkehlchen.exchanges.{module_name}')
-        
+
         # Get the exchange class
         exchange_class_name = location.name.capitalize()
         if location == Location.BINANCEUS:
             exchange_class_name = 'Binance'
         elif location == Location.CRYPTOCOM:
             exchange_class_name = 'Cryptocom'
-            
+
         ExchangeClass = getattr(module, exchange_class_name)
-        
+
         # Prepare initialization arguments
         init_args = {
             'name': name,
@@ -267,31 +265,31 @@ class ExchangeManager:
             'database': self.database,
             'msg_aggregator': self.msg_aggregator,
         }
-        
+
         # Add exchange-specific arguments
         if location == Location.KRAKEN and kraken_account_type is not None:
             init_args['account_type'] = kraken_account_type
-        
+
         if location in (Location.BINANCE, Location.BINANCEUS):
             if location == Location.BINANCEUS:
                 init_args['base_uri'] = BINANCEUS_BASE_URL
             else:
                 init_args['base_uri'] = BINANCE_BASE_URL
-                
+
             if binance_selected_trade_pairs is not None:
                 init_args['selected_trade_pairs'] = binance_selected_trade_pairs
-        
+
         if passphrase is not None and location in EXCHANGES_WITHOUT_API_SECRET:
             init_args['passphrase'] = passphrase
-        
+
         # Create and validate the exchange
         exchange = ExchangeClass(**init_args)
-        
+
         # Validate API key
         success, msg = exchange.validate_api_key()
         if not success:
             raise InputError(f'Failed to validate {location} API key: {msg}')
-        
+
         return exchange
 
     def initialize_exchanges(
@@ -314,8 +312,8 @@ class ExchangeManager:
                     self.connected_exchanges[location].append(exchange)
                 except Exception as e:
                     log.error(
-                        f'Failed to initialize {location} exchange {credentials.name}: {e}'
+                        f'Failed to initialize {location} exchange {credentials.name}: {e}',
                     )
                     self.msg_aggregator.add_error(
-                        f'Failed to initialize {location} exchange {credentials.name}: {e}'
+                        f'Failed to initialize {location} exchange {credentials.name}: {e}',
                     )

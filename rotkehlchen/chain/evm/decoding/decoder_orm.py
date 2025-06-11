@@ -1,15 +1,12 @@
 """EVM transaction decoder using ORM"""
 
 import logging
-from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from rotkehlchen.accounting.structures.types import HistoryEventSubType, HistoryEventType
-from rotkehlchen.chain.evm.decoding.structures import DecoderContext, DecodingOutput
+from rotkehlchen.chain.evm.decoding.structures import DecoderContext
 from rotkehlchen.chain.evm.structures import EvmTxReceipt
-from rotkehlchen.chain.evm.types import string_to_evm_address
 from rotkehlchen.constants import ZERO
-from rotkehlchen.db.evmtx import EVMTX_DECODED
 from rotkehlchen.errors.misc import RemoteError
 from rotkehlchen.fval import FVal
 from rotkehlchen.history.events.structures.evm_event import EvmEvent
@@ -53,7 +50,7 @@ class EVMTransactionDecoder:
             tx_hash=tx_hash,
             chain_id=self.evm_inquirer.chain_id,
         )
-        
+
         if tx_data:
             # Convert ORM model to EvmTransaction
             # TODO: Proper conversion based on actual model structure
@@ -71,13 +68,13 @@ class EVMTransactionDecoder:
                 input_data=tx_data.input_data,
                 nonce=tx_data.nonce,
             )
-            
+
             # Get receipt
             receipt_data = self.database.repos.evm_transactions.get_receipt(
                 tx_hash=tx_hash,
                 chain_id=self.evm_inquirer.chain_id,
             )
-            
+
             if receipt_data:
                 receipt = EvmTxReceipt(
                     tx_hash=receipt_data.tx_hash,
@@ -94,11 +91,11 @@ class EVMTransactionDecoder:
             # Fetch transaction from node
             transaction = self._fetch_transaction_from_node(tx_hash)
             receipt = self._fetch_receipt_from_node(tx_hash)
-            
+
             # Save to database
             self._save_transaction_to_database(transaction)
             self._save_receipt_to_database(receipt)
-        
+
         return transaction, receipt
 
     def _fetch_transaction_from_node(self, tx_hash: str) -> EvmTransaction:
@@ -182,16 +179,16 @@ class EVMTransactionDecoder:
             if is_decoded:
                 # Return existing events
                 return self._get_decoded_events_from_database(tx_hash)
-        
+
         # Get or create transaction
         transaction, receipt = self._get_or_create_transaction(tx_hash)
-        
+
         # Decode transaction
         events = self._decode_transaction(transaction, receipt)
-        
+
         # Save decoded events
         self._save_decoded_events(transaction, events)
-        
+
         return events
 
     def _decode_transaction(
@@ -201,7 +198,7 @@ class EVMTransactionDecoder:
     ) -> list[EvmEvent]:
         """Decode a transaction into events"""
         events: list[EvmEvent] = []
-        
+
         # Create base event for ETH transfer if value > 0
         if transaction.value > ZERO:
             base_event = EvmEvent(
@@ -219,7 +216,7 @@ class EVMTransactionDecoder:
                 address=transaction.from_address,
             )
             events.append(base_event)
-        
+
         # Decode logs
         for log_idx, log in enumerate(receipt.logs):
             decoded_events = self._decode_log(
@@ -228,21 +225,21 @@ class EVMTransactionDecoder:
                 log_idx=log_idx + 1,  # Start from 1 after base event
             )
             events.extend(decoded_events)
-        
+
         # Apply protocol-specific decoders
         context = DecoderContext(
             tx_hash=transaction.tx_hash,
             transaction=transaction,
             all_events=events,
         )
-        
+
         for decoder_address, decoder in self.decoders.items():
             if self._should_use_decoder(transaction, receipt, decoder_address):
                 decoding_output = decoder.decode(context)
                 if decoding_output and decoding_output.matched_counterparty:
                     events = decoding_output.events
                     break
-        
+
         return events
 
     def _decode_log(
@@ -252,12 +249,10 @@ class EVMTransactionDecoder:
             log_idx: int,
     ) -> list[EvmEvent]:
         """Decode a single log entry"""
-        events = []
-        
+        return []
+
         # TODO: Implement log decoding logic
         # This would parse the log topics and data to create appropriate events
-        
-        return events
 
     def _should_use_decoder(
             self,
@@ -269,12 +264,12 @@ class EVMTransactionDecoder:
         # Check if transaction interacts with decoder's contract
         if transaction.to_address == decoder_address:
             return True
-        
+
         # Check if any log is from decoder's contract
         for log in receipt.logs:
             if hex_or_bytes_to_address(log['address']) == decoder_address:
                 return True
-        
+
         return False
 
     def _save_decoded_events(
@@ -294,7 +289,7 @@ class EVMTransactionDecoder:
                     tx_hash=transaction.tx_hash,
                     chain_id=transaction.chain_id,
                 )
-            
+
             # Mark transaction as decoded
             self.database.repos.evm_transactions.mark_as_decoded(
                 tx_hash=transaction.tx_hash,
@@ -307,7 +302,7 @@ class EVMTransactionDecoder:
             tx_hash=tx_hash,
             chain_id=self.evm_inquirer.chain_id,
         )
-        
+
         events = []
         for model in event_models:
             # TODO: Convert ORM model to EvmEvent
@@ -326,7 +321,7 @@ class EVMTransactionDecoder:
                 address=model.address,
             )
             events.append(event)
-        
+
         return events
 
     def register_decoder(self, address: ChecksumEvmAddress, decoder: Any) -> None:
@@ -340,7 +335,7 @@ class EVMTransactionDecoder:
     ) -> dict[str, list[EvmEvent]]:
         """Decode multiple transactions using ORM"""
         results = {}
-        
+
         for tx_hash in tx_hashes:
             try:
                 events = self.decode_transaction(tx_hash, ignore_cache=ignore_cache)
@@ -348,23 +343,22 @@ class EVMTransactionDecoder:
             except Exception as e:
                 log.error(f'Failed to decode transaction {tx_hash}: {e}')
                 self.msg_aggregator.add_error(
-                    f'Failed to decode transaction {tx_hash}: {str(e)}'
+                    f'Failed to decode transaction {tx_hash}: {e!s}',
                 )
                 results[tx_hash] = []
-        
+
         return results
 
     def get_decoding_stats(self) -> dict[str, int]:
         """Get statistics about decoded transactions using ORM"""
-        stats = {
+        return {
             'total_transactions': self.database.repos.evm_transactions.count_all_transactions(
-                chain_id=self.evm_inquirer.chain_id
+                chain_id=self.evm_inquirer.chain_id,
             ),
             'decoded_transactions': self.database.repos.evm_transactions.count_decoded_transactions(
-                chain_id=self.evm_inquirer.chain_id
+                chain_id=self.evm_inquirer.chain_id,
             ),
             'ignored_transactions': self.database.repos.evm_transactions.count_ignored_transactions(
-                chain_id=self.evm_inquirer.chain_id
+                chain_id=self.evm_inquirer.chain_id,
             ),
         }
-        return stats

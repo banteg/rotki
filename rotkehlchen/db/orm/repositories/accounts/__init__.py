@@ -6,6 +6,6 @@ from .xpub_repository import XpubRepository
 
 __all__ = [
     'BlockchainAccountRepository',
-    'TagRepository', 
+    'TagRepository',
     'XpubRepository',
 ]

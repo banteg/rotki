@@ -1,32 +1,41 @@
 """SQLAlchemy models for global database tables"""
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import (
-    CHAR, INTEGER, TEXT, VARCHAR, Column, ForeignKey, UniqueConstraint,
-    CheckConstraint, Index
+    CHAR,
+    INTEGER,
+    TEXT,
+    VARCHAR,
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    UniqueConstraint,
 )
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from rotkehlchen.db.orm.base import Base
 from rotkehlchen.db.orm.types import BooleanType, FValType, TimestampType
 
+if TYPE_CHECKING:
+    from rotkehlchen.db.orm.enums import AssetType, PriceHistorySourceType, TokenKind
 
 # Asset related models
+
 
 class GlobalAsset(Base):
     """Model for assets table in global database"""
     __tablename__ = 'assets'
-    
+
     identifier: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
-    name: Mapped[Optional[str]] = mapped_column(TEXT)
+    name: Mapped[str | None] = mapped_column(TEXT)
     type: Mapped[str] = mapped_column(
         CHAR(1),
         ForeignKey('asset_types.type'),
         nullable=False,
         default='A',
     )
-    
+
     # Relationships
     type_ref: Mapped['AssetType'] = relationship()
     common_details: Mapped[Optional['CommonAssetDetails']] = relationship(
@@ -52,11 +61,11 @@ class GlobalAsset(Base):
         back_populates='asset_ref',
         cascade='all, delete-orphan',
     )
-    
+
     __table_args__ = (
         Index('idx_assets_identifier', 'identifier'),
     )
-    
+
     def __repr__(self) -> str:
         return f"<GlobalAsset(identifier='{self.identifier}', type='{self.type}')>"
 
@@ -64,26 +73,26 @@ class GlobalAsset(Base):
 class CommonAssetDetails(Base):
     """Model for common asset details table"""
     __tablename__ = 'common_asset_details'
-    
+
     identifier: Mapped[str] = mapped_column(
         TEXT,
         ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
         primary_key=True,
         nullable=False,
     )
-    symbol: Mapped[Optional[str]] = mapped_column(TEXT)
-    coingecko: Mapped[Optional[str]] = mapped_column(TEXT)
-    cryptocompare: Mapped[Optional[str]] = mapped_column(TEXT)
-    forked: Mapped[Optional[str]] = mapped_column(
+    symbol: Mapped[str | None] = mapped_column(TEXT)
+    coingecko: Mapped[str | None] = mapped_column(TEXT)
+    cryptocompare: Mapped[str | None] = mapped_column(TEXT)
+    forked: Mapped[str | None] = mapped_column(
         TEXT,
         ForeignKey('assets.identifier', ondelete='SET NULL', onupdate='CASCADE'),
     )
-    started: Mapped[Optional[int]] = mapped_column(TimestampType)
-    swapped_for: Mapped[Optional[str]] = mapped_column(
+    started: Mapped[int | None] = mapped_column(TimestampType)
+    swapped_for: Mapped[str | None] = mapped_column(
         TEXT,
         ForeignKey('assets.identifier', ondelete='SET NULL', onupdate='CASCADE'),
     )
-    
+
     # Relationships
     asset: Mapped['GlobalAsset'] = relationship(back_populates='common_details')
     forked_from: Mapped[Optional['GlobalAsset']] = relationship(
@@ -94,11 +103,11 @@ class CommonAssetDetails(Base):
         foreign_keys=[swapped_for],
         remote_side='GlobalAsset.identifier',
     )
-    
+
     __table_args__ = (
         Index('idx_common_assets_identifier', 'identifier'),
     )
-    
+
     def __repr__(self) -> str:
         return f"<CommonAssetDetails(identifier='{self.identifier}', symbol='{self.symbol}')>"
 
@@ -106,7 +115,7 @@ class CommonAssetDetails(Base):
 class EvmToken(Base):
     """Model for EVM tokens table"""
     __tablename__ = 'evm_tokens'
-    
+
     identifier: Mapped[str] = mapped_column(
         TEXT,
         ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
@@ -121,9 +130,9 @@ class EvmToken(Base):
     )
     chain: Mapped[int] = mapped_column(INTEGER, nullable=False)
     address: Mapped[str] = mapped_column(VARCHAR(42), nullable=False)
-    decimals: Mapped[Optional[int]] = mapped_column(INTEGER)
-    protocol: Mapped[Optional[str]] = mapped_column(TEXT)
-    
+    decimals: Mapped[int | None] = mapped_column(INTEGER)
+    protocol: Mapped[str | None] = mapped_column(TEXT)
+
     # Relationships
     asset: Mapped['GlobalAsset'] = relationship(back_populates='evm_token')
     token_kind_ref: Mapped['TokenKind'] = relationship()
@@ -132,11 +141,11 @@ class EvmToken(Base):
         back_populates='parent_token',
         cascade='all, delete-orphan',
     )
-    
+
     __table_args__ = (
         Index('idx_evm_tokens_identifier', 'identifier', 'chain', 'protocol'),
     )
-    
+
     def __repr__(self) -> str:
         return f"<EvmToken(identifier='{self.identifier}', chain={self.chain}, address='{self.address}')>"
 
@@ -144,7 +153,7 @@ class EvmToken(Base):
 class UnderlyingTokensList(Base):
     """Model for underlying tokens list table"""
     __tablename__ = 'underlying_tokens_list'
-    
+
     identifier: Mapped[str] = mapped_column(
         TEXT,
         ForeignKey('evm_tokens.identifier', ondelete='CASCADE', onupdate='CASCADE'),
@@ -158,15 +167,15 @@ class UnderlyingTokensList(Base):
         primary_key=True,
         nullable=False,
     )
-    
+
     # Relationships
     token: Mapped['EvmToken'] = relationship(foreign_keys=[identifier])
     parent_token: Mapped['EvmToken'] = relationship(foreign_keys=[parent_token_entry])
-    
+
     __table_args__ = (
         Index('idx_underlying_tokens_lists_identifier', 'identifier', 'parent_token_entry'),
     )
-    
+
     def __repr__(self) -> str:
         return f"<UnderlyingTokensList(token='{self.identifier}', parent='{self.parent_token_entry}')>"
 
@@ -174,19 +183,19 @@ class UnderlyingTokensList(Base):
 class CustomAsset(Base):
     """Model for custom assets table"""
     __tablename__ = 'custom_assets'
-    
+
     identifier: Mapped[str] = mapped_column(
         TEXT,
         ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
         primary_key=True,
         nullable=False,
     )
-    notes: Mapped[Optional[str]] = mapped_column(TEXT)
+    notes: Mapped[str | None] = mapped_column(TEXT)
     type: Mapped[str] = mapped_column(TEXT, nullable=False)
-    
+
     # Relationships
     asset: Mapped['GlobalAsset'] = relationship(back_populates='custom_asset')
-    
+
     def __repr__(self) -> str:
         return f"<CustomAsset(identifier='{self.identifier}', type='{self.type}')>"
 
@@ -194,7 +203,7 @@ class CustomAsset(Base):
 class AssetCollection(Base):
     """Model for asset collections table"""
     __tablename__ = 'asset_collections'
-    
+
     id: Mapped[int] = mapped_column(INTEGER, primary_key=True)
     name: Mapped[str] = mapped_column(TEXT, nullable=False)
     symbol: Mapped[str] = mapped_column(TEXT, nullable=False)
@@ -204,19 +213,19 @@ class AssetCollection(Base):
         unique=True,
         nullable=False,
     )
-    
+
     # Relationships
     main_asset_ref: Mapped['GlobalAsset'] = relationship(back_populates='collection_main')
     mappings: Mapped[list['MultiassetMapping']] = relationship(
         back_populates='collection',
         cascade='all, delete-orphan',
     )
-    
+
     __table_args__ = (
         UniqueConstraint('name', 'symbol'),
         Index('idx_asset_collections_main_asset', 'main_asset'),
     )
-    
+
     def __repr__(self) -> str:
         return f"<AssetCollection(id={self.id}, name='{self.name}', symbol='{self.symbol}')>"
 
@@ -224,7 +233,7 @@ class AssetCollection(Base):
 class MultiassetMapping(Base):
     """Model for multiasset mappings table"""
     __tablename__ = 'multiasset_mappings'
-    
+
     collection_id: Mapped[int] = mapped_column(
         INTEGER,
         ForeignKey('asset_collections.id', ondelete='CASCADE', onupdate='CASCADE'),
@@ -237,16 +246,16 @@ class MultiassetMapping(Base):
         primary_key=True,
         nullable=False,
     )
-    
+
     # Relationships
     collection: Mapped['AssetCollection'] = relationship(back_populates='mappings')
     asset_ref: Mapped['GlobalAsset'] = relationship(back_populates='multiasset_mappings')
-    
+
     __table_args__ = (
         Index('idx_multiasset_mappings_asset', 'asset'),
         Index('idx_multiasset_mappings_identifier', 'asset'),
     )
-    
+
     def __repr__(self) -> str:
         return f"<MultiassetMapping(collection_id={self.collection_id}, asset='{self.asset}')>"
 
@@ -254,21 +263,21 @@ class MultiassetMapping(Base):
 class UserOwnedAsset(Base):
     """Model for user owned assets table"""
     __tablename__ = 'user_owned_assets'
-    
+
     asset_id: Mapped[str] = mapped_column(
         VARCHAR(24),
         ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
         primary_key=True,
         nullable=False,
     )
-    
+
     # Relationships
     asset: Mapped['GlobalAsset'] = relationship()
-    
+
     __table_args__ = (
         Index('idx_user_owned_assets_asset_id', 'asset_id'),
     )
-    
+
     def __repr__(self) -> str:
         return f"<UserOwnedAsset(asset_id='{self.asset_id}')>"
 
@@ -278,7 +287,7 @@ class UserOwnedAsset(Base):
 class PriceHistory(Base):
     """Model for price history table"""
     __tablename__ = 'price_history'
-    
+
     from_asset: Mapped[str] = mapped_column(
         TEXT,
         ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
@@ -300,16 +309,16 @@ class PriceHistory(Base):
     )
     timestamp: Mapped[int] = mapped_column(TimestampType, primary_key=True, nullable=False)
     price: Mapped[str] = mapped_column(FValType, nullable=False)
-    
+
     # Relationships
     from_asset_ref: Mapped['GlobalAsset'] = relationship(foreign_keys=[from_asset])
     to_asset_ref: Mapped['GlobalAsset'] = relationship(foreign_keys=[to_asset])
     source_type_ref: Mapped['PriceHistorySourceType'] = relationship()
-    
+
     __table_args__ = (
         Index('idx_price_history_identifier', 'from_asset', 'to_asset'),
     )
-    
+
     def __repr__(self) -> str:
         return f"<PriceHistory(from='{self.from_asset}', to='{self.to_asset}', timestamp={self.timestamp})>"
 
@@ -319,7 +328,7 @@ class PriceHistory(Base):
 class BinancePair(Base):
     """Model for Binance pairs table"""
     __tablename__ = 'binance_pairs'
-    
+
     pair: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
     base_asset: Mapped[str] = mapped_column(
         TEXT,
@@ -332,15 +341,15 @@ class BinancePair(Base):
         nullable=False,
     )
     location: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
-    
+
     # Relationships
     base_asset_ref: Mapped['GlobalAsset'] = relationship(foreign_keys=[base_asset])
     quote_asset_ref: Mapped['GlobalAsset'] = relationship(foreign_keys=[quote_asset])
-    
+
     __table_args__ = (
         Index('idx_binance_pairs_identifier', 'base_asset', 'quote_asset'),
     )
-    
+
     def __repr__(self) -> str:
         return f"<BinancePair(pair='{self.pair}', location='{self.location}')>"
 
@@ -350,16 +359,16 @@ class BinancePair(Base):
 class LocationAssetMapping(Base):
     """Model for location asset mappings table"""
     __tablename__ = 'location_asset_mappings'
-    
-    location: Mapped[Optional[str]] = mapped_column(TEXT)
-    exchange_symbol: Mapped[str] = mapped_column(TEXT, nullable=False)
+
+    location: Mapped[str | None] = mapped_column(TEXT, primary_key=True)
+    exchange_symbol: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
     local_id: Mapped[str] = mapped_column(TEXT, nullable=False)
-    
+
     __table_args__ = (
         UniqueConstraint('location', 'exchange_symbol'),
         Index('idx_location_mappings_identifier', 'local_id'),
     )
-    
+
     def __repr__(self) -> str:
         return f"<LocationAssetMapping(location='{self.location}', symbol='{self.exchange_symbol}')>"
 
@@ -367,11 +376,11 @@ class LocationAssetMapping(Base):
 class CounterpartyAssetMapping(Base):
     """Model for counterparty asset mappings table"""
     __tablename__ = 'counterparty_asset_mappings'
-    
+
     counterparty: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
     symbol: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
     local_id: Mapped[str] = mapped_column(TEXT, nullable=False)
-    
+
     def __repr__(self) -> str:
         return f"<CounterpartyAssetMapping(counterparty='{self.counterparty}', symbol='{self.symbol}')>"
 
@@ -379,14 +388,14 @@ class CounterpartyAssetMapping(Base):
 class LocationUnsupportedAsset(Base):
     """Model for location unsupported assets table"""
     __tablename__ = 'location_unsupported_assets'
-    
+
     location: Mapped[str] = mapped_column(CHAR(1), nullable=False)
     exchange_symbol: Mapped[str] = mapped_column(TEXT, nullable=False)
-    
+
     __table_args__ = (
         UniqueConstraint('location', 'exchange_symbol'),
     )
-    
+
     def __repr__(self) -> str:
         return f"<LocationUnsupportedAsset(location='{self.location}', symbol='{self.exchange_symbol}')>"
 
@@ -396,10 +405,10 @@ class LocationUnsupportedAsset(Base):
 class GlobalSettings(Base):
     """Model for settings table in global database"""
     __tablename__ = 'settings'
-    
+
     name: Mapped[str] = mapped_column(VARCHAR(24), primary_key=True, nullable=False)
-    value: Mapped[Optional[str]] = mapped_column(TEXT)
-    
+    value: Mapped[str | None] = mapped_column(TEXT)
+
     def __repr__(self) -> str:
         return f"<GlobalSettings(name='{self.name}', value='{self.value}')>"
 
@@ -407,11 +416,11 @@ class GlobalSettings(Base):
 class GlobalAddressBook(Base):
     """Model for address book table in global database"""
     __tablename__ = 'address_book'
-    
+
     address: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
     blockchain: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
     name: Mapped[str] = mapped_column(TEXT, nullable=False)
-    
+
     def __repr__(self) -> str:
         return f"<GlobalAddressBook(address='{self.address}', name='{self.name}')>"
 
@@ -419,7 +428,7 @@ class GlobalAddressBook(Base):
 class DefaultRPCNode(Base):
     """Model for default RPC nodes table"""
     __tablename__ = 'default_rpc_nodes'
-    
+
     identifier: Mapped[int] = mapped_column(INTEGER, primary_key=True, nullable=False)
     name: Mapped[str] = mapped_column(TEXT, nullable=False)
     endpoint: Mapped[str] = mapped_column(TEXT, nullable=False)
@@ -427,12 +436,12 @@ class DefaultRPCNode(Base):
     active: Mapped[bool] = mapped_column(BooleanType, nullable=False)
     weight: Mapped[str] = mapped_column(FValType, nullable=False)
     blockchain: Mapped[str] = mapped_column(TEXT, nullable=False)
-    
+
     __table_args__ = (
         CheckConstraint('owned IN (0, 1)'),
         CheckConstraint('active IN (0, 1)'),
     )
-    
+
     def __repr__(self) -> str:
         return f"<DefaultRPCNode(id={self.identifier}, name='{self.name}', blockchain='{self.blockchain}')>"
 
@@ -440,11 +449,11 @@ class DefaultRPCNode(Base):
 class GeneralCache(Base):
     """Model for general cache table"""
     __tablename__ = 'general_cache'
-    
+
     key: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
     value: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
     last_queried_ts: Mapped[int] = mapped_column(TimestampType, nullable=False)
-    
+
     def __repr__(self) -> str:
         return f"<GeneralCache(key='{self.key}', value='{self.value}')>"
 
@@ -452,11 +461,11 @@ class GeneralCache(Base):
 class UniqueCache(Base):
     """Model for unique cache table"""
     __tablename__ = 'unique_cache'
-    
+
     key: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
     value: Mapped[str] = mapped_column(TEXT, nullable=False)
     last_queried_ts: Mapped[int] = mapped_column(TimestampType, nullable=False)
-    
+
     def __repr__(self) -> str:
         return f"<UniqueCache(key='{self.key}', value='{self.value}')>"
 
@@ -464,17 +473,17 @@ class UniqueCache(Base):
 class ContractABI(Base):
     """Model for contract ABI table"""
     __tablename__ = 'contract_abi'
-    
+
     id: Mapped[int] = mapped_column(INTEGER, primary_key=True, nullable=False)
     value: Mapped[str] = mapped_column(TEXT, unique=True, nullable=False)
-    name: Mapped[Optional[str]] = mapped_column(TEXT)
-    
+    name: Mapped[str | None] = mapped_column(TEXT)
+
     # Relationships
     contracts: Mapped[list['ContractData']] = relationship(
         back_populates='abi_ref',
         cascade='all, delete-orphan',
     )
-    
+
     def __repr__(self) -> str:
         return f"<ContractABI(id={self.id}, name='{self.name}')>"
 
@@ -482,7 +491,7 @@ class ContractABI(Base):
 class ContractData(Base):
     """Model for contract data table"""
     __tablename__ = 'contract_data'
-    
+
     address: Mapped[str] = mapped_column(VARCHAR(42), primary_key=True, nullable=False)
     chain_id: Mapped[int] = mapped_column(INTEGER, primary_key=True, nullable=False)
     abi: Mapped[int] = mapped_column(
@@ -490,10 +499,10 @@ class ContractData(Base):
         ForeignKey('contract_abi.id', ondelete='SET NULL', onupdate='CASCADE'),
         nullable=False,
     )
-    deployed_block: Mapped[Optional[int]] = mapped_column(INTEGER)
-    
+    deployed_block: Mapped[int | None] = mapped_column(INTEGER)
+
     # Relationships
     abi_ref: Mapped['ContractABI'] = relationship(back_populates='contracts')
-    
+
     def __repr__(self) -> str:
         return f"<ContractData(address='{self.address}', chain_id={self.chain_id})>"

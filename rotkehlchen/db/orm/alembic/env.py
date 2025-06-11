@@ -1,6 +1,5 @@
 """Alembic environment configuration for Rotkehlchen ORM"""
 
-import logging
 import sys
 from logging.config import fileConfig
 from pathlib import Path
@@ -11,34 +10,9 @@ from sqlalchemy import engine_from_config, pool
 # Add rotkehlchen to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
-from rotkehlchen.db.orm import Base
-from rotkehlchen.db.orm.base import GeventSafeDatabase
-
 # Import all models to ensure they're registered with Base.metadata
 from rotkehlchen.db.orm import (
-    # User DB models
-    AccountingRule, AddressBook, Asset, BlockchainAccount, Calendar,
-    CalendarReminder, CowswapOrder, ENSMapping, Eth2DailyStakingDetails,
-    Eth2Validator, EthStakingEventInfo, EthValidatorsDataCache, EvmAccountDetails,
-    EvmEventInfo, EvmInternalTransaction, EvmTransaction, EvmTxAddressMapping,
-    EvmTxMapping, EvmTxReceipt, EvmTxReceiptLog, EvmTxReceiptLogTopic,
-    ExternalServiceCredentials, GnosisPayData, HistoryEvent, HistoryEventMapping,
-    IgnoredAction, KeyValueCache, LinkedRuleProperty, ManuallyTrackedBalance,
-    MarginPosition, MultiSettings, NFT, OptimismTransaction, RPCNode, Settings,
-    SkippedExternalEvent, Tag, TimedBalance, UnresolvedRemoteConflict,
-    UsedQueryRange, UserCredentialMapping, UserCredentials, UserNote, Xpub,
-    XpubMapping, ZkSyncLiteSwap, ZkSyncLiteTransaction,
-    # Global DB models
-    AssetCollection, BinancePair, CommonAssetDetails, ContractABI, ContractData,
-    CounterpartyAssetMapping, CustomAsset, DefaultRPCNode, EvmToken, GeneralCache,
-    GlobalAddressBook, GlobalAsset, GlobalSettings, LocationAssetMapping,
-    LocationUnsupportedAsset, MultiassetMapping, PriceHistory, UnderlyingTokensList,
-    UniqueCache, UserOwnedAsset,
-    # Transient DB models
-    PnlEvent, PnlReport, PnlReportSetting, PnlReportTotal, TransientSettings,
-    # Enum models
-    AssetType, BalanceCategory, Location, PriceHistorySourceType, TokenKind,
-    ZkSyncLiteTxType,
+    Base,
 )
 
 # this is the Alembic Config object, which provides
@@ -66,9 +40,9 @@ def get_database_url() -> str:
     db_url = context.get_x_argument(as_dictionary=True).get('db_url')
     if db_url:
         return db_url
-    
+
     # Or use a default for development
-    return "sqlite:///rotkehlchen.db"
+    return 'sqlite:///rotkehlchen.db'
 
 
 def run_migrations_offline() -> None:
@@ -87,7 +61,7 @@ def run_migrations_offline() -> None:
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
+        dialect_opts={'paramstyle': 'named'},
     )
 
     with context.begin_transaction():
@@ -102,10 +76,10 @@ def run_migrations_online() -> None:
     """
     configuration = config.get_section(config.config_ini_section)
     configuration['sqlalchemy.url'] = get_database_url()
-    
+
     connectable = engine_from_config(
         configuration,
-        prefix="sqlalchemy.",
+        prefix='sqlalchemy.',
         poolclass=pool.NullPool,
     )
 

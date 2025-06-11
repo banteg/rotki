@@ -2,28 +2,19 @@
 """Main Rotkehlchen application class using ORM"""
 
 import argparse
-import contextlib
 import logging
 import os
-import time
 from collections import defaultdict
-from collections.abc import Callable, Sequence
 from pathlib import Path
 from types import FunctionType
-from typing import TYPE_CHECKING, Any, Literal, Optional, cast, overload
+from typing import Any, Literal
 
 import gevent
 
 from rotkehlchen.accounting.accountant import Accountant
-from rotkehlchen.accounting.structures.balance import Balance, BalanceType
 from rotkehlchen.api.websockets.notifier import RotkiNotifier
-from rotkehlchen.api.websockets.typedefs import WSMessageType
-from rotkehlchen.assets.asset import Asset, AssetWithOracles, Nft
-from rotkehlchen.balances.manual import (
-    account_for_manually_tracked_asset_balances,
-    get_manually_tracked_balances,
-)
-from rotkehlchen.chain.accounts import OptionalBlockchainAccount, SingleBlockchainAccountData
+from rotkehlchen.assets.asset import Asset, AssetWithOracles
+from rotkehlchen.chain.accounts import OptionalBlockchainAccount
 from rotkehlchen.chain.aggregator import ChainsAggregator
 from rotkehlchen.chain.arbitrum_one.manager import ArbitrumOneManager
 from rotkehlchen.chain.arbitrum_one.node_inquirer import ArbitrumOneInquirer
@@ -36,7 +27,6 @@ from rotkehlchen.chain.ethereum.manager import EthereumManager
 from rotkehlchen.chain.ethereum.node_inquirer import EthereumInquirer
 from rotkehlchen.chain.ethereum.oracles.uniswap import UniswapV2Oracle, UniswapV3Oracle
 from rotkehlchen.chain.evm.contracts import EvmContracts
-from rotkehlchen.chain.evm.names import NamePrioritizer
 from rotkehlchen.chain.evm.nodes_orm import populate_rpc_nodes_in_database_orm
 from rotkehlchen.chain.gnosis.manager import GnosisManager
 from rotkehlchen.chain.gnosis.node_inquirer import GnosisInquirer
@@ -53,23 +43,14 @@ from rotkehlchen.chain.substrate.utils import (
 )
 from rotkehlchen.chain.zksync_lite.manager import ZksyncLiteManager
 from rotkehlchen.config import default_data_directory
-from rotkehlchen.constants import ONE, ZERO
 from rotkehlchen.data_handler_orm import DataHandler
 from rotkehlchen.data_import.manager import CSVDataImporter
 from rotkehlchen.data_migrations.manager import DataMigrationManager
-from rotkehlchen.db.addressbook import DBAddressbook
-from rotkehlchen.db.cache import DBCacheStatic
-from rotkehlchen.db.filtering import NFTFilterQuery
-from rotkehlchen.db.orm.database import RotkehlchenDatabase
 from rotkehlchen.db.settings import CachedSettings, DBSettings, ModifiableDBSettings
 from rotkehlchen.db.updates import RotkiDataUpdater
 from rotkehlchen.errors.api import PremiumAuthenticationError
-from rotkehlchen.errors.asset import UnknownAsset
 from rotkehlchen.errors.misc import (
-    EthSyncError,
     GreenletKilledError,
-    InputError,
-    RemoteError,
     SystemPermissionError,
 )
 from rotkehlchen.exchanges.manager_orm import ExchangeManager
@@ -79,41 +60,25 @@ from rotkehlchen.externalapis.coingecko import Coingecko
 from rotkehlchen.externalapis.cryptocompare import Cryptocompare
 from rotkehlchen.externalapis.defillama import Defillama
 from rotkehlchen.externalapis.etherscan import Etherscan
-from rotkehlchen.fval import FVal
 from rotkehlchen.globaldb.asset_updates.manager import AssetsUpdater
 from rotkehlchen.globaldb.handler import GlobalDBHandler
 from rotkehlchen.globaldb.manual_price_oracles import ManualCurrentOracle
 from rotkehlchen.greenlets.manager import GreenletManager
 from rotkehlchen.history.manager import HistoryQueryingManager
 from rotkehlchen.history.price import PriceHistorian
-from rotkehlchen.history.types import HistoricalPriceOracle
 from rotkehlchen.icons import IconManager
 from rotkehlchen.inquirer import Inquirer
 from rotkehlchen.logging import RotkehlchenLogsAdapter
-from rotkehlchen.oracles.structures import CurrentPriceOracle
 from rotkehlchen.premium.premium import (
     Premium,
     PremiumCredentials,
-    has_premium_check,
-    premium_create_and_verify,
 )
 from rotkehlchen.premium.sync import PremiumSyncManager
 from rotkehlchen.tasks.manager import DEFAULT_MAX_TASKS_NUM, TaskManager
 from rotkehlchen.types import (
     EVM_CHAINS_WITH_TRANSACTIONS,
-    EVM_CHAINS_WITH_TRANSACTIONS_TYPE,
-    SUPPORTED_BITCOIN_CHAINS,
-    SUPPORTED_EVM_CHAINS_TYPE,
-    SUPPORTED_EVM_EVMLIKE_CHAINS_TYPE,
-    SUPPORTED_SUBSTRATE_CHAINS,
-    AddressbookEntry,
-    AddressbookType,
-    ApiKey,
-    ApiSecret,
     BTCAddress,
-    ChainType,
     ChecksumEvmAddress,
-    ExternalService,
     ListOfBlockchainAddresses,
     Location,
     SubstrateAddress,
@@ -123,11 +88,6 @@ from rotkehlchen.types import (
 from rotkehlchen.usage_analytics import maybe_submit_usage_analytics
 from rotkehlchen.user_messages import MessagesAggregator
 from rotkehlchen.utils.datadir import maybe_restructure_rotki_data_directory
-from rotkehlchen.utils.misc import combine_dicts, ts_now
-
-if TYPE_CHECKING:
-    from rotkehlchen.chain.bitcoin.xpub import XpubData
-    from rotkehlchen.exchanges.kraken import KrakenAccountType
 
 logger = logging.getLogger(__name__)
 log = RotkehlchenLogsAdapter(logger)
@@ -137,12 +97,12 @@ MAIN_LOOP_SECS_DELAY = 10
 
 class Rotkehlchen:
     """Main Rotkehlchen application class using ORM for database access"""
-    
+
     def __init__(self, args: argparse.Namespace) -> None:
         """Initialize the Rotkehlchen object
-        
+
         This runs during backend initialization so it should be as light as possible.
-        
+
         May Raise:
         - SystemPermissionError if the given data directory's permissions
         are not correct.
@@ -368,7 +328,7 @@ class Rotkehlchen:
             exchange_credentials=exchange_credentials,
         )
         self.exchange_manager.set_database(self.data.db)
-        
+
         # Get blockchain accounts using ORM
         blockchain_accounts = self._get_blockchain_accounts_orm()
 
@@ -518,7 +478,7 @@ class Rotkehlchen:
         """Get exchange credentials using ORM"""
         db = self.data.db
         credentials_dict = defaultdict(list)
-        
+
         all_credentials = db.repos.credentials.get_all_credentials()
         for cred in all_credentials:
             location = Location.deserialize_from_db(cred.location)
@@ -531,21 +491,21 @@ class Rotkehlchen:
                 'passphrase': cred.passphrase,
                 'kraken_account_type': cred.kraken_account_type,
             })
-        
+
         return dict(credentials_dict)
-    
+
     def _get_blockchain_accounts_orm(self) -> ListOfBlockchainAddresses:
         """Get blockchain accounts using ORM"""
         db = self.data.db
         accounts = ListOfBlockchainAddresses()
-        
+
         all_accounts = db.repos.accounts.get_all_accounts()
-        
+
         # Group by blockchain
         for account in all_accounts:
             blockchain = SupportedBlockchain.deserialize(account.blockchain)
             address = account.account
-            
+
             # Add to appropriate list based on blockchain
             if blockchain == SupportedBlockchain.BITCOIN:
                 accounts.btc.append(BTCAddress(address))
@@ -573,22 +533,22 @@ class Rotkehlchen:
                 accounts.dot.append(SubstrateAddress(address))
             elif blockchain == SupportedBlockchain.KUSAMA:
                 accounts.ksm.append(SubstrateAddress(address))
-        
+
         return accounts
 
-    def get_settings(self, cursor: Optional[Any] = None) -> DBSettings:
+    def get_settings(self, cursor: Any | None = None) -> DBSettings:
         """Get application settings using ORM
-        
+
         Note: cursor parameter kept for backward compatibility but not used
         """
         # Get all settings from the repository
         settings_dict = self.data.db.repos.settings.get_all_settings()
-        
+
         # Convert to DBSettings object
         # TODO: This conversion needs to be implemented properly
         # TODO: based on the actual DBSettings structure
         return DBSettings(**settings_dict)
-    
+
     def logout(self) -> None:
         """Logout the current user"""
         if not self.user_is_logged_in:
@@ -605,10 +565,10 @@ class Rotkehlchen:
             greenlet.kill()
         if self.task_manager is not None:
             self.task_manager.shutdown()
-        
+
         self.exchange_manager.delete_all_exchanges()
         self.data.logout()
-        
+
         # Reset singleton instances
         for instance in (
                 self.cryptocompare,
@@ -619,7 +579,7 @@ class Rotkehlchen:
         ):
             if hasattr(instance, 'unset_database'):
                 instance.unset_database()
-        
+
         CachedSettings().reset()
         self.user_is_logged_in = False
         self.shutdown_event.clear()

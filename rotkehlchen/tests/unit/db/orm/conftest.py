@@ -17,14 +17,14 @@ from rotkehlchen.db.orm.session import DBSessionManager
 def temp_user_db_path():
     """Create temporary user database path"""
     with tempfile.TemporaryDirectory() as tmpdir:
-        yield Path(tmpdir) / "test_user.db"
+        yield Path(tmpdir) / 'test_user.db'
 
 
 @pytest.fixture
 def temp_global_db_path():
     """Create temporary global database path"""
     with tempfile.TemporaryDirectory() as tmpdir:
-        db_path = Path(tmpdir) / "test_global.db"
+        db_path = Path(tmpdir) / 'test_global.db'
         # Create empty global db
         db_path.touch()
         yield db_path
@@ -33,7 +33,7 @@ def temp_global_db_path():
 @pytest.fixture
 def in_memory_engine():
     """Create in-memory SQLite engine for testing"""
-    engine = create_engine("sqlite:///:memory:")
+    engine = create_engine('sqlite:///:memory:')
     UserDBBase.metadata.create_all(engine)
     yield engine
     engine.dispose()
@@ -45,9 +45,9 @@ def test_session(in_memory_engine):
     connection = in_memory_engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)
-    
+
     yield session
-    
+
     session.close()
     transaction.rollback()
     connection.close()
@@ -63,19 +63,19 @@ def test_repos(test_session):
 def orm_database(temp_user_db_path, temp_global_db_path):
     """Create ORM database for testing"""
     # Create minimal global database structure
-    global_engine = create_engine(f"sqlite:///{temp_global_db_path}")
-    global_engine.execute("CREATE TABLE IF NOT EXISTS info (version INTEGER)")
+    global_engine = create_engine(f'sqlite:///{temp_global_db_path}')
+    global_engine.execute('CREATE TABLE IF NOT EXISTS info (version INTEGER)')
     global_engine.dispose()
-    
+
     # Create ORM database
     db = RotkehlchenDatabase(
         user_data_dir=temp_user_db_path.parent,
-        password="test_password",
+        password='test_password',
         echo_sql=False,
     )
-    
+
     yield db
-    
+
     db.close()
 
 
@@ -83,21 +83,21 @@ def orm_database(temp_user_db_path, temp_global_db_path):
 def session_manager(temp_user_db_path, temp_global_db_path):
     """Create session manager for testing"""
     # Create minimal global database
-    global_engine = create_engine(f"sqlite:///{temp_global_db_path}")
-    global_engine.execute("CREATE TABLE IF NOT EXISTS info (version INTEGER)")
+    global_engine = create_engine(f'sqlite:///{temp_global_db_path}')
+    global_engine.execute('CREATE TABLE IF NOT EXISTS info (version INTEGER)')
     global_engine.dispose()
-    
+
     manager = DBSessionManager(
         user_db_path=str(temp_user_db_path),
         global_db_path=str(temp_global_db_path),
-        password="test_password",
+        password='test_password',
         echo_sql=False,
     )
-    
+
     # Create tables
     UserDBBase.metadata.create_all(manager._user_engine)
     TransientDBBase.metadata.create_all(manager._transient_engine)
-    
+
     yield manager
-    
+
     manager.close_all()

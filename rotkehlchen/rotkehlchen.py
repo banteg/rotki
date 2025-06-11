@@ -36,6 +36,7 @@ from rotkehlchen.chain.ethereum.node_inquirer import EthereumInquirer
 from rotkehlchen.chain.ethereum.oracles.uniswap import UniswapV2Oracle, UniswapV3Oracle
 from rotkehlchen.chain.evm.contracts import EvmContracts
 from rotkehlchen.chain.evm.names import NamePrioritizer
+
 # Import is now in the _perform_new_db_actions method
 from rotkehlchen.chain.gnosis.manager import GnosisManager
 from rotkehlchen.chain.gnosis.node_inquirer import GnosisInquirer
@@ -54,15 +55,12 @@ from rotkehlchen.chain.zksync_lite.manager import ZksyncLiteManager
 from rotkehlchen.config import default_data_directory
 from rotkehlchen.constants import ONE, ZERO
 from rotkehlchen.data_handler import DataHandler
-from rotkehlchen.db.orm.database import RotkehlchenDatabase
 from rotkehlchen.data_import.manager import CSVDataImporter
 from rotkehlchen.data_migrations.manager import DataMigrationManager
-from rotkehlchen.db.addressbook import DBAddressbook
 from rotkehlchen.db.cache import DBCacheStatic
 from rotkehlchen.db.filtering import NFTFilterQuery
 from rotkehlchen.db.settings import CachedSettings, DBSettings, ModifiableDBSettings
 from rotkehlchen.db.updates import RotkiDataUpdater
-from rotkehlchen.db.utils import replace_tag_mappings
 from rotkehlchen.errors.api import PremiumAuthenticationError
 from rotkehlchen.errors.asset import UnknownAsset
 from rotkehlchen.errors.misc import (
@@ -106,7 +104,6 @@ from rotkehlchen.types import (
     SUPPORTED_EVM_CHAINS_TYPE,
     SUPPORTED_EVM_EVMLIKE_CHAINS_TYPE,
     SUPPORTED_SUBSTRATE_CHAINS,
-    AddressbookEntry,
     AddressbookType,
     ApiKey,
     ApiSecret,
@@ -127,7 +124,6 @@ from rotkehlchen.utils.misc import combine_dicts, ts_now
 
 if TYPE_CHECKING:
     from rotkehlchen.chain.bitcoin.xpub import XpubData
-    from rotkehlchen.db.drivers.gevent import DBCursor
     from rotkehlchen.exchanges.kraken import KrakenAccountType
 
 logger = logging.getLogger(__name__)
@@ -355,7 +351,7 @@ class Rotkehlchen:
                 data_dir=self.data_dir,
                 should_submit=settings.submit_usage_analytics,
             )
-        self.beaconchain = BeaconChain(database=self.data.db, msg_aggregator=self.msg_aggregator)  # noqa: E501
+        self.beaconchain = BeaconChain(database=self.data.db, msg_aggregator=self.msg_aggregator)
 
         # Get exchange credentials using ORM
         exchange_credentials = self.data.db.repos.exchanges.get_all_exchange_credentials()
@@ -527,7 +523,7 @@ class Rotkehlchen:
         # TODO: Remove this after a couple versions (added in version 1.38).
         # Check if temp_erc721_data table exists using ORM
         result = self.data.db.session_manager.user_session.execute(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='temp_erc721_data'"
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='temp_erc721_data'",
         ).fetchone()
         if result and result[0] != 0:
             self.msg_aggregator.add_warning(
@@ -635,7 +631,7 @@ class Rotkehlchen:
             success = False
             msg = 'The database was unable to delete the Premium keys for the logged-in user'
             log.error(f'Failed to delete premium credentials: {e}')
-        
+
         self.deactivate_premium_status()
         return success, msg
 
@@ -1282,7 +1278,7 @@ class Rotkehlchen:
         from rotkehlchen.db.settings import DBSettings
         return DBSettings(
             have_premium=self.premium is not None,
-            **settings_dict
+            **settings_dict,
         )
 
     def setup_exchange(
@@ -1328,7 +1324,7 @@ class Rotkehlchen:
         if self.user_is_logged_in:
             # Get last balance save time using ORM
             result[DBCacheStatic.LAST_BALANCE_SAVE.value] = self.data.db.repos.cache.get_last_balance_save_time()
-            
+
             connected_nodes, failed_to_connect = {}, {}
             for evm_manager in self.chains_aggregator.iterate_evm_chain_managers():
                 connected_nodes[evm_manager.node_inquirer.chain_name] = [node.name for node in evm_manager.node_inquirer.get_connected_nodes()]  # noqa: E501

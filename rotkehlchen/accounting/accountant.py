@@ -139,14 +139,14 @@ class Accountant:
         settings_dict = self.db.repos.settings.get_all_settings()
         from rotkehlchen.db.settings import DBSettings
         db_settings = DBSettings(have_premium=active_premium, **settings_dict)
-        
+
         # Get ignored assets using ORM
         ignored_assets = self.db.repos.ignored_assets.get_all_ignored_assets()
         self.ignored_asset_ids = {asset.identifier for asset in ignored_assets}
-        
+
         # Create a new pnl report in the DB to be used to save each generated event
         first_ts = Timestamp(0) if len(events) == 0 else events[0].get_timestamp()
-        
+
         # Add report using ORM
         with self.db.repos.unit_of_work():
             report_id = self.db.repos.reports.add_report(
@@ -155,7 +155,7 @@ class Accountant:
                 end_ts=end_ts,
                 settings=db_settings,
             )
-        
+
         self.pots[0].reset(settings=db_settings, start_ts=start_ts, end_ts=end_ts, report_id=report_id)  # noqa: E501
         self.end_ts = end_ts
         self.csvexporter.reset(start_ts=start_ts, end_ts=end_ts)
@@ -167,7 +167,7 @@ class Accountant:
         count = 0
         actions_length = len(events)
         prev_time = last_event_ts = Timestamp(0)
-        
+
         # Get ignored action IDs using ORM
         ignored_ids = self.db.repos.history_events.get_ignored_action_ids()
 

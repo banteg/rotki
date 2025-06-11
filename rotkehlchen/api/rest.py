@@ -40,7 +40,6 @@ from rotkehlchen.accounting.pot import AccountingPot
 from rotkehlchen.accounting.structures.balance import Balance, BalanceSheet, BalanceType
 from rotkehlchen.accounting.structures.processed_event import AccountingEventExportType
 from rotkehlchen.accounting.types import EventAccountingRuleStatus
-from rotkehlchen.api.rest_helpers.history_events import edit_grouped_events_with_optional_fee
 from rotkehlchen.api.rest_helpers.wrap import calculate_wrap_score
 from rotkehlchen.api.v1.types import IncludeExcludeFilterData
 from rotkehlchen.api.websockets.typedefs import ProgressUpdateSubType, WSMessageType
@@ -293,7 +292,6 @@ if TYPE_CHECKING:
     from rotkehlchen.chain.evm.node_inquirer import EvmNodeInquirer
     from rotkehlchen.chain.gnosis.modules.gnosis_pay.decoder import GnosisPayDecoder
     from rotkehlchen.db.dbhandler import DBHandler
-    from rotkehlchen.db.drivers.gevent import DBCursor
     from rotkehlchen.exchanges.kraken import KrakenAccountType
     from rotkehlchen.history.events.structures.base import HistoryBaseEntry
 
@@ -1422,8 +1420,9 @@ class RestAPI:
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
-        with self.rotkehlchen.data.db.user_write() as cursor:
-            self.rotkehlchen.data.db.add_asset_identifiers(cursor, [asset.identifier])
+        # Add asset using ORM
+        with self.rotkehlchen.data.db.repos.unit_of_work():
+            self.rotkehlchen.data.db.repos.owned_assets.add_asset_identifiers([asset.identifier])
         return api_response(
             _wrap_in_ok_result({'identifier': asset.identifier}),
             status_code=HTTPStatus.OK,
@@ -1444,11 +1443,11 @@ class RestAPI:
     def delete_asset(self, identifier: str) -> Response:
         try:
 
-            with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            # Update owned assets and delete using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
                 # Before deleting, also make sure we have up to date global DB owned data
-                self.rotkehlchen.data.db.update_owned_assets_in_globaldb(cursor)
-            with self.rotkehlchen.data.db.user_write() as write_cursor:
-                self.rotkehlchen.data.db.delete_asset_identifier(write_cursor, identifier)
+                self.rotkehlchen.data.db.repos.owned_assets.update_owned_assets_in_globaldb()
+                self.rotkehlchen.data.db.repos.owned_assets.delete_asset_identifier(identifier)
 
             GlobalDBHandler.delete_asset_by_identifier(identifier)
         except InputError as e:
@@ -1462,7 +1461,9 @@ class RestAPI:
 
     def replace_asset(self, source_identifier: str, target_asset: Asset) -> Response:
         try:
-            self.rotkehlchen.data.db.replace_asset_identifier(source_identifier, target_asset)
+            # Replace asset using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.owned_assets.replace_asset_identifier(source_identifier, target_asset)
         except (UnknownAsset, InputError) as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
@@ -1499,7 +1500,8 @@ class RestAPI:
             start_of_day_today = datetime.datetime(today.year, today.month, today.day, tzinfo=datetime.UTC)  # noqa: E501
             from_ts = Timestamp(int((start_of_day_today - datetime.timedelta(days=14)).timestamp()))  # noqa: E501
 
-        data = self.rotkehlchen.data.db.get_netvalue_data(from_ts, include_nfts)
+        # Get net value data using ORM
+        data = self.rotkehlchen.data.db.repos.timed_balances.get_netvalue_data(from_ts, include_nfts)
         result = process_result({'times': data[0], 'data': data[1]})
         return api_response(
             result=_wrap_in_ok_result(result),
@@ -1515,23 +1517,21 @@ class RestAPI:
             to_timestamp: Timestamp,
     ) -> Response:
 
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            if asset is not None:
-                # TODO: Think about this, but for now this is only balances, not liabilities
-                data = self.rotkehlchen.data.db.query_timed_balances(
-                    cursor=cursor,
-                    from_ts=from_timestamp,
-                    to_ts=to_timestamp,
-                    asset=asset,
-                    balance_type=BalanceType.ASSET,
-                )
-            else:  # marshmallow check guarantees collection_id exists
-                data = self.rotkehlchen.data.db.query_collection_timed_balances(
-                    cursor=cursor,
-                    collection_id=collection_id,  # type: ignore  # collection_id exists here
-                    from_ts=from_timestamp,
-                    to_ts=to_timestamp,
-                )
+        # Query timed balances using ORM
+        if asset is not None:
+            # TODO: Think about this, but for now this is only balances, not liabilities
+            data = self.rotkehlchen.data.db.repos.timed_balances.query_timed_balances(
+                from_ts=from_timestamp,
+                to_ts=to_timestamp,
+                asset=asset,
+                balance_type=BalanceType.ASSET,
+            )
+        else:  # marshmallow check guarantees collection_id exists
+            data = self.rotkehlchen.data.db.repos.asset_collections.query_collection_timed_balances(
+                collection_id=collection_id,  # type: ignore  # collection_id exists here
+                from_ts=from_timestamp,
+                to_ts=to_timestamp,
+            )
 
         result = process_result_list(data)
         return api_response(
@@ -1543,10 +1543,12 @@ class RestAPI:
     def query_value_distribution_data(self, distribution_by: str) -> Response:
         data: list[DBAssetBalance] | list[LocationData]
         if distribution_by == 'location':
-            data = self.rotkehlchen.data.db.get_latest_location_value_distribution()
+            # Get location value distribution using ORM
+            data = self.rotkehlchen.data.db.repos.timed_balances.get_latest_location_value_distribution()
         else:
             # Can only be 'asset'. Checked by the marshmallow encoding
-            data = self.rotkehlchen.data.db.get_latest_asset_value_distribution()
+            # Get asset value distribution using ORM
+            data = self.rotkehlchen.data.db.repos.timed_balances.get_latest_asset_value_distribution()
 
         result = process_result_list(data)
         return api_response(
@@ -1616,10 +1618,10 @@ class RestAPI:
         if error_or_empty != '':
             return wrap_in_fail_result(error_or_empty, status_code=HTTPStatus.CONFLICT)
 
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            settings = self.rotkehlchen.get_settings(cursor)
-            cache = self.rotkehlchen.data.db.get_cache_for_api(cursor)
-            ignored_ids = self.rotkehlchen.data.db.get_ignored_action_ids(cursor)
+        # Get settings, cache and ignored IDs using ORM
+        settings = self.rotkehlchen.get_settings()
+        cache = self.rotkehlchen.data.db.repos.cache.get_cache_for_api()
+        ignored_ids = self.rotkehlchen.data.db.repos.history_events.get_ignored_action_ids()
         debug_info = {
             'events': [entry.serialize_for_debug_import() for entry in events],
             'settings': settings.serialize() | cache,
@@ -1793,11 +1795,9 @@ class RestAPI:
             xpub_data: 'XpubData',
     ) -> dict[str, Any]:
         try:
-            with self.rotkehlchen.data.db.user_write() as cursor:
-                XpubManager(self.rotkehlchen.chains_aggregator).delete_bitcoin_xpub(
-                    write_cursor=cursor,
-                    xpub_data=xpub_data,
-                )
+            # Delete xpub using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.xpubs.delete_xpub(xpub_data)
         except InputError as e:
             return {'result': None, 'message': str(e), 'status_code': HTTPStatus.BAD_REQUEST}
 
@@ -1809,13 +1809,11 @@ class RestAPI:
             xpub_data: 'XpubData',
     ) -> Response:
         try:
-            with self.rotkehlchen.data.db.user_write() as write_cursor:
-                XpubManager(self.rotkehlchen.chains_aggregator).edit_bitcoin_xpub(
-                    write_cursor=write_cursor,
-                    xpub_data=xpub_data,
-                )
-            with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-                data = self.rotkehlchen.get_blockchain_account_data(cursor, xpub_data.blockchain)
+            # Edit xpub using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.xpubs.edit_xpub(xpub_data)
+            # Get blockchain account data using ORM
+            data = self.rotkehlchen.get_blockchain_account_data(xpub_data.blockchain)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.BAD_REQUEST)
 
@@ -4165,20 +4163,24 @@ class RestAPI:
             is_pinned: bool,
     ) -> Response:
         try:
-            note_id = self.rotkehlchen.data.db.add_user_note(
-                title=title,
-                content=content,
-                location=location,
-                is_pinned=is_pinned,
-                has_premium=self.rotkehlchen.premium is not None,
-            )
+            # Add user note using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                note_id = self.rotkehlchen.data.db.repos.user_notes.add_note(
+                    title=title,
+                    content=content,
+                    location=location,
+                    is_pinned=is_pinned,
+                    has_premium=self.rotkehlchen.premium is not None,
+                )
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
         return api_response(result={'result': note_id, 'message': ''}, status_code=HTTPStatus.OK)
 
     def edit_user_note(self, user_note: UserNote) -> Response:
         try:
-            self.rotkehlchen.data.db.edit_user_note(user_note=user_note)
+            # Edit user note using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.user_notes.update_note(user_note=user_note)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)

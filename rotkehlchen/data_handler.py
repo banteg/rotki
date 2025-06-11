@@ -45,7 +45,7 @@ class DataHandler:
             db = getattr(self, 'db', None)
             if db is not None:
                 # Update owned assets in global DB before logout
-                owned_assets = self.db.repos.owned_assets.get_all_owned_assets()
+                self.db.repos.owned_assets.get_all_owned_assets()
                 # TODO: Update global DB with owned assets
                 self.db.close()
                 self.db = None
@@ -116,7 +116,7 @@ class DataHandler:
             password=password,
             echo_sql=False,
         )
-        
+
         # Set initial settings if creating new user
         if create_new and initial_settings is not None:
             with self.db.repos.unit_of_work():
@@ -134,11 +134,11 @@ class DataHandler:
         ignored.
         """
         already_ignored, to_ignore = set(), set()
-        
+
         # Get currently ignored assets
         ignored_assets = self.db.repos.ignored_assets.get_all_ignored_assets()
         ignored_asset_ids = {asset.identifier for asset in ignored_assets}
-        
+
         for asset in assets:
             if asset.identifier in ignored_asset_ids:
                 already_ignored.add(asset)
@@ -159,11 +159,11 @@ class DataHandler:
         ignored.
         """
         not_ignored, to_unignore = set(), set()
-        
+
         # Get currently ignored assets
         ignored_assets = self.db.repos.ignored_assets.get_all_ignored_assets()
         ignored_asset_ids = {asset.identifier for asset in ignored_assets}
-        
+
         for asset in assets:
             if asset.identifier not in ignored_asset_ids:
                 not_ignored.add(asset)
@@ -205,7 +205,7 @@ class DataHandler:
         Returns a b64 encoded binary blob"""
         # First backup the database to the temp path
         self.db.backup(tempdbpath)
-        
+
         compressor = zlib.compressobj(level=9)
         source_data = bytearray()
         compressed_data = bytearray()
@@ -253,17 +253,17 @@ class DataHandler:
         password = self.db.session_manager.password
         decrypted_data = decrypt(password.encode(), encrypted_data)
         decompressed_data = zlib.decompress(decrypted_data)
-        
+
         # Write decompressed data to temporary file and restore
         temp_db_path = self.user_data_dir / 'temp_restore.db'
         with open(temp_db_path, 'wb') as f:
             f.write(decompressed_data)
-        
+
         # Close current DB and replace with restored one
         self.db.close()
         db_path = self.user_data_dir / USERDB_NAME
         shutil.move(str(temp_db_path), str(db_path))
-        
+
         # Reopen database
         self.db = create_database(
             user_data_dir=self.user_data_dir,

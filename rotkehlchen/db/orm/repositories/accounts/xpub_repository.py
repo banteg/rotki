@@ -1,9 +1,7 @@
 """Repository for Bitcoin xpub management"""
 
-from typing import Optional
 
-from sqlalchemy import delete, select
-from sqlalchemy.orm import joinedload
+from sqlalchemy import select
 
 from rotkehlchen.chain.bitcoin.xpub import XpubData
 from rotkehlchen.db.orm.models import Xpub, XpubMapping
@@ -13,10 +11,10 @@ from rotkehlchen.types import BTCAddress, HDKey, SupportedBlockchain
 
 class XpubRepository(BaseRepository[Xpub]):
     """Repository for managing Bitcoin xpubs and their derived addresses"""
-    
+
     def __init__(self, session):
         super().__init__(session, Xpub)
-    
+
     def add_xpub(self, xpub_data: XpubData) -> Xpub:
         """Add a new xpub"""
         xpub = Xpub(
@@ -26,27 +24,27 @@ class XpubRepository(BaseRepository[Xpub]):
             blockchain=xpub_data.blockchain.value,
         )
         return self.add(xpub)
-    
+
     def get_xpub(
         self,
         xpub: HDKey,
         derivation_path: str,
         blockchain: SupportedBlockchain,
-    ) -> Optional[Xpub]:
+    ) -> Xpub | None:
         """Get a specific xpub"""
         return self.get(
             xpub=xpub,
             derivation_path=derivation_path,
             blockchain=blockchain.value,
         )
-    
+
     def get_xpubs_by_blockchain(
         self,
         blockchain: SupportedBlockchain,
     ) -> list[Xpub]:
         """Get all xpubs for a blockchain"""
         return self.get_all(blockchain=blockchain.value)
-    
+
     def delete_xpub(self, xpub_data: XpubData) -> bool:
         """Delete an xpub and all its mappings"""
         return self.delete_by(
@@ -54,11 +52,11 @@ class XpubRepository(BaseRepository[Xpub]):
             derivation_path=xpub_data.derivation_path,
             blockchain=xpub_data.blockchain.value,
         ) > 0
-    
+
     def update_xpub_label(
         self,
         xpub_data: XpubData,
-        new_label: Optional[str],
+        new_label: str | None,
     ) -> bool:
         """Update the label of an xpub"""
         xpub = self.get_xpub(
@@ -71,9 +69,9 @@ class XpubRepository(BaseRepository[Xpub]):
             self.update(xpub)
             return True
         return False
-    
+
     # XpubMapping operations
-    
+
     def add_xpub_mapping(
         self,
         address: BTCAddress,
@@ -95,7 +93,7 @@ class XpubRepository(BaseRepository[Xpub]):
         self.session.add(mapping)
         self.session.flush()
         return mapping
-    
+
     def get_addresses_for_xpub(
         self,
         xpub_data: XpubData,
@@ -107,19 +105,19 @@ class XpubRepository(BaseRepository[Xpub]):
             blockchain=xpub_data.blockchain.value,
         )
         return list(self.session.execute(stmt).scalars().all())
-    
+
     def get_xpub_for_address(
         self,
         address: BTCAddress,
         blockchain: SupportedBlockchain,
-    ) -> Optional[XpubMapping]:
+    ) -> XpubMapping | None:
         """Get xpub mapping for an address"""
         stmt = select(XpubMapping).filter_by(
             address=address,
             blockchain=blockchain.value,
         ).limit(1)
         return self.session.execute(stmt).scalar_one_or_none()
-    
+
     def get_last_consecutive_indices(
         self,
         xpub_data: XpubData,
@@ -133,16 +131,16 @@ class XpubRepository(BaseRepository[Xpub]):
             XpubMapping.account_index,
             XpubMapping.derived_index,
         )
-        
+
         mappings = self.session.execute(stmt).scalars().all()
-        
+
         if not mappings:
             return -1, -1
-        
+
         # Find last consecutive indices
         last_account = -1
         last_derived = -1
-        
+
         for mapping in mappings:
             if mapping.account_index == last_account + 1:
                 last_account = mapping.account_index
@@ -151,9 +149,9 @@ class XpubRepository(BaseRepository[Xpub]):
                 last_derived = mapping.derived_index
             else:
                 break
-        
+
         return last_account, last_derived
-    
+
     def ensure_xpub_mappings_exist(
         self,
         mappings: list[tuple[BTCAddress, XpubData, int, int]],

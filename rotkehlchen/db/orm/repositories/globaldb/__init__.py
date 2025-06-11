@@ -7,7 +7,7 @@ from .price_history_repository import PriceHistoryRepository
 
 __all__ = [
     'AssetCollectionRepository',
-    'AssetMappingRepository', 
+    'AssetMappingRepository',
     'AssetUpdateRepository',
     'PriceHistoryRepository',
 ]

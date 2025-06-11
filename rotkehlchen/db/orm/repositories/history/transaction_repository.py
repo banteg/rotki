@@ -1,9 +1,7 @@
 """Repository for EVM transaction management"""
 
-from typing import Optional
 
-from sqlalchemy import and_, delete, func, or_, select
-from sqlalchemy.orm import joinedload
+from sqlalchemy import func, or_, select
 
 from rotkehlchen.chain.evm.structures import EvmTransaction as EvmTransactionData
 from rotkehlchen.db.orm.models import (
@@ -23,10 +21,10 @@ from rotkehlchen.types import ChecksumEvmAddress, EVMTxHash, Timestamp
 
 class EvmTransactionRepository(BaseRepository[EvmTransaction]):
     """Repository for managing EVM transactions"""
-    
+
     def __init__(self, session):
         super().__init__(session, EvmTransaction)
-    
+
     def add_transaction(
         self,
         tx_data: EvmTransactionData,
@@ -47,63 +45,63 @@ class EvmTransactionRepository(BaseRepository[EvmTransaction]):
             nonce=tx_data.nonce,
         )
         return self.add(tx)
-    
+
     def get_transaction(
         self,
         tx_hash: EVMTxHash,
         chain_id: int,
-    ) -> Optional[EvmTransaction]:
+    ) -> EvmTransaction | None:
         """Get a transaction by hash and chain"""
         stmt = select(EvmTransaction).filter_by(
             tx_hash=tx_hash,
             chain_id=chain_id,
         )
         return self.session.execute(stmt).scalar_one_or_none()
-    
+
     def get_transactions(
         self,
-        address: Optional[ChecksumEvmAddress] = None,
-        chain_id: Optional[int] = None,
-        from_timestamp: Optional[Timestamp] = None,
-        to_timestamp: Optional[Timestamp] = None,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
+        address: ChecksumEvmAddress | None = None,
+        chain_id: int | None = None,
+        from_timestamp: Timestamp | None = None,
+        to_timestamp: Timestamp | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[EvmTransaction]:
         """Get transactions with filters"""
         query = select(EvmTransaction)
-        
+
         if address:
             # Get transactions where address is from or to
             query = query.filter(
                 or_(
                     EvmTransaction.from_address == address,
                     EvmTransaction.to_address == address,
-                )
+                ),
             )
-        
+
         if chain_id is not None:
             query = query.filter_by(chain_id=chain_id)
-        
+
         if from_timestamp is not None:
             query = query.filter(EvmTransaction.timestamp >= int(from_timestamp))
-        
+
         if to_timestamp is not None:
             query = query.filter(EvmTransaction.timestamp <= int(to_timestamp))
-        
+
         # Order by timestamp descending
         query = query.order_by(EvmTransaction.timestamp.desc())
-        
+
         if offset is not None:
             query = query.offset(offset)
         if limit is not None:
             query = query.limit(limit)
-        
+
         return list(self.session.execute(query).scalars().all())
-    
+
     def add_receipt(
         self,
         tx_id: int,
-        contract_address: Optional[ChecksumEvmAddress],
+        contract_address: ChecksumEvmAddress | None,
         status: int,
         tx_type: int,
     ) -> EvmTxReceipt:
@@ -117,7 +115,7 @@ class EvmTransactionRepository(BaseRepository[EvmTransaction]):
         self.session.add(receipt)
         self.session.flush()
         return receipt
-    
+
     def add_receipt_log(
         self,
         tx_id: int,
@@ -135,7 +133,7 @@ class EvmTransactionRepository(BaseRepository[EvmTransaction]):
         )
         self.session.add(log)
         self.session.flush()
-        
+
         # Add topics
         for topic_index, topic in enumerate(topics):
             topic_entry = EvmTxReceiptLogTopic(
@@ -144,16 +142,16 @@ class EvmTransactionRepository(BaseRepository[EvmTransaction]):
                 topic_index=topic_index,
             )
             self.session.add(topic_entry)
-        
+
         self.session.flush()
         return log
-    
+
     def add_internal_transaction(
         self,
         parent_tx_id: int,
         trace_id: int,
         from_address: ChecksumEvmAddress,
-        to_address: Optional[ChecksumEvmAddress],
+        to_address: ChecksumEvmAddress | None,
         value: FVal,
         gas: FVal,
         gas_used: FVal,
@@ -171,18 +169,18 @@ class EvmTransactionRepository(BaseRepository[EvmTransaction]):
         self.session.add(internal_tx)
         self.session.flush()
         return internal_tx
-    
+
     def get_internal_transactions(
         self,
         parent_tx_id: int,
     ) -> list[EvmInternalTransaction]:
         """Get internal transactions for a parent transaction"""
         stmt = select(EvmInternalTransaction).filter_by(
-            parent_tx=parent_tx_id
+            parent_tx=parent_tx_id,
         ).order_by(EvmInternalTransaction.trace_id)
-        
+
         return list(self.session.execute(stmt).scalars().all())
-    
+
     def add_address_mapping(
         self,
         tx_id: int,
@@ -195,11 +193,11 @@ class EvmTransactionRepository(BaseRepository[EvmTransaction]):
         )
         self.session.add(mapping)
         self.session.flush()
-    
+
     def get_transactions_by_address(
         self,
         address: ChecksumEvmAddress,
-        chain_id: Optional[int] = None,
+        chain_id: int | None = None,
     ) -> list[EvmTransaction]:
         """Get all transactions involving an address"""
         query = (
@@ -207,12 +205,12 @@ class EvmTransactionRepository(BaseRepository[EvmTransaction]):
             .join(EvmTxAddressMapping)
             .filter(EvmTxAddressMapping.address == address)
         )
-        
+
         if chain_id is not None:
             query = query.filter(EvmTransaction.chain_id == chain_id)
-        
+
         return list(self.session.execute(query).scalars().all())
-    
+
     def is_transaction_decoded(self, tx_id: int) -> bool:
         """Check if a transaction is decoded"""
         stmt = select(EvmTxMapping).filter_by(
@@ -220,14 +218,14 @@ class EvmTransactionRepository(BaseRepository[EvmTransaction]):
             value=1,  # 1 = decoded
         ).limit(1)
         return self.session.execute(stmt).scalar() is not None
-    
+
     def mark_transaction_decoded(self, tx_id: int) -> None:
         """Mark a transaction as decoded"""
         if not self.is_transaction_decoded(tx_id):
             mapping = EvmTxMapping(tx_id=tx_id, value=1)
             self.session.add(mapping)
             self.session.flush()
-    
+
     def delete_transaction(
         self,
         tx_hash: EVMTxHash,
@@ -239,28 +237,28 @@ class EvmTransactionRepository(BaseRepository[EvmTransaction]):
             self.delete(tx)
             return True
         return False
-    
+
     def get_transaction_count(
         self,
-        address: Optional[ChecksumEvmAddress] = None,
-        chain_id: Optional[int] = None,
+        address: ChecksumEvmAddress | None = None,
+        chain_id: int | None = None,
     ) -> int:
         """Get count of transactions"""
         query = select(func.count()).select_from(EvmTransaction)
-        
+
         if address:
             query = query.filter(
                 or_(
                     EvmTransaction.from_address == address,
                     EvmTransaction.to_address == address,
-                )
+                ),
             )
-        
+
         if chain_id is not None:
             query = query.filter_by(chain_id=chain_id)
-        
+
         return self.session.execute(query).scalar() or 0
-    
+
     def add_optimism_data(
         self,
         tx_id: int,

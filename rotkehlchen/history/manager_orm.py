@@ -5,13 +5,10 @@ from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from rotkehlchen.accounting.structures.balance import Balance, BalanceType
+from rotkehlchen.accounting.structures.balance import Balance
 from rotkehlchen.assets.asset import Asset
-from rotkehlchen.constants.timing import DAY_IN_SECONDS
 from rotkehlchen.db.filtering import HistoryEventFilterQuery
-from rotkehlchen.errors.misc import InputError, RemoteError
 from rotkehlchen.history.events.structures.base import HistoryEvent
-from rotkehlchen.history.types import HistoricalPriceOracle
 from rotkehlchen.logging import RotkehlchenLogsAdapter
 from rotkehlchen.types import Location, Timestamp
 from rotkehlchen.user_messages import MessagesAggregator
@@ -50,7 +47,7 @@ class HistoryQueryingManager:
             group_by_event_ids: bool = False,
     ) -> tuple[list[HistoryEvent], int]:
         """Get history events from database using ORM
-        
+
         Returns tuple of (events, total_count)
         """
         # Get events from repository with filters
@@ -67,7 +64,7 @@ class HistoryQueryingManager:
             order_by=filter_query.order_by_attributes,
             order_ascending=filter_query.ascending,
         )
-        
+
         # Get total count for pagination
         total_count = self.db.repos.history_events.count_events_with_filters(
             from_timestamp=filter_query.from_ts,
@@ -78,7 +75,7 @@ class HistoryQueryingManager:
             location_labels=filter_query.location_labels,
             asset=filter_query.asset,
         )
-        
+
         # Convert ORM models to HistoryEvent objects
         history_events = []
         for event in events:
@@ -96,37 +93,37 @@ class HistoryQueryingManager:
                 # TODO: Add other fields
             )
             history_events.append(history_event)
-        
+
         # Group by event IDs if requested
         if group_by_event_ids:
             grouped_events = self._group_events_by_id(history_events)
             return grouped_events, total_count
-        
+
         return history_events, total_count
 
     def _group_events_by_id(self, events: list[HistoryEvent]) -> list[HistoryEvent]:
         """Group events by their event identifier"""
         grouped = defaultdict(list)
-        
+
         for event in events:
             grouped[event.event_identifier].append(event)
-        
+
         # Return the first event from each group
         result = []
         for event_group in grouped.values():
             # Sort by sequence index and take the first
             event_group.sort(key=lambda e: e.sequence_index)
             result.append(event_group[0])
-        
+
         return result
 
     def add_history_events(self, events: list[HistoryEvent]) -> list[int]:
         """Add history events to database using ORM
-        
+
         Returns list of identifiers for successfully added events
         """
         added_identifiers = []
-        
+
         with self.db.repos.unit_of_work():
             for event in events:
                 try:
@@ -136,18 +133,18 @@ class HistoryQueryingManager:
                 except Exception as e:
                     log.error(f'Failed to add history event: {e}')
                     self.msg_aggregator.add_error(
-                        f'Failed to add history event: {str(e)}'
+                        f'Failed to add history event: {e!s}',
                     )
-        
+
         return added_identifiers
 
     def edit_history_events(self, events: list[HistoryEvent]) -> list[bool]:
         """Edit existing history events using ORM
-        
+
         Returns list of success flags for each event
         """
         results = []
-        
+
         with self.db.repos.unit_of_work():
             for event in events:
                 try:
@@ -160,7 +157,7 @@ class HistoryQueryingManager:
                 except Exception as e:
                     log.error(f'Failed to edit history event {event.identifier}: {e}')
                     results.append(False)
-        
+
         return results
 
     def delete_history_events(
@@ -169,11 +166,11 @@ class HistoryQueryingManager:
             force_delete: bool = False,
     ) -> list[bool]:
         """Delete history events from database using ORM
-        
+
         Returns list of success flags for each deletion
         """
         results = []
-        
+
         with self.db.repos.unit_of_work():
             for identifier in identifiers:
                 try:
@@ -186,7 +183,7 @@ class HistoryQueryingManager:
                 except Exception as e:
                     log.error(f'Failed to delete history event {identifier}: {e}')
                     results.append(False)
-        
+
         return results
 
     def get_history_events_count(
@@ -212,9 +209,9 @@ class HistoryQueryingManager:
         """Query all balances using ORM"""
         if timestamp is None:
             timestamp = ts_now()
-        
+
         balances: dict[Location, dict[Asset, Balance]] = {}
-        
+
         # Query exchange balances
         for exchange in self.exchange_manager.iterate_exchanges():
             try:
@@ -226,11 +223,11 @@ class HistoryQueryingManager:
             except Exception as e:
                 log.error(f'Failed to query {exchange.name} balances: {e}')
                 self.msg_aggregator.add_error(
-                    f'Failed to query {exchange.name} balances: {str(e)}'
+                    f'Failed to query {exchange.name} balances: {e!s}',
                 )
                 if not save_despite_errors:
                     continue
-        
+
         # Query blockchain balances
         try:
             blockchain_balances = self.chains_aggregator.query_balances(
@@ -246,27 +243,27 @@ class HistoryQueryingManager:
         except Exception as e:
             log.error(f'Failed to query blockchain balances: {e}')
             self.msg_aggregator.add_error(
-                f'Failed to query blockchain balances: {str(e)}'
+                f'Failed to query blockchain balances: {e!s}',
             )
-        
+
         # Add manual balances
         manual_balances = self.db.repos.manual_balances.get_all_balances()
         for manual_balance in manual_balances:
             location = Location.deserialize_from_db(manual_balance.location)
             asset = Asset(manual_balance.asset)
             balance = Balance(amount=manual_balance.amount)
-            
+
             if location not in balances:
                 balances[location] = {}
             if asset in balances[location]:
                 balances[location][asset] += balance
             else:
                 balances[location][asset] = balance
-        
+
         # Save to database if requested
         if requested_save_data:
             self._save_balances_to_database(timestamp, balances)
-        
+
         return {
             'timestamp': timestamp,
             'balances': balances,
@@ -281,7 +278,7 @@ class HistoryQueryingManager:
         with self.db.repos.unit_of_work():
             # Create balance snapshot
             snapshot_id = self.db.repos.balance_snapshots.create_snapshot(timestamp)
-            
+
             # Save individual balances
             for location, location_balances in balances.items():
                 for asset, balance in location_balances.items():
@@ -296,16 +293,16 @@ class HistoryQueryingManager:
     def get_latest_balance_snapshot(self) -> dict[str, Any] | None:
         """Get the latest balance snapshot using ORM"""
         snapshot = self.db.repos.balance_snapshots.get_latest_snapshot()
-        
+
         if not snapshot:
             return None
-        
+
         # Get balances for this snapshot
         balances = self.db.repos.balance_snapshots.get_snapshot_balances(snapshot.identifier)
-        
+
         # Convert to expected format
         result_balances: dict[Location, dict[Asset, Balance]] = {}
-        
+
         for balance_entry in balances:
             location = Location.deserialize_from_db(balance_entry.location)
             asset = Asset(balance_entry.asset)
@@ -313,11 +310,11 @@ class HistoryQueryingManager:
                 amount=balance_entry.amount,
                 usd_value=balance_entry.usd_value,
             )
-            
+
             if location not in result_balances:
                 result_balances[location] = {}
             result_balances[location][asset] = balance
-        
+
         return {
             'timestamp': snapshot.timestamp,
             'balances': result_balances,
@@ -335,7 +332,7 @@ class HistoryQueryingManager:
             from_timestamp=from_timestamp,
             to_timestamp=to_timestamp,
         )
-        
+
         history = []
         for snapshot in snapshots:
             balances = self.db.repos.balance_snapshots.get_snapshot_balances(
@@ -343,13 +340,13 @@ class HistoryQueryingManager:
                 location=location.serialize_for_db() if location else None,
                 asset=asset.identifier if asset else None,
             )
-            
+
             # Convert to expected format
             snapshot_data = {
                 'timestamp': snapshot.timestamp,
                 'balances': defaultdict(dict),
             }
-            
+
             for balance_entry in balances:
                 loc = Location.deserialize_from_db(balance_entry.location)
                 ast = Asset(balance_entry.asset)
@@ -358,9 +355,9 @@ class HistoryQueryingManager:
                     usd_value=balance_entry.usd_value,
                 )
                 snapshot_data['balances'][loc][ast] = bal
-            
+
             history.append(snapshot_data)
-        
+
         return history
 
     def query_history_events(
@@ -380,9 +377,9 @@ class HistoryQueryingManager:
             except Exception as e:
                 log.error(f'Failed to query {exchange.name} history: {e}')
                 self.msg_aggregator.add_error(
-                    f'Failed to query {exchange.name} history: {str(e)}'
+                    f'Failed to query {exchange.name} history: {e!s}',
                 )
-        
+
         # Query blockchain history
         try:
             log.info('Querying blockchain history events')
@@ -392,5 +389,5 @@ class HistoryQueryingManager:
         except Exception as e:
             log.error(f'Failed to query blockchain history: {e}')
             self.msg_aggregator.add_error(
-                f'Failed to query blockchain history: {str(e)}'
+                f'Failed to query blockchain history: {e!s}',
             )

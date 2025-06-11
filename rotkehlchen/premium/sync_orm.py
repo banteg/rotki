@@ -6,14 +6,10 @@ import tempfile
 from enum import Enum
 from typing import Any, Literal, NamedTuple
 
-import gevent
-
-from rotkehlchen.api.websockets.typedefs import WSMessageType
-from rotkehlchen.constants.misc import USERSDIR_NAME
 from rotkehlchen.data_handler_orm import DataHandler
 from rotkehlchen.data_migrations.manager import DataMigrationManager
 from rotkehlchen.db.cache import DBCacheStatic
-from rotkehlchen.errors.api import PremiumAuthenticationError, RotkehlchenPermissionError
+from rotkehlchen.errors.api import PremiumAuthenticationError
 from rotkehlchen.errors.misc import RemoteError, UnableToDecryptRemoteData
 from rotkehlchen.logging import RotkehlchenLogsAdapter
 from rotkehlchen.premium.premium import (
@@ -63,7 +59,7 @@ class PremiumSyncManager(LockableQueryMixIn):
         """Get last data upload timestamp using ORM"""
         if not data.db:
             return Timestamp(0)
-            
+
         cache_value = data.db.repos.cache.get_cache_value(DBCacheStatic.LAST_DATA_UPLOAD_TS.value)
         if cache_value:
             return Timestamp(int(cache_value))
@@ -208,11 +204,11 @@ class PremiumSyncManager(LockableQueryMixIn):
         # Make a backup of the database using ORM
         with tempfile.NamedTemporaryFile(delete=False) as f:
             self.data.db.backup(f.name)
-            
+
             # Compress and encrypt the database
             with open(f.name, 'rb') as backup_file:
                 data = backup_file.read()
-            
+
             try:
                 result = self.premium.upload_data(
                     data_blob=data,
@@ -243,14 +239,14 @@ class PremiumSyncManager(LockableQueryMixIn):
         # Dekrypt and decompress result and save to temporary file
         with tempfile.NamedTemporaryFile(delete=False) as f:
             f.write(result)
-            
+
             # Logout to close the current DB
             self.data.logout()
-            
+
             # Move the temporary file to replace the user DB
             user_db_path = self.data.user_data_dir / 'rotkehlchen.db'
             shutil.move(f.name, user_db_path)
-            
+
             # Re-login with the new database
             try:
                 self.data.unlock(
@@ -284,7 +280,7 @@ class PremiumSyncManager(LockableQueryMixIn):
             credentials_data = self.data.db.repos.settings.get_setting('premium_credentials')
             if not credentials_data:
                 return None
-            
+
             # TODO: Deserialize credentials from stored format
             # TODO: This needs proper implementation
             credentials = None

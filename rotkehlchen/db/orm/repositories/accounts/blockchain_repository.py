@@ -1,9 +1,7 @@
 """Repository for blockchain account management"""
 
-from typing import Optional
 
 from sqlalchemy import delete, select
-from sqlalchemy.orm import joinedload
 
 from rotkehlchen.chain.accounts import BlockchainAccountData, SingleBlockchainAccountData
 from rotkehlchen.db.orm.models import BlockchainAccount, tag_mappings
@@ -13,25 +11,25 @@ from rotkehlchen.types import BlockchainAccountAddress, SupportedBlockchain
 
 class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
     """Repository for managing blockchain accounts"""
-    
+
     def __init__(self, session):
         super().__init__(session, BlockchainAccount)
-    
+
     def get_account(
         self,
         blockchain: SupportedBlockchain,
         address: BlockchainAccountAddress,
-    ) -> Optional[BlockchainAccount]:
+    ) -> BlockchainAccount | None:
         """Get a specific blockchain account"""
         return self.get(blockchain=blockchain.value, account=address)
-    
+
     def get_accounts_by_blockchain(
         self,
         blockchain: SupportedBlockchain,
     ) -> list[BlockchainAccount]:
         """Get all accounts for a specific blockchain"""
         return self.get_all(blockchain=blockchain.value)
-    
+
     def get_all_accounts(self) -> list[BlockchainAccount]:
         """Get all blockchain accounts"""
         stmt = select(BlockchainAccount).order_by(
@@ -39,7 +37,7 @@ class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
             BlockchainAccount.account,
         )
         return list(self.session.execute(stmt).scalars().all())
-    
+
     def add_account(
         self,
         blockchain: SupportedBlockchain,
@@ -51,7 +49,7 @@ class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
             account=address,
         )
         return self.add(account)
-    
+
     def add_multiple_accounts(
         self,
         accounts: list[SingleBlockchainAccountData],
@@ -65,7 +63,7 @@ class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
             for acc in accounts
         ]
         return self.add_all(db_accounts)
-    
+
     def remove_account(
         self,
         blockchain: SupportedBlockchain,
@@ -76,7 +74,7 @@ class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
             blockchain=blockchain.value,
             account=address,
         ) > 0
-    
+
     def remove_accounts(
         self,
         accounts: list[SingleBlockchainAccountData],
@@ -89,19 +87,19 @@ class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
                 account=acc.address,
             )
         return count
-    
+
     def get_accounts_with_tags(
         self,
-        blockchain: Optional[SupportedBlockchain] = None,
+        blockchain: SupportedBlockchain | None = None,
     ) -> list[tuple[BlockchainAccount, list[str]]]:
         """Get accounts with their associated tags"""
         query = select(BlockchainAccount)
-        
+
         if blockchain:
             query = query.filter_by(blockchain=blockchain.value)
-        
+
         accounts = self.session.execute(query).scalars().all()
-        
+
         # Get tags for each account
         result = []
         for account in accounts:
@@ -112,9 +110,9 @@ class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
             )
             tags = [row[0] for row in self.session.execute(tag_query)]
             result.append((account, tags))
-        
+
         return result
-    
+
     def account_exists(
         self,
         blockchain: SupportedBlockchain,
@@ -125,16 +123,16 @@ class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
             blockchain=blockchain.value,
             account=address,
         )
-    
+
     def get_accounts_count(
         self,
-        blockchain: Optional[SupportedBlockchain] = None,
+        blockchain: SupportedBlockchain | None = None,
     ) -> int:
         """Get count of blockchain accounts"""
         if blockchain:
             return self.count(blockchain=blockchain.value)
         return self.count()
-    
+
     def replace_blockchain_accounts(
         self,
         blockchain: SupportedBlockchain,
@@ -143,10 +141,10 @@ class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
         """Replace all accounts for a blockchain"""
         # Delete existing accounts
         stmt = delete(BlockchainAccount).where(
-            BlockchainAccount.blockchain == blockchain.value
+            BlockchainAccount.blockchain == blockchain.value,
         )
         self.session.execute(stmt)
-        
+
         # Add new accounts
         if accounts:
             db_accounts = [
@@ -157,19 +155,19 @@ class BlockchainAccountRepository(BaseRepository[BlockchainAccount]):
                 for address in accounts
             ]
             return self.add_all(db_accounts)
-        
+
         return []
-    
+
     def to_blockchain_account_data(
         self,
         accounts: list[BlockchainAccount],
     ) -> BlockchainAccountData:
         """Convert database models to domain model"""
         from collections import defaultdict
-        
+
         data = defaultdict(list)
         for account in accounts:
             blockchain = SupportedBlockchain(account.blockchain)
             data[blockchain].append(account.account)
-        
+
         return BlockchainAccountData(dict(data))

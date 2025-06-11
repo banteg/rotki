@@ -22,6 +22,46 @@ from rotkehlchen.db.orm.enums import (
     ZkSyncLiteTxType,
 )
 
+# ETH2 models
+from rotkehlchen.db.orm.eth2 import (
+    Eth2DailyStakingDetails,
+    Eth2Validator,
+    EthValidatorsDataCache,
+)
+
+# Global database models
+from rotkehlchen.db.orm.global_db_models import (
+    AssetCollection,
+    BinancePair,
+    CommonAssetDetails,
+    ContractABI,
+    ContractData,
+    CounterpartyAssetMapping,
+    CustomAsset,
+    DefaultRPCNode,
+    EvmToken,
+    GeneralCache,
+    GlobalAddressBook,
+    GlobalAsset,
+    GlobalSettings,
+    LocationAssetMapping,
+    LocationUnsupportedAsset,
+    MultiassetMapping,
+    PriceHistory,
+    UnderlyingTokensList,
+    UniqueCache,
+    UserOwnedAsset,
+)
+
+# History event models
+from rotkehlchen.db.orm.history_events import (
+    EthStakingEventInfo,
+    EvmEventInfo,
+    HistoryEvent,
+    HistoryEventMapping,
+    SkippedExternalEvent,
+)
+
 # Core models
 from rotkehlchen.db.orm.models import (
     Asset,
@@ -32,6 +72,15 @@ from rotkehlchen.db.orm.models import (
     TimedBalance,
     UserCredentialMapping,
     UserCredentials,
+)
+
+# NFT models
+from rotkehlchen.db.orm.nfts import NFT
+
+# Protocol models
+from rotkehlchen.db.orm.protocols import (
+    CowswapOrder,
+    GnosisPayData,
 )
 
 # Transaction models
@@ -46,24 +95,14 @@ from rotkehlchen.db.orm.transactions import (
     OptimismTransaction,
 )
 
-# History event models
-from rotkehlchen.db.orm.history_events import (
-    EthStakingEventInfo,
-    EvmEventInfo,
-    HistoryEvent,
-    HistoryEventMapping,
-    SkippedExternalEvent,
+# Transient database models
+from rotkehlchen.db.orm.transient_db_models import (
+    PnlEvent,
+    PnlReport,
+    PnlReportSetting,
+    PnlReportTotal,
+    TransientSettings,
 )
-
-# ETH2 models
-from rotkehlchen.db.orm.eth2 import (
-    Eth2DailyStakingDetails,
-    Eth2Validator,
-    EthValidatorsDataCache,
-)
-
-# NFT models
-from rotkehlchen.db.orm.nfts import NFT
 
 # Additional user database models
 from rotkehlchen.db.orm.user_db_models import (
@@ -93,142 +132,103 @@ from rotkehlchen.db.orm.zksync import (
     ZkSyncLiteTransaction,
 )
 
-# Protocol models
-from rotkehlchen.db.orm.protocols import (
-    CowswapOrder,
-    GnosisPayData,
-)
-
-# Global database models
-from rotkehlchen.db.orm.global_db_models import (
-    AssetCollection,
-    BinancePair,
-    CommonAssetDetails,
-    ContractABI,
-    ContractData,
-    CounterpartyAssetMapping,
-    CustomAsset,
-    DefaultRPCNode,
-    EvmToken,
-    GeneralCache,
-    GlobalAddressBook,
-    GlobalAsset,
-    GlobalSettings,
-    LocationAssetMapping,
-    LocationUnsupportedAsset,
-    MultiassetMapping,
-    PriceHistory,
-    UnderlyingTokensList,
-    UniqueCache,
-    UserOwnedAsset,
-)
-
-# Transient database models
-from rotkehlchen.db.orm.transient_db_models import (
-    PnlEvent,
-    PnlReport,
-    PnlReportSetting,
-    PnlReportTotal,
-    TransientSettings,
-)
-
 __all__ = [
+    # NFT
+    'NFT',
+    'AccountingRule',
+    'AddressBook',
+    'Asset',
+    'AssetCollection',
+    'AssetType',
+    'BalanceCategory',
     # Base
     'Base',
-    'GeventSafeDatabase',
-    'get_user_db',
-    'get_global_db',
-    'get_transient_db',
-    'init_user_db',
-    'init_global_db',
-    'init_transient_db',
-    # Enums
-    'Location',
-    'BalanceCategory',
-    'AssetType',
-    'TokenKind',
-    'PriceHistorySourceType',
-    'ZkSyncLiteTxType',
-    # Core models
-    'Settings',
-    'Asset',
-    'Tag',
-    'UserCredentials',
-    'UserCredentialMapping',
+    'BinancePair',
     'BlockchainAccount',
-    'TimedBalance',
-    'ManuallyTrackedBalance',
+    'Calendar',
+    'CalendarReminder',
+    'CommonAssetDetails',
+    'ContractABI',
+    'ContractData',
+    'CounterpartyAssetMapping',
+    # Protocols
+    'CowswapOrder',
+    'CustomAsset',
+    'DefaultRPCNode',
+    'ENSMapping',
+    'Eth2DailyStakingDetails',
+    # ETH2
+    'Eth2Validator',
+    'EthStakingEventInfo',
+    'EthValidatorsDataCache',
+    'EvmAccountDetails',
+    'EvmEventInfo',
+    'EvmInternalTransaction',
+    'EvmToken',
     # Transactions
     'EvmTransaction',
-    'EvmInternalTransaction',
+    'EvmTxAddressMapping',
+    'EvmTxMapping',
     'EvmTxReceipt',
     'EvmTxReceiptLog',
     'EvmTxReceiptLogTopic',
-    'OptimismTransaction',
-    'EvmTxAddressMapping',
-    'EvmTxMapping',
-    # History events
-    'HistoryEvent',
-    'EvmEventInfo',
-    'EthStakingEventInfo',
-    'HistoryEventMapping',
-    'SkippedExternalEvent',
-    # ETH2
-    'Eth2Validator',
-    'EthValidatorsDataCache',
-    'Eth2DailyStakingDetails',
-    # NFT
-    'NFT',
     # Additional user DB
     'ExternalServiceCredentials',
-    'Xpub',
-    'XpubMapping',
-    'EvmAccountDetails',
-    'MarginPosition',
-    'UsedQueryRange',
-    'MultiSettings',
-    'IgnoredAction',
-    'ENSMapping',
-    'AddressBook',
-    'RPCNode',
-    'UserNote',
-    'AccountingRule',
-    'LinkedRuleProperty',
-    'UnresolvedRemoteConflict',
-    'KeyValueCache',
-    'Calendar',
-    'CalendarReminder',
-    # ZkSync
-    'ZkSyncLiteTransaction',
-    'ZkSyncLiteSwap',
-    # Protocols
-    'CowswapOrder',
-    'GnosisPayData',
+    'GeneralCache',
+    'GeventSafeDatabase',
+    'GlobalAddressBook',
     # Global DB
     'GlobalAsset',
-    'CommonAssetDetails',
-    'EvmToken',
-    'UnderlyingTokensList',
-    'CustomAsset',
-    'AssetCollection',
-    'MultiassetMapping',
-    'UserOwnedAsset',
-    'PriceHistory',
-    'BinancePair',
-    'LocationAssetMapping',
-    'CounterpartyAssetMapping',
-    'LocationUnsupportedAsset',
     'GlobalSettings',
-    'GlobalAddressBook',
-    'DefaultRPCNode',
-    'GeneralCache',
-    'UniqueCache',
-    'ContractABI',
-    'ContractData',
+    'GnosisPayData',
+    # History events
+    'HistoryEvent',
+    'HistoryEventMapping',
+    'IgnoredAction',
+    'KeyValueCache',
+    'LinkedRuleProperty',
+    # Enums
+    'Location',
+    'LocationAssetMapping',
+    'LocationUnsupportedAsset',
+    'ManuallyTrackedBalance',
+    'MarginPosition',
+    'MultiSettings',
+    'MultiassetMapping',
+    'OptimismTransaction',
+    'PnlEvent',
     # Transient DB
     'PnlReport',
-    'PnlReportTotal',
     'PnlReportSetting',
-    'PnlEvent',
+    'PnlReportTotal',
+    'PriceHistory',
+    'PriceHistorySourceType',
+    'RPCNode',
+    # Core models
+    'Settings',
+    'SkippedExternalEvent',
+    'Tag',
+    'TimedBalance',
+    'TokenKind',
     'TransientSettings',
+    'UnderlyingTokensList',
+    'UniqueCache',
+    'UnresolvedRemoteConflict',
+    'UsedQueryRange',
+    'UserCredentialMapping',
+    'UserCredentials',
+    'UserNote',
+    'UserOwnedAsset',
+    'Xpub',
+    'XpubMapping',
+    'ZkSyncLiteSwap',
+    # ZkSync
+    'ZkSyncLiteTransaction',
+    'ZkSyncLiteTxType',
+    'get_global_db',
+    'get_transient_db',
+    'get_user_db',
+    'init_global_db',
+    'init_transient_db',
+    'init_user_db',
 ]

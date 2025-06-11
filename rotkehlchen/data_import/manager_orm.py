@@ -3,23 +3,8 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from rotkehlchen.data_import.importers.binance import BinanceImporter
-from rotkehlchen.data_import.importers.bisq_trades import BisqTradesImporter
-from rotkehlchen.data_import.importers.bitcoin_tax import BitcoinTaxImporter
-from rotkehlchen.data_import.importers.bitmex import BitMEXImporter
-from rotkehlchen.data_import.importers.bitstamp import BitstampTransactionsImporter
-from rotkehlchen.data_import.importers.bittrex import BittrexImporter
-from rotkehlchen.data_import.importers.blockfi_trades import BlockfiTradesImporter
-from rotkehlchen.data_import.importers.blockfi_transactions import BlockfiTransactionsImporter
-from rotkehlchen.data_import.importers.blockpit import BlockpitImporter
-from rotkehlchen.data_import.importers.cointracking import CointrackingImporter
-from rotkehlchen.data_import.importers.cryptocom import CryptocomImporter
-from rotkehlchen.data_import.importers.kucoin import KucoinImporter
-from rotkehlchen.data_import.importers.nexo import NexoImporter
 from rotkehlchen.data_import.importers.rotki_events_orm import RotkiGenericEventsImporter
 from rotkehlchen.data_import.importers.rotki_trades_orm import RotkiGenericTradesImporter
-from rotkehlchen.data_import.importers.shapeshift_trades import ShapeshiftTradesImporter
-from rotkehlchen.data_import.importers.uphold_transactions import UpholdTransactionsImporter
 from rotkehlchen.utils.mixins.enums import SerializableEnumNameMixin
 
 if TYPE_CHECKING:
@@ -49,7 +34,7 @@ class DataImportSource(SerializableEnumNameMixin):
 
 class CSVDataImporter:
     """This class is responsible for importation of csv files using ORM."""
-    
+
     def __init__(self, db: 'RotkehlchenDatabase'):
         self.db = db
 
@@ -68,53 +53,53 @@ class CSVDataImporter:
         # For now, we'll implement the Rotki-specific importers
         if source == DataImportSource.COINTRACKING:
             # TODO: Update CointrackingImporter to use ORM
-            return False, "Cointracking importer needs ORM update"
+            return False, 'Cointracking importer needs ORM update'
         elif source == DataImportSource.CRYPTOCOM:
             # TODO: Update CryptocomImporter to use ORM
-            return False, "Crypto.com importer needs ORM update"
+            return False, 'Crypto.com importer needs ORM update'
         elif source == DataImportSource.BLOCKFI_TRANSACTIONS:
             # TODO: Update BlockfiTransactionsImporter to use ORM
-            return False, "BlockFi transactions importer needs ORM update"
+            return False, 'BlockFi transactions importer needs ORM update'
         elif source == DataImportSource.BLOCKFI_TRADES:
             # TODO: Update BlockfiTradesImporter to use ORM
-            return False, "BlockFi trades importer needs ORM update"
+            return False, 'BlockFi trades importer needs ORM update'
         elif source == DataImportSource.NEXO:
             # TODO: Update NexoImporter to use ORM
-            return False, "Nexo importer needs ORM update"
+            return False, 'Nexo importer needs ORM update'
         elif source == DataImportSource.SHAPESHIFT_TRADES:
             # TODO: Update ShapeshiftTradesImporter to use ORM
-            return False, "ShapeShift trades importer needs ORM update"
+            return False, 'ShapeShift trades importer needs ORM update'
         elif source == DataImportSource.UPHOLD_TRANSACTIONS:
             # TODO: Update UpholdTransactionsImporter to use ORM
-            return False, "Uphold transactions importer needs ORM update"
+            return False, 'Uphold transactions importer needs ORM update'
         elif source == DataImportSource.BISQ_TRADES:
             # TODO: Update BisqTradesImporter to use ORM
-            return False, "Bisq trades importer needs ORM update"
+            return False, 'Bisq trades importer needs ORM update'
         elif source == DataImportSource.BINANCE:
             # TODO: Update BinanceImporter to use ORM
-            return False, "Binance importer needs ORM update"
+            return False, 'Binance importer needs ORM update'
         elif source == DataImportSource.ROTKI_TRADES:
             importer = RotkiGenericTradesImporter(db=self.db)
         elif source == DataImportSource.ROTKI_EVENTS:
             importer = RotkiGenericEventsImporter(db=self.db)
         elif source == DataImportSource.BITCOIN_TAX:
             # TODO: Update BitcoinTaxImporter to use ORM
-            return False, "Bitcoin Tax importer needs ORM update"
+            return False, 'Bitcoin Tax importer needs ORM update'
         elif source == DataImportSource.BITMEX_WALLET_HISTORY:
             # TODO: Update BitMEXImporter to use ORM
-            return False, "BitMEX importer needs ORM update"
+            return False, 'BitMEX importer needs ORM update'
         elif source == DataImportSource.BITSTAMP:
             # TODO: Update BitstampTransactionsImporter to use ORM
-            return False, "Bitstamp importer needs ORM update"
+            return False, 'Bitstamp importer needs ORM update'
         elif source == DataImportSource.BITTREX:
             # TODO: Update BittrexImporter to use ORM
-            return False, "Bittrex importer needs ORM update"
+            return False, 'Bittrex importer needs ORM update'
         elif source == DataImportSource.KUCOIN:
             # TODO: Update KucoinImporter to use ORM
-            return False, "KuCoin importer needs ORM update"
+            return False, 'KuCoin importer needs ORM update'
         elif source == DataImportSource.BLOCKPIT:
             # TODO: Update BlockpitImporter to use ORM
-            return False, "Blockpit importer needs ORM update"
+            return False, 'Blockpit importer needs ORM update'
         else:
             raise AssertionError(f'Unknown DataImportSource value {source}')
 
@@ -123,13 +108,12 @@ class CSVDataImporter:
 
     def get_import_summary(self) -> dict[str, Any]:
         """Get summary of imported data using ORM"""
-        summary = {
+        return {
             'trades': self.db.repos.trades.count_all_trades(),
             'history_events': self.db.repos.history_events.count_all_events(),
             'manual_balances': len(self.db.repos.manual_balances.get_all_balances()),
             'tags': len(self.db.repos.tags.get_all_tags()),
         }
-        return summary
 
     def export_data(
             self,
@@ -141,27 +125,27 @@ class CSVDataImporter:
         try:
             # Create export directory if it doesn't exist
             directory.mkdir(parents=True, exist_ok=True)
-            
+
             # Export trades
             trades_file = directory / 'rotki_trades.csv'
             self._export_trades_to_csv(trades_file, from_timestamp, to_timestamp)
-            
+
             # Export history events
             events_file = directory / 'rotki_events.csv'
             self._export_events_to_csv(events_file, from_timestamp, to_timestamp)
-            
+
             # Export manual balances
             balances_file = directory / 'rotki_manual_balances.csv'
             self._export_manual_balances_to_csv(balances_file)
-            
+
             # Export tags
             tags_file = directory / 'rotki_tags.csv'
             self._export_tags_to_csv(tags_file)
-            
-            return True, f"Data exported successfully to {directory}"
-            
+
+            return True, f'Data exported successfully to {directory}'
+
         except Exception as e:
-            return False, f"Failed to export data: {str(e)}"
+            return False, f'Failed to export data: {e!s}'
 
     def _export_trades_to_csv(
             self,
@@ -171,20 +155,20 @@ class CSVDataImporter:
     ) -> None:
         """Export trades to CSV using ORM"""
         import csv
-        
+
         trades = self.db.repos.trades.get_trades(
             from_timestamp=from_timestamp,
             to_timestamp=to_timestamp,
         )
-        
-        with open(filepath, 'w', newline='') as f:
+
+        with open(filepath, 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=[
                 'timestamp', 'location', 'base_asset', 'quote_asset',
                 'trade_type', 'amount', 'rate', 'fee', 'fee_currency',
-                'link', 'notes'
+                'link', 'notes',
             ])
             writer.writeheader()
-            
+
             for trade in trades:
                 writer.writerow({
                     'timestamp': trade.timestamp,
@@ -208,21 +192,21 @@ class CSVDataImporter:
     ) -> None:
         """Export history events to CSV using ORM"""
         import csv
-        
+
         events = self.db.repos.history_events.get_events(
             from_timestamp=from_timestamp,
             to_timestamp=to_timestamp,
         )
-        
-        with open(filepath, 'w', newline='') as f:
+
+        with open(filepath, 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=[
                 'event_identifier', 'sequence_index', 'timestamp',
                 'location', 'event_type', 'event_subtype', 'asset',
                 'amount', 'usd_value', 'notes', 'location_label',
-                'address', 'transaction_hash'
+                'address', 'transaction_hash',
             ])
             writer.writeheader()
-            
+
             for event in events:
                 writer.writerow({
                     'event_identifier': event.event_identifier,
@@ -243,15 +227,15 @@ class CSVDataImporter:
     def _export_manual_balances_to_csv(self, filepath: Path) -> None:
         """Export manual balances to CSV using ORM"""
         import csv
-        
+
         balances = self.db.repos.manual_balances.get_all_balances()
-        
-        with open(filepath, 'w', newline='') as f:
+
+        with open(filepath, 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=[
-                'asset', 'label', 'amount', 'location', 'tags'
+                'asset', 'label', 'amount', 'location', 'tags',
             ])
             writer.writeheader()
-            
+
             for balance in balances:
                 tags = self.db.repos.manual_balances.get_balance_tags(balance.identifier)
                 writer.writerow({
@@ -265,15 +249,15 @@ class CSVDataImporter:
     def _export_tags_to_csv(self, filepath: Path) -> None:
         """Export tags to CSV using ORM"""
         import csv
-        
+
         tags = self.db.repos.tags.get_all_tags()
-        
-        with open(filepath, 'w', newline='') as f:
+
+        with open(filepath, 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=[
-                'name', 'description', 'background_color', 'foreground_color'
+                'name', 'description', 'background_color', 'foreground_color',
             ])
             writer.writeheader()
-            
+
             for tag in tags:
                 writer.writerow({
                     'name': tag.name,

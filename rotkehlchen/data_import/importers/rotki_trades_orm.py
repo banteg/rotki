@@ -12,7 +12,7 @@ from rotkehlchen.errors.asset import UnknownAsset
 from rotkehlchen.errors.misc import InputError
 from rotkehlchen.fval import FVal
 from rotkehlchen.logging import RotkehlchenLogsAdapter
-from rotkehlchen.types import AssetAmount, Fee, Location, Price, Timestamp, TradeID, TradeType
+from rotkehlchen.types import AssetAmount, Fee, Location, Price, Timestamp, TradeType
 
 if TYPE_CHECKING:
     from rotkehlchen.db.orm.database import RotkehlchenDatabase
@@ -41,13 +41,13 @@ class RotkiGenericTradesImporter(BaseExchangeImporter):
             trade_type = TradeType.deserialize(csv_row['trade_type'])
             amount = AssetAmount(FVal(csv_row['amount']))
             rate = Price(FVal(csv_row['rate']))
-            
+
             # Parse optional fields
             fee = Fee(FVal(csv_row.get('fee', '0')))
             fee_currency = Asset(csv_row.get('fee_currency', 'USD')) if csv_row.get('fee_currency') else A_USD
             link = csv_row.get('link', '')
             notes = csv_row.get('notes', '')
-            
+
             # Create trade using ORM
             with self.db.repos.unit_of_work():
                 self.db.repos.trades.add_trade(
@@ -63,7 +63,7 @@ class RotkiGenericTradesImporter(BaseExchangeImporter):
                     link=link,
                     notes=notes,
                 )
-                
+
         except UnknownAsset as e:
             self.db.msg_aggregator.add_warning(
                 f'During Rotki trades CSV import, found trade with unknown '
@@ -79,19 +79,19 @@ class RotkiGenericTradesImporter(BaseExchangeImporter):
         try:
             with open(filepath, newline='', encoding='utf-8') as csvfile:
                 reader = csv.DictReader(csvfile)
-                
+
                 # Validate headers
                 if reader.fieldnames is None:
                     return False, 'CSV file is empty or has no headers'
-                
+
                 required_fields = {
                     'timestamp', 'location', 'base_asset', 'quote_asset',
-                    'trade_type', 'amount', 'rate'
+                    'trade_type', 'amount', 'rate',
                 }
                 if not required_fields.issubset(set(reader.fieldnames)):
                     missing = required_fields - set(reader.fieldnames)
                     return False, f'CSV file is missing required fields: {missing}'
-                
+
                 # Process each row
                 imported_count = 0
                 for idx, row in enumerate(reader):
@@ -101,16 +101,16 @@ class RotkiGenericTradesImporter(BaseExchangeImporter):
                     except UnsupportedCSVEntry as e:
                         log.warning(f'Skipping row {idx + 1}: {e}')
                         continue
-                
+
                 return True, f'Successfully imported {imported_count} trades'
-                
+
         except FileNotFoundError:
             return False, f'File {filepath} not found'
         except PermissionError:
             return False, f'Permission denied reading file {filepath}'
         except Exception as e:
             log.error(f'Unexpected error importing Rotki trades: {e}')
-            return False, f'Failed to import file: {str(e)}'
+            return False, f'Failed to import file: {e!s}'
 
     def get_import_preview(self, filepath: Path) -> dict[str, Any]:
         """Get a preview of what would be imported from the CSV file"""
@@ -121,14 +121,14 @@ class RotkiGenericTradesImporter(BaseExchangeImporter):
             'sample_trades': [],
             'errors': [],
         }
-        
+
         try:
             with open(filepath, newline='', encoding='utf-8') as csvfile:
                 reader = csv.DictReader(csvfile)
-                
+
                 for idx, row in enumerate(reader):
                     preview['total_rows'] += 1
-                    
+
                     try:
                         # Validate the row without importing
                         timestamp = Timestamp(int(row['timestamp']))
@@ -138,9 +138,9 @@ class RotkiGenericTradesImporter(BaseExchangeImporter):
                         trade_type = TradeType.deserialize(row['trade_type'])
                         amount = FVal(row['amount'])
                         rate = FVal(row['rate'])
-                        
+
                         preview['valid_rows'] += 1
-                        
+
                         # Add first 5 valid rows as samples
                         if len(preview['sample_trades']) < 5:
                             preview['sample_trades'].append({
@@ -152,15 +152,15 @@ class RotkiGenericTradesImporter(BaseExchangeImporter):
                                 'amount': str(amount),
                                 'rate': str(rate),
                             })
-                            
+
                     except Exception as e:
                         preview['invalid_rows'] += 1
                         if len(preview['errors']) < 10:  # Limit error messages
-                            preview['errors'].append(f'Row {idx + 1}: {str(e)}')
-                
+                            preview['errors'].append(f'Row {idx + 1}: {e!s}')
+
         except Exception as e:
-            preview['errors'].append(f'Failed to read file: {str(e)}')
-        
+            preview['errors'].append(f'Failed to read file: {e!s}')
+
         return preview
 
     def validate_csv_format(self, filepath: Path) -> tuple[bool, str]:
@@ -168,27 +168,27 @@ class RotkiGenericTradesImporter(BaseExchangeImporter):
         try:
             with open(filepath, newline='', encoding='utf-8') as csvfile:
                 reader = csv.DictReader(csvfile)
-                
+
                 if reader.fieldnames is None:
                     return False, 'CSV file is empty or has no headers'
-                
+
                 required_fields = {
                     'timestamp', 'location', 'base_asset', 'quote_asset',
-                    'trade_type', 'amount', 'rate'
+                    'trade_type', 'amount', 'rate',
                 }
                 optional_fields = {'fee', 'fee_currency', 'link', 'notes'}
                 all_valid_fields = required_fields | optional_fields
-                
+
                 # Check required fields
                 missing = required_fields - set(reader.fieldnames)
                 if missing:
                     return False, f'Missing required fields: {missing}'
-                
+
                 # Check for unknown fields
                 unknown = set(reader.fieldnames) - all_valid_fields
                 if unknown:
                     log.warning(f'CSV contains unknown fields that will be ignored: {unknown}')
-                
+
                 # Try to read first row to validate data format
                 try:
                     first_row = next(reader)
@@ -200,9 +200,9 @@ class RotkiGenericTradesImporter(BaseExchangeImporter):
                 except StopIteration:
                     return False, 'CSV file has headers but no data'
                 except Exception as e:
-                    return False, f'Invalid data format in first row: {str(e)}'
-                
+                    return False, f'Invalid data format in first row: {e!s}'
+
                 return True, 'CSV format is valid'
-                
+
         except Exception as e:
-            return False, f'Failed to validate CSV: {str(e)}'
+            return False, f'Failed to validate CSV: {e!s}'

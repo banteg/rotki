@@ -18,7 +18,7 @@ from .globaldb import (
     AssetUpdateRepository,
     PriceHistoryRepository,
 )
-from .history import HistoryEventRepository, EvmTransactionRepository
+from .history import EvmTransactionRepository, HistoryEventRepository
 from .infrastructure import (
     DatabaseInfoRepository,
     LocationDataRepository,
@@ -32,52 +32,52 @@ from .unit_of_work import UnitOfWork
 from .user_features import RPCNodeRepository, UserNoteRepository
 
 __all__ = [
-    # Base
-    'BaseRepository',
-    'UnitOfWork',
-    # Accounts
-    'BlockchainAccountRepository',
-    'TagRepository',
-    'XpubRepository',
-    'EvmAccountDetailsRepository',
-    'CredentialsRepository',
-    # Assets
-    'AssetRepository',
-    'OwnedAssetsRepository',
-    # Balances
-    'ManualBalanceRepository',
-    'TimedBalanceRepository',
-    # Trading
-    'MarginPositionRepository',
-    'QueryRangeRepository',
-    # History
-    'HistoryEventRepository',
-    'EvmTransactionRepository',
-    # Settings
-    'SettingsRepository',
-    'CacheRepository',
-    # User Features
-    'UserNoteRepository',
-    'RPCNodeRepository',
-    # ETH2
-    'ETH2ValidatorRepository',
-    'ETH2StakingRepository',
-    # DeFi
-    'CowswapRepository',
-    'GnosisPayRepository',
-    # NFT
-    'NFTRepository',
-    # Infrastructure
-    'PremiumRepository',
-    'LocationDataRepository',
-    'DatabaseInfoRepository',
-    # Global DB
-    'AssetCollectionRepository',
-    'AssetMappingRepository',
-    'AssetUpdateRepository',
-    'PriceHistoryRepository',
     # Transient
     'ABICacheRepository',
     'AddressBookRepository',
+    # Global DB
+    'AssetCollectionRepository',
+    'AssetMappingRepository',
+    # Assets
+    'AssetRepository',
+    'AssetUpdateRepository',
+    # Base
+    'BaseRepository',
+    # Accounts
+    'BlockchainAccountRepository',
+    'CacheRepository',
     'CalendarRepository',
+    # DeFi
+    'CowswapRepository',
+    'CredentialsRepository',
+    'DatabaseInfoRepository',
+    'ETH2StakingRepository',
+    # ETH2
+    'ETH2ValidatorRepository',
+    'EvmAccountDetailsRepository',
+    'EvmTransactionRepository',
+    'GnosisPayRepository',
+    # History
+    'HistoryEventRepository',
+    'LocationDataRepository',
+    # Balances
+    'ManualBalanceRepository',
+    # Trading
+    'MarginPositionRepository',
+    # NFT
+    'NFTRepository',
+    'OwnedAssetsRepository',
+    # Infrastructure
+    'PremiumRepository',
+    'PriceHistoryRepository',
+    'QueryRangeRepository',
+    'RPCNodeRepository',
+    # Settings
+    'SettingsRepository',
+    'TagRepository',
+    'TimedBalanceRepository',
+    'UnitOfWork',
+    # User Features
+    'UserNoteRepository',
+    'XpubRepository',
 ]
