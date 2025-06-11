@@ -1,5 +1,6 @@
 """REST API implementation using ORM - partial example"""
 
+import logging
 from http import HTTPStatus
 from pathlib import Path
 from typing import Any, TYPE_CHECKING

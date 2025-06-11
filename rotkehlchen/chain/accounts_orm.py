@@ -1,5 +1,6 @@
 """Blockchain accounts management using ORM"""
 
+import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Optional
 

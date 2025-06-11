@@ -37,7 +37,7 @@ from rotkehlchen.chain.ethereum.node_inquirer import EthereumInquirer
 from rotkehlchen.chain.ethereum.oracles.uniswap import UniswapV2Oracle, UniswapV3Oracle
 from rotkehlchen.chain.evm.contracts import EvmContracts
 from rotkehlchen.chain.evm.names import NamePrioritizer
-from rotkehlchen.chain.evm.nodes import populate_rpc_nodes_in_database_orm
+from rotkehlchen.chain.evm.nodes_orm import populate_rpc_nodes_in_database_orm
 from rotkehlchen.chain.gnosis.manager import GnosisManager
 from rotkehlchen.chain.gnosis.node_inquirer import GnosisInquirer
 from rotkehlchen.chain.optimism.manager import OptimismManager
