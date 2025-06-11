@@ -118,10 +118,83 @@ with db.session() as session:
 - Query optimization with eager loading where needed
 - Connection pooling disabled for SQLCipher compatibility
 
-## Future Enhancements
+## Database Relationships
 
-1. Add remaining models (NFTs, Validators, etc.)
-2. Implement Alembic for schema migrations
-3. Add query builders for complex operations
-4. Create ORM-based data access layer
-5. Add comprehensive test coverage
+### User Database
+- **BlockchainAccount** → XpubMapping, EvmAccountDetails, NFT, Calendar
+- **Asset** → TimedBalance, ManuallyTrackedBalance, MarginPosition, HistoryEvent
+- **EvmTransaction** → EvmInternalTransaction, EvmTxReceipt, OptimismTransaction
+- **HistoryEvent** → EvmEventInfo, EthStakingEventInfo, HistoryEventMapping
+- **Eth2Validator** → EthValidatorsDataCache, Eth2DailyStakingDetails
+- **PnlReport** → PnlReportTotal, PnlReportSetting, PnlEvent
+
+### Global Database
+- **GlobalAsset** → CommonAssetDetails, EvmToken, CustomAsset, AssetCollection
+- **EvmToken** → UnderlyingTokensList
+- **AssetCollection** → MultiassetMapping
+- **ContractABI** → ContractData
+
+## Alembic Migrations
+
+### Setup
+Alembic is configured for managing schema migrations:
+
+```python
+from rotkehlchen.db.orm.alembic_helper import AlembicHelper
+
+# Initialize helper for user database
+helper = AlembicHelper(
+    db_type='user',
+    db_path=Path('/path/to/rotkehlchen.db'),
+    password='your_password'
+)
+
+# Create initial migration
+helper.init_db()
+
+# Create new migration
+helper.create_migration("Add new feature")
+
+# Upgrade to latest
+helper.upgrade()
+```
+
+### Migration Commands
+- `alembic revision --autogenerate -m "message"` - Create new migration
+- `alembic upgrade head` - Upgrade to latest
+- `alembic downgrade -1` - Rollback one migration
+- `alembic current` - Show current revision
+- `alembic history` - Show migration history
+
+## Complete Model List
+
+### User Database Models (50+ tables)
+- Core: Settings, Asset, Tag, BlockchainAccount
+- Credentials: UserCredentials, ExternalServiceCredentials
+- Balances: TimedBalance, ManuallyTrackedBalance
+- Transactions: EvmTransaction, EvmInternalTransaction, ZkSyncLiteTransaction
+- Events: HistoryEvent, EvmEventInfo, EthStakingEventInfo
+- ETH2: Eth2Validator, EthValidatorsDataCache
+- DeFi: MarginPosition, CowswapOrder, GnosisPayData
+- User Features: AddressBook, UserNote, Calendar, AccountingRule
+- NFTs: NFT
+- Infrastructure: RPCNode, ENSMapping, KeyValueCache
+
+### Global Database Models
+- Assets: GlobalAsset, CommonAssetDetails, EvmToken, CustomAsset
+- Collections: AssetCollection, MultiassetMapping
+- Pricing: PriceHistory, BinancePair
+- Mappings: LocationAssetMapping, CounterpartyAssetMapping
+- Infrastructure: ContractABI, DefaultRPCNode, Cache tables
+
+### Transient Database Models
+- PnlReport, PnlReportTotal, PnlReportSetting, PnlEvent
+- TransientSettings
+
+## Next Steps
+
+1. Run tests to ensure ORM queries match raw SQL results
+2. Migrate data access layer to use ORM
+3. Create initial Alembic migration from existing schema
+4. Implement query optimization for complex operations
+5. Add comprehensive test coverage for all models
