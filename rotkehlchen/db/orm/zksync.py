@@ -29,9 +29,9 @@ class ZkSyncLiteTransaction(Base):
         CHAR(1),
         ForeignKey('zksynclite_tx_type.type'),
         nullable=False,
-        default='A',
+        server_default='A',
     )
-    is_decoded: Mapped[bool] = mapped_column(BooleanType, nullable=False, default=False)
+    is_decoded: Mapped[bool] = mapped_column(BooleanType, nullable=False, server_default='0')
     timestamp: Mapped[int] = mapped_column(TimestampType, nullable=False)
     block_number: Mapped[int] = mapped_column(INTEGER, nullable=False)
     from_address: Mapped[str] = mapped_column(TEXT, nullable=False)

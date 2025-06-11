@@ -3,13 +3,34 @@
 from typing import TypeVar
 
 from eth_typing import HexStr
-from sqlalchemy import BLOB, CHAR, INTEGER, TEXT, TypeDecorator
+from sqlalchemy import BLOB, CHAR, INTEGER, TEXT, TypeDecorator, VARCHAR
 from sqlalchemy.engine import Dialect
+from sqlalchemy.types import TypeEngine
 
 from rotkehlchen.fval import FVal
 from rotkehlchen.types import Timestamp
 
 T = TypeVar('T')
+
+
+class SquareBracketVARCHAR(TypeDecorator):
+    """VARCHAR type that uses square brackets notation for SQLite compatibility"""
+    impl = VARCHAR
+    cache_ok = True
+    
+    def __init__(self, length=None, **kwargs):
+        super().__init__(length=length, **kwargs)
+        self.length = length
+    
+    @property
+    def python_type(self):
+        return str
+    
+    def compile(self, dialect=None):
+        """Custom compilation to use square brackets"""
+        if self.length is not None:
+            return f"VARCHAR[{self.length}]"
+        return "VARCHAR"
 
 
 class CharEnumType(TypeDecorator):

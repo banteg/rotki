@@ -6,6 +6,7 @@ from sqlalchemy import (
     REAL,
     TEXT,
     CheckConstraint,
+    Computed,
     ForeignKey,
     ForeignKeyConstraint,
     text,
@@ -40,13 +41,13 @@ class NFT(Base):
     owner_address: Mapped[str | None] = mapped_column(TEXT)
     blockchain: Mapped[str] = mapped_column(
         TEXT,
+        Computed("'ETH'", persisted=False),  # GENERATED ALWAYS AS ('ETH') VIRTUAL
         nullable=False,
-        server_default=text("'ETH'"),
     )
     is_lp: Mapped[bool] = mapped_column(BooleanType, nullable=False)
     image_url: Mapped[str | None] = mapped_column(TEXT)
     collection_name: Mapped[str | None] = mapped_column(TEXT)
-    usd_price: Mapped[float] = mapped_column(REAL, nullable=False, default=0)
+    usd_price: Mapped[float] = mapped_column(REAL, nullable=False, server_default='0')
 
     # Relationships
     asset: Mapped['Asset'] = relationship(foreign_keys=[identifier])
@@ -60,8 +61,6 @@ class NFT(Base):
         ),
         CheckConstraint('manual_price IN (0, 1)'),
         CheckConstraint('is_lp IN (0, 1)'),
-        # Virtual column for blockchain
-        {'info': {'generated': True}},
     )
 
     def __repr__(self) -> str:

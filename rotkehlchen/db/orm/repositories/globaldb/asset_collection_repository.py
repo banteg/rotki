@@ -3,7 +3,7 @@
 
 from sqlalchemy import func, or_, select
 
-from rotkehlchen.db.orm.models import AssetCollection
+from rotkehlchen.db.orm.global_db_models import AssetCollection
 from rotkehlchen.db.orm.repositories.base import BaseRepository
 
 

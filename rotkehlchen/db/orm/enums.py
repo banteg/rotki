@@ -2,10 +2,10 @@
 
 from sqlalchemy import CHAR, INTEGER, Column
 
-from rotkehlchen.db.orm.base import UserDBBase as Base
+from rotkehlchen.db.orm.base import UserDBBase, GlobalDBBase
 
 
-class Location(Base):
+class Location(UserDBBase):
     """Model for location enum table"""
     __tablename__ = 'location'
 
@@ -16,7 +16,7 @@ class Location(Base):
         return f"<Location(location='{self.location}', seq={self.seq})>"
 
 
-class BalanceCategory(Base):
+class BalanceCategory(UserDBBase):
     """Model for balance category enum table"""
     __tablename__ = 'balance_category'
 
@@ -27,7 +27,7 @@ class BalanceCategory(Base):
         return f"<BalanceCategory(category='{self.category}', seq={self.seq})>"
 
 
-class ZkSyncLiteTxType(Base):
+class ZkSyncLiteTxType(UserDBBase):
     """Model for zkSync Lite transaction type enum table"""
     __tablename__ = 'zksynclite_tx_type'
 
@@ -40,7 +40,7 @@ class ZkSyncLiteTxType(Base):
 
 # Global database enums
 
-class AssetType(Base):
+class AssetType(GlobalDBBase):
     """Model for asset type enum table (global database)"""
     __tablename__ = 'asset_types'
 
@@ -51,7 +51,7 @@ class AssetType(Base):
         return f"<AssetType(type='{self.type}', seq={self.seq})>"
 
 
-class TokenKind(Base):
+class TokenKind(GlobalDBBase):
     """Model for token kind enum table (global database)"""
     __tablename__ = 'token_kinds'
 
@@ -62,7 +62,7 @@ class TokenKind(Base):
         return f"<TokenKind(token_kind='{self.token_kind}', seq={self.seq})>"
 
 
-class PriceHistorySourceType(Base):
+class PriceHistorySourceType(GlobalDBBase):
     """Model for price history source type enum table (global database)"""
     __tablename__ = 'price_history_source_types'
 

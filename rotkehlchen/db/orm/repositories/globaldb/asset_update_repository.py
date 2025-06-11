@@ -3,7 +3,7 @@
 
 from sqlalchemy import and_, delete, func, select
 
-from rotkehlchen.db.orm.models import AssetUpdate
+# from rotkehlchen.db.orm.global_db_models import AssetUpdate  # TODO: Add this model
 from rotkehlchen.db.orm.repositories.base import BaseRepository
 from rotkehlchen.types import Timestamp
 

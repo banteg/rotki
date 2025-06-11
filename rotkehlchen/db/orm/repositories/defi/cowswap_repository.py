@@ -3,7 +3,7 @@
 
 from sqlalchemy import func, select
 
-from rotkehlchen.db.orm.models import CowswapOrder
+from rotkehlchen.db.orm.protocols import CowswapOrder
 from rotkehlchen.db.orm.repositories.base import BaseRepository
 from rotkehlchen.fval import FVal
 from rotkehlchen.types import Timestamp

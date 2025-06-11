@@ -3,7 +3,7 @@
 
 from sqlalchemy import and_, delete, func, select
 
-from rotkehlchen.db.orm.models import PriceHistory
+from rotkehlchen.db.orm.global_db_models import PriceHistory
 from rotkehlchen.db.orm.repositories.base import BaseRepository
 from rotkehlchen.fval import FVal
 from rotkehlchen.types import Timestamp

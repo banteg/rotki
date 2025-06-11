@@ -10,25 +10,25 @@ from rotkehlchen.db.orm.repositories import (
     AssetCollectionRepository,
     AssetMappingRepository,
     AssetRepository,
-    AssetUpdateRepository,
+    # AssetUpdateRepository,  # TODO: Add AssetUpdate model
     BlockchainAccountRepository,
     CacheRepository,
     CalendarRepository,
     CowswapRepository,
     CredentialsRepository,
-    DatabaseInfoRepository,
-    ETH2StakingRepository,
-    ETH2ValidatorRepository,
+    # DatabaseInfoRepository,  # TODO: Add DBInfo model
+    # ETH2StakingRepository,  # TODO: Fix model mismatch
+    # ETH2ValidatorRepository,  # TODO: Fix model mismatch
     EvmAccountDetailsRepository,
     EvmTransactionRepository,
     GnosisPayRepository,
     HistoryEventRepository,
-    LocationDataRepository,
+    # LocationDataRepository,  # TODO: Add LocationData model
     ManualBalanceRepository,
     MarginPositionRepository,
     NFTRepository,
     OwnedAssetsRepository,
-    PremiumRepository,
+    # PremiumRepository,  # TODO: Add premium models
     PriceHistoryRepository,
     QueryRangeRepository,
     RPCNodeRepository,
@@ -91,8 +91,8 @@ class RepositoryManager:
         self.rpc_nodes = RPCNodeRepository(self.session)
 
         # ETH2 repositories
-        self.eth2_validators = ETH2ValidatorRepository(self.session)
-        self.eth2_staking = ETH2StakingRepository(self.session)
+        # self.eth2_validators = ETH2ValidatorRepository(self.session)  # TODO: Fix model mismatch
+        # self.eth2_staking = ETH2StakingRepository(self.session)  # TODO: Fix model mismatch
 
         # DeFi repositories
         self.cowswap = CowswapRepository(self.session)
@@ -102,14 +102,14 @@ class RepositoryManager:
         self.nfts = NFTRepository(self.session)
 
         # Infrastructure repositories
-        self.premium = PremiumRepository(self.session)
-        self.location_data = LocationDataRepository(self.session)
-        self.database_info = DatabaseInfoRepository(self.session)
+        # self.premium = PremiumRepository(self.session)  # TODO: Add premium models
+        # self.location_data = LocationDataRepository(self.session)  # TODO: Add LocationData model
+        # self.database_info = DatabaseInfoRepository(self.session)  # TODO: Add DBInfo model
 
         # Global database repositories
         self.asset_collections = AssetCollectionRepository(self.session)
         self.asset_mappings = AssetMappingRepository(self.session)
-        self.asset_updates = AssetUpdateRepository(self.session)
+        # self.asset_updates = AssetUpdateRepository(self.session)  # TODO: Add AssetUpdate model
         self.price_history = PriceHistoryRepository(self.session)
 
         # Transient database repositories
@@ -147,7 +147,7 @@ class GlobalDBRepositoryManager(RepositoryManager):
         # Only init global db repositories
         self.asset_collections = AssetCollectionRepository(self.session)
         self.asset_mappings = AssetMappingRepository(self.session)
-        self.asset_updates = AssetUpdateRepository(self.session)
+        # self.asset_updates = AssetUpdateRepository(self.session)  # TODO: Add AssetUpdate model
         self.price_history = PriceHistoryRepository(self.session)
 
 

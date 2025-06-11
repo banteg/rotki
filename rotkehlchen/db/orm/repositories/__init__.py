@@ -11,23 +11,23 @@ from .assets import AssetRepository, OwnedAssetsRepository
 from .balances import ManualBalanceRepository, TimedBalanceRepository
 from .base import BaseRepository
 from .defi import CowswapRepository, GnosisPayRepository
-from .eth2 import ETH2StakingRepository, ETH2ValidatorRepository
+# from .eth2 import ETH2StakingRepository, ETH2ValidatorRepository  # TODO: Fix model mismatch
 from .globaldb import (
     AssetCollectionRepository,
     AssetMappingRepository,
-    AssetUpdateRepository,
+    # AssetUpdateRepository,  # TODO: Add AssetUpdate model
     PriceHistoryRepository,
 )
 from .history import EvmTransactionRepository, HistoryEventRepository
-from .infrastructure import (
-    DatabaseInfoRepository,
-    LocationDataRepository,
-    PremiumRepository,
-)
+# from .infrastructure import (  # TODO: Add missing models
+#     DatabaseInfoRepository,
+#     LocationDataRepository,
+#     PremiumRepository,
+# )
 from .nft import NFTRepository
 from .settings import CacheRepository, SettingsRepository
 from .trading import MarginPositionRepository, QueryRangeRepository
-from .transient import ABICacheRepository, AddressBookRepository, CalendarRepository
+from .transient import AddressBookRepository, CalendarRepository  # ABICacheRepository - TODO
 from .unit_of_work import UnitOfWork
 from .user_features import RPCNodeRepository, UserNoteRepository
 
@@ -40,7 +40,7 @@ __all__ = [
     'AssetMappingRepository',
     # Assets
     'AssetRepository',
-    'AssetUpdateRepository',
+    # 'AssetUpdateRepository',  # TODO: Add AssetUpdate model
     # Base
     'BaseRepository',
     # Accounts
@@ -50,16 +50,16 @@ __all__ = [
     # DeFi
     'CowswapRepository',
     'CredentialsRepository',
-    'DatabaseInfoRepository',
-    'ETH2StakingRepository',
+    # 'DatabaseInfoRepository',  # TODO: Add DBInfo model
+    # 'ETH2StakingRepository',  # TODO: Fix model mismatch
     # ETH2
-    'ETH2ValidatorRepository',
+    # 'ETH2ValidatorRepository',  # TODO: Fix model mismatch
     'EvmAccountDetailsRepository',
     'EvmTransactionRepository',
     'GnosisPayRepository',
     # History
     'HistoryEventRepository',
-    'LocationDataRepository',
+    # 'LocationDataRepository',  # TODO: Add LocationData model
     # Balances
     'ManualBalanceRepository',
     # Trading
@@ -68,7 +68,7 @@ __all__ = [
     'NFTRepository',
     'OwnedAssetsRepository',
     # Infrastructure
-    'PremiumRepository',
+    # 'PremiumRepository',  # TODO: Add premium models
     'PriceHistoryRepository',
     'QueryRangeRepository',
     'RPCNodeRepository',

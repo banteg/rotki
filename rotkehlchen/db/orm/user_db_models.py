@@ -108,7 +108,7 @@ class MarginPosition(Base):
         CHAR(1),
         ForeignKey('location.location'),
         nullable=False,
-        default='A',
+        server_default='A',
     )
     open_time: Mapped[int | None] = mapped_column(TimestampType)
     close_time: Mapped[int | None] = mapped_column(TimestampType)
@@ -151,8 +151,10 @@ class MultiSettings(Base):
     """Model for multisettings table"""
     __tablename__ = 'multisettings'
 
+    # SQLAlchemy requires a primary key, but the SQL doesn't define one
+    # Using composite primary key as the closest match to UNIQUE(name, value)
     name: Mapped[str] = mapped_column(VARCHAR(24), primary_key=True, nullable=False)
-    value: Mapped[str | None] = mapped_column(TEXT, primary_key=True)
+    value: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False, server_default='')
 
     __table_args__ = (
         UniqueConstraint('name', 'value'),
@@ -179,7 +181,7 @@ class ENSMapping(Base):
     address: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
     ens_name: Mapped[str | None] = mapped_column(TEXT, unique=True)
     last_update: Mapped[int] = mapped_column(TimestampType, nullable=False)
-    last_avatar_update: Mapped[int] = mapped_column(TimestampType, nullable=False, default=0)
+    last_avatar_update: Mapped[int] = mapped_column(TimestampType, nullable=False, server_default='0')
 
     def __repr__(self) -> str:
         return f"<ENSMapping(address='{self.address}', ens_name='{self.ens_name}')>"
@@ -361,7 +363,7 @@ class CalendarReminder(Base):
         nullable=False,
     )
     secs_before: Mapped[int] = mapped_column(INTEGER, nullable=False)
-    acknowledged: Mapped[bool] = mapped_column(BooleanType, nullable=False, default=False)
+    acknowledged: Mapped[bool] = mapped_column(BooleanType, nullable=False, server_default='0')
 
     # Relationships
     event: Mapped['Calendar'] = relationship(back_populates='reminders')

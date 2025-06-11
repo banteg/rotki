@@ -4,13 +4,13 @@
 from sqlalchemy import select
 
 from rotkehlchen.db.orm.models import (
-    ExternalServiceCredentials,
     UserCredentialMapping,
     UserCredentials,
 )
+from rotkehlchen.db.orm.user_db_models import ExternalServiceCredentials
 from rotkehlchen.db.orm.repositories.base import BaseRepository
 from rotkehlchen.exchanges.constants import SUPPORTED_EXCHANGES
-from rotkehlchen.types import ApiCredentials, Location
+from rotkehlchen.types import ExchangeApiCredentials, Location
 
 
 class CredentialsRepository(BaseRepository[UserCredentials]):
@@ -56,7 +56,7 @@ class CredentialsRepository(BaseRepository[UserCredentials]):
     def get_credentials_by_exchange(
         self,
         location: Location,
-    ) -> list[ApiCredentials]:
+    ) -> list[ExchangeApiCredentials]:
         """Get all credentials for a specific exchange"""
         credentials = self.get_exchange_credentials(location=location)
         result = []
@@ -65,7 +65,7 @@ class CredentialsRepository(BaseRepository[UserCredentials]):
             # Get mappings for additional settings
             mappings = self.get_credential_mappings(cred.name, location)
 
-            result.append(ApiCredentials(
+            result.append(ExchangeApiCredentials(
                 name=cred.name,
                 api_key=cred.api_key,
                 api_secret=cred.api_secret,

@@ -3,7 +3,7 @@
 
 from sqlalchemy import select
 
-from rotkehlchen.db.orm.models import EvmAccountDetails
+from rotkehlchen.db.orm.user_db_models import EvmAccountDetails
 from rotkehlchen.db.orm.repositories.base import BaseRepository
 from rotkehlchen.types import ChecksumEvmAddress, Timestamp
 

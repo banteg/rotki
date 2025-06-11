@@ -4,7 +4,7 @@
 from sqlalchemy import delete, func, select
 
 from rotkehlchen.assets.asset import Asset
-from rotkehlchen.db.orm.models import (
+from rotkehlchen.db.orm.history_events import (
     EvmEventInfo,
     HistoryEvent,
     HistoryEventMapping,

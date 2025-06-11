@@ -29,8 +29,8 @@ from rotkehlchen.db.orm.types import (
 tag_mappings = Table(
     'tag_mappings',
     Base.metadata,
-    Column('object_reference', TEXT, primary_key=True),
-    Column('tag_name', TEXT, ForeignKey('tags.name'), primary_key=True),
+    Column('object_reference', TEXT, primary_key=True, nullable=False),
+    Column('tag_name', TEXT, ForeignKey('tags.name'), primary_key=True, nullable=False),
 )
 
 
@@ -88,7 +88,7 @@ class UserCredentials(Base):
         ForeignKey('location.location'),
         primary_key=True,
         nullable=False,
-        default='A',
+        server_default='A',
     )
     api_key: Mapped[str | None] = mapped_column(TEXT)
     api_secret: Mapped[str | None] = mapped_column(TEXT)
@@ -117,10 +117,10 @@ class UserCredentialMapping(Base):
     )
     credential_location: Mapped[str] = mapped_column(
         CHAR(1),
-        ForeignKey('user_credentials.location'),
+        ForeignKey('location.location'),
         primary_key=True,
         nullable=False,
-        default='A',
+        server_default='A',
     )
     setting_name: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
     setting_value: Mapped[str] = mapped_column(TEXT, nullable=False)
@@ -171,16 +171,17 @@ class TimedBalance(Base):
         ForeignKey('balance_category.category'),
         primary_key=True,
         nullable=False,
-        default='A',
+        server_default='A',
     )
-    timestamp: Mapped[int] = mapped_column(TimestampType, primary_key=True)
+    timestamp: Mapped[int] = mapped_column(TimestampType, primary_key=True, nullable=False)
     currency: Mapped[str] = mapped_column(
         TEXT,
         ForeignKey('assets.identifier', onupdate='CASCADE'),
         primary_key=True,
+        nullable=False,
     )
-    amount: Mapped[str] = mapped_column(FValType)
-    usd_value: Mapped[str] = mapped_column(FValType)
+    amount: Mapped[str | None] = mapped_column(FValType)
+    usd_value: Mapped[str | None] = mapped_column(FValType)
 
     # Relationships
     category_ref: Mapped['BalanceCategory'] = relationship()
@@ -190,11 +191,32 @@ class TimedBalance(Base):
         return f"<TimedBalance(timestamp={self.timestamp}, currency='{self.currency}', amount={self.amount})>"
 
 
+class TimedLocationData(Base):
+    """Model for timed location data table"""
+    __tablename__ = 'timed_location_data'
+
+    timestamp: Mapped[int] = mapped_column(TimestampType, primary_key=True, nullable=False)
+    location: Mapped[str] = mapped_column(
+        CHAR(1),
+        ForeignKey('location.location'),
+        primary_key=True,
+        nullable=False,
+        server_default='A',
+    )
+    usd_value: Mapped[str | None] = mapped_column(FValType)
+
+    # Relationships
+    location_ref: Mapped['Location'] = relationship()
+
+    def __repr__(self) -> str:
+        return f"<TimedLocationData(timestamp={self.timestamp}, location='{self.location}', usd_value={self.usd_value})>"
+
+
 class ManuallyTrackedBalance(Base):
     """Model for manually tracked balances table"""
     __tablename__ = 'manually_tracked_balances'
 
-    id: Mapped[int] = mapped_column(INTEGER, primary_key=True)
+    id: Mapped[int] = mapped_column(INTEGER, primary_key=True, nullable=False)
     asset: Mapped[str] = mapped_column(
         TEXT,
         ForeignKey('assets.identifier', onupdate='CASCADE'),
@@ -206,13 +228,13 @@ class ManuallyTrackedBalance(Base):
         CHAR(1),
         ForeignKey('location.location'),
         nullable=False,
-        default='A',
+        server_default='A',
     )
     category: Mapped[str] = mapped_column(
         CHAR(1),
         ForeignKey('balance_category.category'),
         nullable=False,
-        default='A',
+        server_default='A',
     )
 
     # Relationships

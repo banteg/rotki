@@ -3,7 +3,7 @@
 
 from sqlalchemy import and_, delete, func, select
 
-from rotkehlchen.db.orm.models import CalendarEvent, CalendarReminder
+from rotkehlchen.db.orm.user_db_models import Calendar as CalendarEvent, CalendarReminder
 from rotkehlchen.db.orm.repositories.base import BaseRepository
 from rotkehlchen.types import Timestamp
 

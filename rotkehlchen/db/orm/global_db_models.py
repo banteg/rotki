@@ -33,7 +33,7 @@ class GlobalAsset(Base):
         CHAR(1),
         ForeignKey('asset_types.type'),
         nullable=False,
-        default='A',
+        server_default='A',
     )
 
     # Relationships
@@ -126,7 +126,7 @@ class EvmToken(Base):
         CHAR(1),
         ForeignKey('token_kinds.token_kind'),
         nullable=False,
-        default='A',
+        server_default='A',
     )
     chain: Mapped[int] = mapped_column(INTEGER, nullable=False)
     address: Mapped[str] = mapped_column(VARCHAR(42), nullable=False)
@@ -305,7 +305,7 @@ class PriceHistory(Base):
         ForeignKey('price_history_source_types.type'),
         primary_key=True,
         nullable=False,
-        default='A',
+        server_default='A',
     )
     timestamp: Mapped[int] = mapped_column(TimestampType, primary_key=True, nullable=False)
     price: Mapped[str] = mapped_column(FValType, nullable=False)
@@ -360,7 +360,9 @@ class LocationAssetMapping(Base):
     """Model for location asset mappings table"""
     __tablename__ = 'location_asset_mappings'
 
-    location: Mapped[str | None] = mapped_column(TEXT, primary_key=True)
+    # Note: SQL has UNIQUE(location, exchange_symbol) but no primary key
+    # SQLAlchemy requires a PK, so we treat the unique constraint as PK
+    location: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False, server_default='')
     exchange_symbol: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
     local_id: Mapped[str] = mapped_column(TEXT, nullable=False)
 

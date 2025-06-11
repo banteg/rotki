@@ -3,8 +3,8 @@
 
 from sqlalchemy import func, or_, select
 
-from rotkehlchen.chain.evm.structures import EvmTransaction as EvmTransactionData
-from rotkehlchen.db.orm.models import (
+from rotkehlchen.types import EvmTransaction as EvmTransactionData
+from rotkehlchen.db.orm.transactions import (
     EvmInternalTransaction,
     EvmTransaction,
     EvmTxAddressMapping,

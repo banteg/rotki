@@ -33,7 +33,7 @@ class HistoryEvent(Base):
         CHAR(1),
         ForeignKey('location.location'),
         nullable=False,
-        default='A',
+        server_default='A',
     )
     location_label: Mapped[str | None] = mapped_column(TEXT)
     asset: Mapped[str] = mapped_column(
@@ -46,7 +46,7 @@ class HistoryEvent(Base):
     type: Mapped[str] = mapped_column(TEXT, nullable=False)
     subtype: Mapped[str] = mapped_column(TEXT, nullable=False)
     extra_data: Mapped[str | None] = mapped_column(TEXT)
-    ignored: Mapped[bool] = mapped_column(BooleanType, nullable=False, default=False)
+    ignored: Mapped[bool] = mapped_column(BooleanType, nullable=False, server_default='0')
 
     # Relationships
     location_ref: Mapped['Location'] = relationship()
@@ -153,7 +153,7 @@ class SkippedExternalEvent(Base):
         CHAR(1),
         ForeignKey('location.location'),
         nullable=False,
-        default='A',
+        server_default='A',
     )
     extra_data: Mapped[str | None] = mapped_column(TEXT)
 

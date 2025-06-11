@@ -49,6 +49,11 @@ class EvmTransaction(Base):
         cascade='all, delete-orphan',
         uselist=False,
     )
+    authorization: Mapped[Optional['EvmTransactionAuthorization']] = relationship(
+        back_populates='transaction',
+        cascade='all, delete-orphan',
+        uselist=False,
+    )
     address_mappings: Mapped[list['EvmTxAddressMapping']] = relationship(
         back_populates='transaction',
         cascade='all, delete-orphan',
@@ -166,6 +171,26 @@ class EvmTxReceiptLogTopic(Base):
 
     def __repr__(self) -> str:
         return f'<EvmTxReceiptLogTopic(log={self.log}, topic_index={self.topic_index})>'
+
+
+class EvmTransactionAuthorization(Base):
+    """Model for EVM transaction authorizations"""
+    __tablename__ = 'evm_transactions_authorizations'
+
+    tx_id: Mapped[int] = mapped_column(
+        INTEGER,
+        ForeignKey('evm_transactions.identifier', ondelete='CASCADE'),
+        primary_key=True,
+        nullable=False,
+    )
+    nonce: Mapped[int] = mapped_column(INTEGER, nullable=False)
+    delegated_address: Mapped[str] = mapped_column(TEXT, nullable=False)
+
+    # Relationships
+    transaction: Mapped['EvmTransaction'] = relationship(back_populates='authorization')
+
+    def __repr__(self) -> str:
+        return f'<EvmTransactionAuthorization(tx_id={self.tx_id}, delegated_address="{self.delegated_address}")>'
 
 
 class OptimismTransaction(Base):

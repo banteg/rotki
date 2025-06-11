@@ -67,6 +67,7 @@ from rotkehlchen.db.orm.models import (
     UserSettings,
     Tag,
     TimedBalance,
+    TimedLocationData,
     UserCredentialMapping,
     UserCredentials,
 )
@@ -84,6 +85,7 @@ from rotkehlchen.db.orm.protocols import (
 from rotkehlchen.db.orm.transactions import (
     EvmInternalTransaction,
     EvmTransaction,
+    EvmTransactionAuthorization,
     EvmTxAddressMapping,
     EvmTxMapping,
     EvmTxReceipt,
@@ -167,6 +169,7 @@ __all__ = [
     'EvmToken',
     # Transactions
     'EvmTransaction',
+    'EvmTransactionAuthorization',
     'EvmTxAddressMapping',
     'EvmTxMapping',
     'EvmTxReceipt',
@@ -209,6 +212,7 @@ __all__ = [
     'SkippedExternalEvent',
     'Tag',
     'TimedBalance',
+    'TimedLocationData',
     'TokenKind',
     'TransientSettings',
     'UnderlyingTokensList',

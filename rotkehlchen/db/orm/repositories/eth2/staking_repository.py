@@ -3,7 +3,7 @@
 
 from sqlalchemy import func, or_, select
 
-from rotkehlchen.db.orm.models import ETH2StakingDetail
+from rotkehlchen.db.orm.eth2 import Eth2DailyStakingDetails
 from rotkehlchen.db.orm.repositories.base import BaseRepository
 from rotkehlchen.fval import FVal
 from rotkehlchen.types import ChecksumEvmAddress, Timestamp

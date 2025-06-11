@@ -3,7 +3,7 @@
 
 from sqlalchemy import delete, select
 
-from rotkehlchen.db.orm.models import (
+from rotkehlchen.db.orm.global_db_models import (
     LocationAssetMapping,
     LocationUnsupportedAsset,
     MultiassetMapping,

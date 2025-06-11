@@ -3,7 +3,7 @@
 
 from sqlalchemy import delete, func, or_, select
 
-from rotkehlchen.db.orm.models import AddressBook
+from rotkehlchen.db.orm.user_db_models import AddressBook
 from rotkehlchen.db.orm.repositories.base import BaseRepository
 from rotkehlchen.types import ChecksumEvmAddress, SupportedBlockchain
 
