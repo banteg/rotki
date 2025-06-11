@@ -506,16 +506,16 @@ class RestAPI:
         if not success:
             return api_response(wrap_in_fail_result(message), status_code=HTTPStatus.CONFLICT)
 
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            new_settings = process_result(self.rotkehlchen.get_settings(cursor))
-            cache = self.rotkehlchen.data.db.get_cache_for_api(cursor)
+        # Get settings and cache using ORM
+        new_settings = process_result(self.rotkehlchen.get_settings())
+        cache = self.rotkehlchen.data.db.repos.cache.get_cache_for_api()
         result_dict = {'result': new_settings | cache, 'message': ''}
         return api_response(result=result_dict, status_code=HTTPStatus.OK)
 
     def get_settings(self) -> Response:
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            settings = process_result(self.rotkehlchen.get_settings(cursor))
-            cache = self.rotkehlchen.data.db.get_cache_for_api(cursor)
+        # Get settings and cache using ORM
+        settings = process_result(self.rotkehlchen.get_settings())
+        cache = self.rotkehlchen.data.db.repos.cache.get_cache_for_api()
         result_dict = _wrap_in_ok_result(settings | cache)
         return api_response(result=result_dict, status_code=HTTPStatus.OK)
 
@@ -625,7 +625,8 @@ class RestAPI:
         return {'result': result, 'message': ''}
 
     def _return_external_services_response(self) -> Response:
-        credentials_list = self.rotkehlchen.data.db.get_all_external_service_credentials()
+        # Get external service credentials using ORM
+        credentials_list = self.rotkehlchen.data.db.repos.external_services.get_all_credentials()
         response_dict: dict[str, Any] = {}
         response_dict['blockscout'] = {chain_id.to_name(): None for _, chain_id in BLOCKSCOUT_TO_CHAINID.items()}  # noqa: E501
         for credential in credentials_list:
@@ -651,11 +652,13 @@ class RestAPI:
             if x.service == ExternalService.GNOSIS_PAY:
                 updates_gnosispay = True
 
-        with self.rotkehlchen.data.db.user_write() as write_cursor:
-            self.rotkehlchen.data.db.add_external_service_credentials(
-                write_cursor=write_cursor,
-                credentials=services,
-            )
+        # Add external service credentials using ORM
+        with self.rotkehlchen.data.db.repos.unit_of_work():
+            for credential in services:
+                self.rotkehlchen.data.db.repos.external_services.add_credential(
+                    service=credential.service,
+                    api_key=credential.api_key,
+                )
 
         if (
                 updates_gnosispay and
@@ -669,7 +672,10 @@ class RestAPI:
         return self._return_external_services_response()
 
     def delete_external_services(self, services: list[ExternalService]) -> Response:
-        self.rotkehlchen.data.db.delete_external_service_credentials(services)
+        # Delete external service credentials using ORM
+        with self.rotkehlchen.data.db.repos.unit_of_work():
+            for service in services:
+                self.rotkehlchen.data.db.repos.external_services.delete_credential(service)
         return self._return_external_services_response()
 
     def get_exchanges(self) -> Response:
@@ -929,13 +935,12 @@ class RestAPI:
         """Add list of history events to DB. Returns identifier of first event.
         The first event is the main event, subsequent events are related (e.g. fees).
         """
-        db = DBHistoryEvents(self.rotkehlchen.data.db)
         main_identifier = None
         try:
-            with self.rotkehlchen.data.db.user_write() as cursor:
+            # Add history events using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
                 for idx, event in enumerate(events):
-                    identifier = db.add_history_event(
-                        write_cursor=cursor,
+                    identifier = self.rotkehlchen.data.db.repos.history_events.add_event(
                         event=event,
                         mapping_values={
                             HISTORY_MAPPING_KEY_STATE: HISTORY_MAPPING_STATE_CUSTOMIZED,
@@ -960,17 +965,15 @@ class RestAPI:
             events: list['HistoryBaseEntry'],
             identifiers: list[int] | None,
     ) -> Response:
-        events_db = DBHistoryEvents(self.rotkehlchen.data.db)
         if (events_type := events[0].entry_type) in {
             HistoryBaseEntryType.ASSET_MOVEMENT_EVENT,
             HistoryBaseEntryType.SWAP_EVENT,
             HistoryBaseEntryType.EVM_SWAP_EVENT,
         }:
             try:
-                with events_db.db.conn.write_ctx() as write_cursor:
-                    edit_grouped_events_with_optional_fee(
-                        events_db=events_db,
-                        write_cursor=write_cursor,
+                # Edit grouped events using ORM
+                with self.rotkehlchen.data.db.repos.unit_of_work():
+                    self.rotkehlchen.data.db.repos.history_events.edit_grouped_events_with_fee(
                         events=events,
                         events_type=events_type,
                         identifiers=identifiers,
@@ -981,37 +984,38 @@ class RestAPI:
                 return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
         try:  # case where we just edit the events
-            with self.rotkehlchen.data.db.user_write() as write_cursor:
+            # Edit events using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
                 for event in events:
-                    events_db.edit_history_event(
-                        event=event,
-                        write_cursor=write_cursor,
-                    )
+                    self.rotkehlchen.data.db.repos.history_events.edit_event(event)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
     def delete_history_events(self, identifiers: list[int], force_delete: bool) -> Response:
-        db = DBHistoryEvents(self.rotkehlchen.data.db)
-        error_msg = db.delete_history_events_by_identifier(
-            identifiers=identifiers,
-            force_delete=force_delete,
-        )
-        if error_msg is not None:
-            return api_response(wrap_in_fail_result(error_msg), status_code=HTTPStatus.CONFLICT)
+        # Delete history events using ORM
+        try:
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                for identifier in identifiers:
+                    self.rotkehlchen.data.db.repos.history_events.delete_event(
+                        identifier=identifier,
+                        force_delete=force_delete,
+                    )
+        except InputError as e:
+            return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
         # Success
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
-    def _get_tags(self, cursor: 'DBCursor') -> Response:
-        result = self.rotkehlchen.data.db.get_tags(cursor)
-        response = {name: data.serialize() for name, data in result.items()}
+    def _get_tags(self) -> Response:
+        # Get tags using ORM
+        tags = self.rotkehlchen.data.db.repos.tags.get_all_tags()
+        response = {tag.name: tag.serialize() for tag in tags}
         return api_response(_wrap_in_ok_result(response), status_code=HTTPStatus.OK)
 
     def get_tags(self) -> Response:
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            return self._get_tags(cursor)
+        return self._get_tags()
 
     def add_tag(
             self,
@@ -1020,20 +1024,19 @@ class RestAPI:
             background_color: HexColorCode,
             foreground_color: HexColorCode,
     ) -> Response:
-
-        with self.rotkehlchen.data.db.user_write() as cursor:
-            try:
-                self.rotkehlchen.data.db.add_tag(
-                    write_cursor=cursor,
+        try:
+            # Add tag using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.tags.add_tag(
                     name=name,
                     description=description,
                     background_color=background_color,
                     foreground_color=foreground_color,
                 )
-            except TagConstraintError as e:
-                return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
+        except TagConstraintError as e:
+            return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
-            return self._get_tags(cursor)
+        return self._get_tags()
 
     def edit_tag(
             self,
@@ -1043,9 +1046,9 @@ class RestAPI:
             foreground_color: HexColorCode | None,
     ) -> Response:
         try:
-            with self.rotkehlchen.data.db.user_write() as cursor:
-                self.rotkehlchen.data.db.edit_tag(
-                    write_cursor=cursor,
+            # Edit tag using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.tags.update_tag(
                     name=name,
                     description=description,
                     background_color=background_color,
@@ -1056,18 +1059,17 @@ class RestAPI:
         except TagConstraintError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            return self._get_tags(cursor)
+        return self._get_tags()
 
     def delete_tag(self, name: str) -> Response:
         try:
-            with self.rotkehlchen.data.db.user_write() as cursor:
-                self.rotkehlchen.data.db.delete_tag(cursor, name=name)
+            # Delete tag using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.tags.delete_tag(name)
         except TagConstraintError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            return self._get_tags(cursor)
+        return self._get_tags()
 
     def get_users(self) -> Response:
         result = self.rotkehlchen.data.get_users()
@@ -1146,12 +1148,12 @@ class RestAPI:
             return {'result': None, 'message': str(e), 'status_code': HTTPStatus.CONFLICT}
 
         # Success!
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            result = {
-                'exchanges': self.rotkehlchen.exchange_manager.get_connected_exchanges_info(),
-                'settings': process_result(self.rotkehlchen.get_settings(cursor)) |
-                self.rotkehlchen.data.db.get_cache_for_api(cursor),
-            }
+        # Get settings and cache using ORM
+        result = {
+            'exchanges': self.rotkehlchen.exchange_manager.get_connected_exchanges_info(),
+            'settings': process_result(self.rotkehlchen.get_settings()) |
+            self.rotkehlchen.data.db.repos.cache.get_cache_for_api(),
+        }
         return {
             'result': result,
             'message': '',
@@ -1216,9 +1218,9 @@ class RestAPI:
 
         # Success!
         exchanges = self.rotkehlchen.exchange_manager.get_connected_exchanges_info()
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            settings = process_result(self.rotkehlchen.get_settings(cursor))
-            settings |= self.rotkehlchen.data.db.get_cache_for_api(cursor)
+        # Get settings and cache using ORM
+        settings = process_result(self.rotkehlchen.get_settings())
+        settings |= self.rotkehlchen.data.db.repos.cache.get_cache_for_api()
 
         return _wrap_in_ok_result({
             'exchanges': exchanges,
@@ -1288,12 +1290,14 @@ class RestAPI:
             result_dict['message'] = f'Provided user "{name}" is not the logged in user'
             return api_response(result_dict, status_code=HTTPStatus.BAD_REQUEST)
 
-        if current_password != self.rotkehlchen.data.db.password:
+        # Check password using ORM session manager
+        if current_password != self.rotkehlchen.data.db.session_manager.password:
             result_dict['message'] = 'Provided current password is not correct'
             return api_response(result_dict, status_code=HTTPStatus.UNAUTHORIZED)
 
         success: bool
         try:
+            # Change password using ORM
             success = self.rotkehlchen.data.db.change_password(new_password=new_password)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.BAD_REQUEST)
@@ -1321,11 +1325,8 @@ class RestAPI:
     def query_list_of_all_assets(self, filter_query: AssetsFilterQuery) -> Response:
         """Query assets using the provided filter_query and return them in a paginated format"""
         assets, assets_found = GlobalDBHandler.retrieve_assets(userdb=self.rotkehlchen.data.db, filter_query=filter_query)  # noqa: E501
-        with GlobalDBHandler().conn.read_ctx() as cursor:
-            assets_total = self.rotkehlchen.data.db.get_entries_count(
-                cursor=cursor,
-                entries_table='assets',
-            )
+        # Get entries count using ORM
+        assets_total = self.rotkehlchen.data.db.repos.assets.get_total_count()
 
         result = {
             'entries': assets,
@@ -1338,7 +1339,8 @@ class RestAPI:
     def get_assets_mappings(self, identifiers: list[str]) -> Response:
         try:
             asset_mappings, asset_collections = GlobalDBHandler.get_assets_mappings(identifiers)
-            nft_mappings = self.rotkehlchen.data.db.get_nft_mappings(identifiers)
+            # Get NFT mappings using ORM
+            nft_mappings = self.rotkehlchen.data.db.repos.nfts.get_nft_mappings(identifiers)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.BAD_REQUEST)
         data_dict = {
@@ -1383,8 +1385,9 @@ class RestAPI:
         )
 
     def query_owned_assets(self) -> Response:
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            result = process_result_list(self.rotkehlchen.data.db.query_owned_assets(cursor))
+        # Query owned assets using ORM
+        owned_assets = self.rotkehlchen.data.db.repos.owned_assets.get_all_owned_assets()
+        result = process_result_list(owned_assets)
         return api_response(
             _wrap_in_ok_result(result),
             status_code=HTTPStatus.OK,
