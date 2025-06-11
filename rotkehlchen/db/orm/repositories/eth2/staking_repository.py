@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 
 from rotkehlchen.db.orm.models import ETH2StakingDetail
 from rotkehlchen.db.orm.repositories.base import BaseRepository

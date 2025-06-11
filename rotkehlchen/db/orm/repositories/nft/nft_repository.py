@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from rotkehlchen.db.orm.models import NFT
 from rotkehlchen.db.orm.repositories.base import BaseRepository

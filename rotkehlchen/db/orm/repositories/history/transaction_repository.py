@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from sqlalchemy import and_, delete, func, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import joinedload
 
 from rotkehlchen.chain.evm.structures import EvmTransaction as EvmTransactionData
@@ -13,6 +13,7 @@ from rotkehlchen.db.orm.models import (
     EvmTxMapping,
     EvmTxReceipt,
     EvmTxReceiptLog,
+    EvmTxReceiptLogTopic,
     OptimismTransaction,
 )
 from rotkehlchen.db.orm.repositories.base import BaseRepository

@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, or_, select
 
 from rotkehlchen.db.orm.models import UserNote
 from rotkehlchen.db.orm.repositories.base import BaseRepository
