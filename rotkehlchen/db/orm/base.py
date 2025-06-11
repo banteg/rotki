@@ -25,6 +25,21 @@ class Base(DeclarativeBase):
     metadata = MetaData()
 
 
+class UserDBBase(DeclarativeBase):
+    """Base class for user database models"""
+    metadata = MetaData()
+
+
+class GlobalDBBase(DeclarativeBase):
+    """Base class for global database models"""
+    metadata = MetaData()
+
+
+class TransientDBBase(DeclarativeBase):
+    """Base class for transient database models"""
+    metadata = MetaData()
+
+
 class GeventSafeDatabase:
     """Thread-safe database connection manager for gevent compatibility"""
 

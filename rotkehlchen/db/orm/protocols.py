@@ -4,7 +4,7 @@
 from sqlalchemy import INTEGER, TEXT
 from sqlalchemy.orm import Mapped, mapped_column
 
-from rotkehlchen.db.orm.base import Base
+from rotkehlchen.db.orm.base import UserDBBase as Base
 from rotkehlchen.db.orm.types import FValType, HexBytesType, TimestampType
 
 

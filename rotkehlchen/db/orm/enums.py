@@ -2,7 +2,7 @@
 
 from sqlalchemy import CHAR, INTEGER, Column
 
-from rotkehlchen.db.orm.base import Base
+from rotkehlchen.db.orm.base import UserDBBase as Base
 
 
 class Location(Base):

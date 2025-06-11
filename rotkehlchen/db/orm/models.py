@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from rotkehlchen.db.orm.enums import BalanceCategory, Location
     from rotkehlchen.db.orm.user_db_models import EvmAccountDetails, XpubMapping
 
-from rotkehlchen.db.orm.base import Base
+from rotkehlchen.db.orm.base import UserDBBase as Base
 from rotkehlchen.db.orm.types import (
     FValType,
     TimestampType,
@@ -37,7 +37,6 @@ tag_mappings = Table(
 class UserSettings(Base):
     """Model for settings table in user database"""
     __tablename__ = 'settings'
-    __table_args__ = {'extend_existing': True}
 
     name: Mapped[str] = mapped_column(VARCHAR(24), primary_key=True)
     value: Mapped[str | None] = mapped_column(TEXT)

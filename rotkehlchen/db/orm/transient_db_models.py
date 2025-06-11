@@ -4,7 +4,7 @@
 from sqlalchemy import INTEGER, TEXT, VARCHAR, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from rotkehlchen.db.orm.base import Base
+from rotkehlchen.db.orm.base import TransientDBBase as Base
 from rotkehlchen.db.orm.types import FValType, TimestampType
 
 
@@ -107,7 +107,6 @@ class PnlEvent(Base):
 class TransientSettings(Base):
     """Model for settings table in transient database"""
     __tablename__ = 'settings'
-    __table_args__ = {'extend_existing': True}
 
     name: Mapped[str] = mapped_column(VARCHAR(24), primary_key=True, nullable=False)
     value: Mapped[str | None] = mapped_column(TEXT)

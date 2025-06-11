@@ -14,7 +14,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from rotkehlchen.db.orm.base import Base
+from rotkehlchen.db.orm.base import GlobalDBBase as Base
 from rotkehlchen.db.orm.types import BooleanType, FValType, TimestampType
 
 if TYPE_CHECKING:
@@ -405,7 +405,6 @@ class LocationUnsupportedAsset(Base):
 class GlobalSettings(Base):
     """Model for settings table in global database"""
     __tablename__ = 'settings'
-    __table_args__ = {'extend_existing': True}
 
     name: Mapped[str] = mapped_column(VARCHAR(24), primary_key=True, nullable=False)
     value: Mapped[str | None] = mapped_column(TEXT)

@@ -11,7 +11,8 @@ from rotkehlchen.db.orm.engines import (
     create_user_db_engine,
     test_engine_connection,
 )
-from rotkehlchen.db.orm.models import (
+from rotkehlchen.db.orm.base import (
+    GlobalDBBase,
     TransientDBBase,
     UserDBBase,
 )

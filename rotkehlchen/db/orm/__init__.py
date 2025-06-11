@@ -4,12 +4,9 @@
 from rotkehlchen.db.orm.base import (
     Base,
     GeventSafeDatabase,
-    get_global_db,
-    get_transient_db,
-    get_user_db,
-    init_global_db,
-    init_transient_db,
-    init_user_db,
+    GlobalDBBase,
+    TransientDBBase,
+    UserDBBase,
 )
 
 # Enum models
@@ -143,6 +140,9 @@ __all__ = [
     'BalanceCategory',
     # Base
     'Base',
+    'UserDBBase',
+    'GlobalDBBase',
+    'TransientDBBase',
     'BinancePair',
     'BlockchainAccount',
     'Calendar',
