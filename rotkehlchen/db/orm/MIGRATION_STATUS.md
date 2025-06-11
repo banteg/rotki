@@ -11,7 +11,7 @@
 
 ### Application Components
 - [x] Main Rotkehlchen class (`rotkehlchen_orm.py`)
-- [x] REST API implementation (`api/rest_orm.py`)
+- [x] REST API implementation - **COMPLETED** (all 147 DB calls migrated to ORM)
 - [x] Accounting module (`accounting/accountant_orm.py`)
 - [x] Exchange management (`exchanges/manager_orm.py`)
 - [x] Blockchain account management (`chain/accounts_orm.py`)
@@ -30,10 +30,12 @@
 ## 🚧 In Progress / TODO Items
 
 ### High Priority
-1. **Premium Sync** - Update premium synchronization to use ORM
-2. **Data Import/Export** - CSV import functionality needs ORM
-3. **Transaction Decoders** - Chain-specific decoders need updating
-4. **Complex Queries** - Some aggregation queries need optimization
+1. **Missing Repository Methods** - Implement methods called by migrated REST API endpoints
+2. **Test Suite Updates** - Fix tests broken by ORM migration
+3. **Premium Sync** - Update premium synchronization to use ORM
+4. **Data Import/Export** - CSV import functionality needs ORM
+5. **Transaction Decoders** - Chain-specific decoders need updating
+6. **Complex Queries** - Some aggregation queries need optimization
 
 ### Medium Priority
 1. **Performance Benchmarks** - Compare old vs new implementation
@@ -45,6 +47,21 @@
 1. **Additional Indexes** - Performance tuning
 2. **Query Optimization** - Complex report generation
 3. **Monitoring** - Query performance tracking
+
+## Issues Encountered and Resolutions
+
+### SQLAlchemy Table Name Conflicts
+- **Issue**: Multiple models (UserSettings, GlobalSettings, TransientSettings) with same table name 'settings'
+- **Resolution**: Added `extend_existing=True` to table args as temporary workaround
+- **TODO**: Implement separate Base classes for each database (user, global, transient)
+
+### Import Errors
+- **Issue**: HexStr imported from wrong module
+- **Resolution**: Changed import from `rotkehlchen.types` to `eth_typing`
+
+### Missing Primary Keys
+- **Issue**: LocationAssetMapping and LocationUnsupportedAsset models missing primary keys
+- **Resolution**: Added `primary_key=True` to appropriate columns
 
 ## Repository Coverage
 
