@@ -4136,16 +4136,12 @@ class RestAPI:
         return api_response(_wrap_in_ok_result(config), status_code=HTTPStatus.OK)
 
     def get_user_notes(self, filter_query: UserNotesFilterQuery) -> Response:
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            user_notes, entries_found = self.rotkehlchen.data.db.get_user_notes_and_limit_info(
-                filter_query=filter_query,
-                cursor=cursor,
-                has_premium=has_premium_check(self.rotkehlchen.premium),
-            )
-            user_notes_total = self.rotkehlchen.data.db.get_entries_count(
-                cursor=cursor,
-                entries_table='user_notes',
-            )
+        # Get user notes using ORM
+        user_notes, entries_found = self.rotkehlchen.data.db.repos.user_notes.get_notes_and_limit_info(
+            filter_query=filter_query,
+            has_premium=has_premium_check(self.rotkehlchen.premium),
+        )
+        user_notes_total = self.rotkehlchen.data.db.repos.user_notes.count()
         entries = [entry.serialize() for entry in user_notes]
         result = {
             'entries': entries,
@@ -4187,7 +4183,9 @@ class RestAPI:
 
     def delete_user_note(self, identifier: int) -> Response:
         try:
-            self.rotkehlchen.data.db.delete_user_note(identifier=identifier)
+            # Delete user note using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.user_notes.delete_note(identifier=identifier)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
@@ -4479,8 +4477,9 @@ class RestAPI:
                 if entry.is_file():
                     entry.unlink()
 
-            with self.rotkehlchen.data.db.user_write() as delete_cursor:
-                delete_cursor.execute('UPDATE ens_mappings SET last_avatar_update=?', (Timestamp(0),))  # noqa: E501
+            # Reset all ENS avatar updates using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.ens_mappings.reset_all_avatar_updates()
 
             return api_response(OK_RESULT)
 
@@ -4489,11 +4488,10 @@ class RestAPI:
             if avatar.is_file():
                 avatar.unlink()
 
-        with self.rotkehlchen.data.db.user_write() as delete_cursor:
-            delete_cursor.executemany(
-                'UPDATE ens_mappings SET last_avatar_update=? WHERE ens_name=?',
-                [(Timestamp(0), avatar_name) for avatar_name in avatars],
-            )
+        # Reset specific ENS avatar updates using ORM
+        with self.rotkehlchen.data.db.repos.unit_of_work():
+            for avatar_name in avatars:
+                self.rotkehlchen.data.db.repos.ens_mappings.reset_avatar_update(avatar_name)
 
         return api_response(OK_RESULT)
 
@@ -4647,9 +4645,9 @@ class RestAPI:
                         status_code=HTTPStatus.CONFLICT,
                     )
             case ProtocolsWithCache.ETH_WITHDRAWALS:
-                with self.rotkehlchen.data.db.conn.write_ctx() as write_cursor:
-                    self.rotkehlchen.data.db.delete_dynamic_caches(
-                        write_cursor=write_cursor,
+                # Delete ETH withdrawals cache using ORM
+                with self.rotkehlchen.data.db.repos.unit_of_work():
+                    self.rotkehlchen.data.db.repos.cache.delete_dynamic_caches(
                         key_parts=[
                             DBCacheDynamic.WITHDRAWALS_TS.value[0].split('_')[0],
                             DBCacheDynamic.WITHDRAWALS_IDX.value[0].split('_')[0],
@@ -4657,9 +4655,9 @@ class RestAPI:
                     )
 
             case ProtocolsWithCache.ETH_BLOCKS:
-                with self.rotkehlchen.data.db.conn.write_ctx() as write_cursor:
-                    self.rotkehlchen.data.db.delete_dynamic_caches(
-                        write_cursor=write_cursor,
+                # Delete ETH blocks cache using ORM
+                with self.rotkehlchen.data.db.repos.unit_of_work():
+                    self.rotkehlchen.data.db.repos.cache.delete_dynamic_caches(
                         key_parts=[DBCacheDynamic.LAST_PRODUCED_BLOCKS_QUERY_TS.value[0][:30]],
                     )
 
@@ -4755,14 +4753,13 @@ class RestAPI:
     ) -> dict[str, Any] | Response:
         """Export history events data to a CSV file."""
         dbevents = DBHistoryEvents(self.rotkehlchen.data.db)
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            history_events, _, _ = dbevents.get_history_events_and_limit_info(
-                cursor=cursor,
-                filter_query=filter_query,
-                has_premium=has_premium_check(self.rotkehlchen.premium),
-                match_exact_events=match_exact_events,
-                entries_limit=None,
-            )
+        # Get history events using ORM
+        history_events, _, _ = self.rotkehlchen.data.db.repos.history_events.get_events_and_limit_info(
+            filter_query=filter_query,
+            has_premium=has_premium_check(self.rotkehlchen.premium),
+            match_exact_events=match_exact_events,
+            entries_limit=None,
+        )
 
         if len(history_events) == 0:
             return wrap_in_fail_result(
@@ -4770,9 +4767,9 @@ class RestAPI:
                 status_code=HTTPStatus.CONFLICT,
             )
 
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            settings = self.rotkehlchen.get_settings(cursor)
-            currency = settings.main_currency.resolve_to_asset_with_oracles()
+        # Get settings using ORM
+        settings = self.rotkehlchen.get_settings()
+        currency = settings.main_currency.resolve_to_asset_with_oracles()
 
         serialized_history_events = []
         headers: dict[str, None] = {}
@@ -4944,7 +4941,7 @@ class RestAPI:
             result = {
                 'entries': entries,
                 'entries_found': total_filter_count,
-                'entries_total': self.rotkehlchen.data.db.get_entries_count(cursor=cursor, entries_table='accounting_rules'),  # noqa: E501
+                'entries_total': self.rotkehlchen.data.db.repos.accounting_rules.count(),  # noqa: E501
                 'entries_limit': -1,
             }
 
@@ -4979,11 +4976,8 @@ class RestAPI:
     def list_accounting_rules_conflicts(self, filter_query: DBFilterQuery) -> Response:
         conflict_db = DBRemoteConflicts(self.rotkehlchen.data.db)
         conflicts = conflict_db.list_accounting_conflicts(filter_query=filter_query)
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            total_entries = self.rotkehlchen.data.db.get_entries_count(
-                cursor=cursor,
-                entries_table='unresolved_remote_conflicts',
-            )
+        # Get total entries using ORM
+        total_entries = self.rotkehlchen.data.db.repos.unresolved_conflicts.count()
         result = {
             'entries': conflicts,
             'entries_found': total_entries,
@@ -5009,11 +5003,9 @@ class RestAPI:
             if token.protocol == SPAM_PROTOCOL:  # remove the spam protocol if it was set
                 set_token_spam_protocol(write_cursor=write_cursor, token=token, is_spam=False)
 
-        with self.rotkehlchen.data.db.user_write() as write_cursor:  # remove it from the ignored assets  # noqa: E501
-            self.rotkehlchen.data.db.remove_from_ignored_assets(
-                write_cursor=write_cursor,
-                asset=token,
-            )
+        # Remove from ignored assets using ORM
+        with self.rotkehlchen.data.db.repos.unit_of_work():
+            self.rotkehlchen.data.db.repos.ignored_assets.remove_ignored_asset(token.identifier)
 
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
@@ -5396,8 +5388,8 @@ class RestAPI:
             if address:
                 addresses_to_query: tuple[ChecksumEvmAddress, ...] = (address,)
             else:
-                with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-                    addresses_to_query = self.rotkehlchen.data.db.get_blockchain_accounts(cursor).get(chain_manager.node_inquirer.blockchain)  # noqa: E501
+                # Get blockchain accounts using ORM
+                addresses_to_query = self.rotkehlchen.data.db.repos.accounts.get_blockchain_accounts().get(chain_manager.node_inquirer.blockchain)  # noqa: E501
 
             if len(addresses_to_query) == 0:
                 continue
@@ -5434,14 +5426,12 @@ class RestAPI:
             from_address: ChecksumEvmAddress,
             to_address: ChecksumEvmAddress,
     ) -> Response:
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            cursor.execute(
-                'SELECT COUNT(*) FROM history_events JOIN evm_events_info ON '
-                'history_events.identifier=evm_events_info.identifier WHERE '
-                'location_label=? AND address=?',
-                (from_address, to_address),
-            )
-            return api_response(_wrap_in_ok_result(result=cursor.fetchone()[0] > 0))
+        # Check if addresses have interacted using ORM
+        count = self.rotkehlchen.data.db.repos.history_events.count_interactions(
+            from_address=from_address,
+            to_address=to_address,
+        )
+        return api_response(_wrap_in_ok_result(result=count > 0))
 
     @async_api_call()
     def prepare_token_transfer(

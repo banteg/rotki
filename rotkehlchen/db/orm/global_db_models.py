@@ -389,8 +389,8 @@ class LocationUnsupportedAsset(Base):
     """Model for location unsupported assets table"""
     __tablename__ = 'location_unsupported_assets'
 
-    location: Mapped[str] = mapped_column(CHAR(1), nullable=False)
-    exchange_symbol: Mapped[str] = mapped_column(TEXT, nullable=False)
+    location: Mapped[str] = mapped_column(CHAR(1), primary_key=True, nullable=False)
+    exchange_symbol: Mapped[str] = mapped_column(TEXT, primary_key=True, nullable=False)
 
     __table_args__ = (
         UniqueConstraint('location', 'exchange_symbol'),
