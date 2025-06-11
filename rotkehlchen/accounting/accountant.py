@@ -11,7 +11,6 @@ from rotkehlchen.accounting.export.csv import CSVExporter
 from rotkehlchen.accounting.pot import AccountingPot
 from rotkehlchen.accounting.types import EventAccountingRuleStatus, MissingPrice
 from rotkehlchen.chain.evm.accounting.aggregator import EVMAccountingAggregators
-from rotkehlchen.db.reports import DBAccountingReports
 from rotkehlchen.db.settings import DBSettings
 from rotkehlchen.errors.asset import UnknownAsset, UnprocessableTradePair, UnsupportedAsset
 from rotkehlchen.errors.misc import AccountingError, RemoteError
@@ -25,7 +24,7 @@ from rotkehlchen.utils.data_structures import DefaultLRUCache, LRUCacheWithRemov
 if TYPE_CHECKING:
     from rotkehlchen.accounting.mixins.event import AccountingEventMixin
     from rotkehlchen.chain.aggregator import ChainsAggregator
-    from rotkehlchen.db.dbhandler import DBHandler
+    from rotkehlchen.db.orm.database import RotkehlchenDatabase
 
 
 logger = logging.getLogger(__name__)
@@ -42,7 +41,7 @@ class Accountant:
 
     def __init__(
             self,
-            db: 'DBHandler',
+            db: 'RotkehlchenDatabase',
             msg_aggregator: MessagesAggregator,
             chains_aggregator: 'ChainsAggregator',
             premium: Premium | None,
@@ -136,30 +135,41 @@ class Accountant:
         events_limit = -1 if active_premium else FREE_PNL_EVENTS_LIMIT
         # Ask the DB for the settings once at the start of processing so we got the
         # same settings through the entire task
-        with self.db.conn.read_ctx() as cursor:
-            db_settings = self.db.get_settings(cursor)
-            self.ignored_asset_ids = self.db.get_ignored_asset_ids(cursor)
-            # Create a new pnl report in the DB to be used to save each generated event
-            dbpnl = DBAccountingReports(self.db)
-            first_ts = Timestamp(0) if len(events) == 0 else events[0].get_timestamp()
-            report_id = dbpnl.add_report(
+        # Get settings using ORM
+        settings_dict = self.db.repos.settings.get_all_settings()
+        from rotkehlchen.db.settings import DBSettings
+        db_settings = DBSettings(have_premium=active_premium, **settings_dict)
+        
+        # Get ignored assets using ORM
+        ignored_assets = self.db.repos.ignored_assets.get_all_ignored_assets()
+        self.ignored_asset_ids = {asset.identifier for asset in ignored_assets}
+        
+        # Create a new pnl report in the DB to be used to save each generated event
+        first_ts = Timestamp(0) if len(events) == 0 else events[0].get_timestamp()
+        
+        # Add report using ORM
+        with self.db.repos.unit_of_work():
+            report_id = self.db.repos.reports.add_report(
                 first_processed_timestamp=first_ts,
                 start_ts=start_ts,
                 end_ts=end_ts,
                 settings=db_settings,
             )
-            self.pots[0].reset(settings=db_settings, start_ts=start_ts, end_ts=end_ts, report_id=report_id)  # noqa: E501
-            self.end_ts = end_ts
-            self.csvexporter.reset(start_ts=start_ts, end_ts=end_ts)
+        
+        self.pots[0].reset(settings=db_settings, start_ts=start_ts, end_ts=end_ts, report_id=report_id)  # noqa: E501
+        self.end_ts = end_ts
+        self.csvexporter.reset(start_ts=start_ts, end_ts=end_ts)
 
-            # The first ts is the ts of the first action we have in history or 0 for empty history
-            self.currently_processing_timestamp = first_ts
-            self.first_processed_timestamp = first_ts
+        # The first ts is the ts of the first action we have in history or 0 for empty history
+        self.currently_processing_timestamp = first_ts
+        self.first_processed_timestamp = first_ts
 
-            count = 0
-            actions_length = len(events)
-            prev_time = last_event_ts = Timestamp(0)
-            ignored_ids = self.db.get_ignored_action_ids(cursor=cursor)
+        count = 0
+        actions_length = len(events)
+        prev_time = last_event_ts = Timestamp(0)
+        
+        # Get ignored action IDs using ORM
+        ignored_ids = self.db.repos.history_events.get_ignored_action_ids()
 
         events_iter = peekable(events)
         while True:
@@ -224,13 +234,15 @@ class Accountant:
                 )
                 break
 
-        dbpnl.add_report_overview(
-            report_id=report_id,
-            last_processed_timestamp=last_event_ts,
-            processed_actions=count,
-            total_actions=actions_length,
-            pnls=self.pots[0].pnls,
-        )
+        # Add report overview using ORM
+        with self.db.repos.unit_of_work():
+            self.db.repos.reports.add_report_overview(
+                report_id=report_id,
+                last_processed_timestamp=last_event_ts,
+                processed_actions=count,
+                total_actions=actions_length,
+                pnls=self.pots[0].pnls,
+            )
 
         for pot in self.pots:  # delete rules stored in memory since they won't be needed and can be queried again from the db  # noqa: E501
             pot.events_accountant.rules_manager.clean_rules()

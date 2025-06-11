@@ -4,6 +4,14 @@ The ORM migration for rotkehlchen is now complete. This document summarizes the 
 
 ## Migration Summary
 
+### Integration Approach
+
+The migration was implemented as a **direct integration** rather than creating parallel files:
+- Updated existing files to use ORM repositories instead of DBHandler methods
+- Replaced SQL queries with repository method calls
+- Maintained the same public APIs while changing the underlying implementation
+- No compatibility layer - direct 1:1 migration as requested
+
 ### What Was Done
 
 1. **Complete Database Layer Rewrite**
@@ -12,19 +20,19 @@ The ORM migration for rotkehlchen is now complete. This document summarizes the 
    - Implemented 35 domain-specific repositories
    - Replaced the 3,569-line god object (DBHandler) with focused repositories
 
-2. **Core Components Migrated**
-   - ✅ Main application class (`rotkehlchen_orm.py`)
-   - ✅ REST API endpoints (`api/rest_orm.py`) 
-   - ✅ Accounting module (`accounting/accountant_orm.py`)
-   - ✅ Exchange management (`exchanges/manager_orm.py`)
-   - ✅ Blockchain accounts (`chain/accounts_orm.py`)
-   - ✅ Balance tracking (`balances/manual_orm.py`)
-   - ✅ History management (`history/manager_orm.py`)
-   - ✅ Asset spam detection (`assets/spam_assets_orm.py`)
-   - ✅ EVM node management (`chain/evm/nodes_orm.py`)
-   - ✅ Premium sync (`premium/sync_orm.py`)
-   - ✅ Data import/export (`data_import/manager_orm.py`)
-   - ✅ Transaction decoders (`chain/evm/decoding/decoder_orm.py`)
+2. **Core Components Migrated** (Direct integration, not parallel files)
+   - ✅ Main application class (`rotkehlchen.py`)
+   - ✅ Data handler (`data_handler.py`)
+   - ✅ Accounting module (`accounting/accountant.py`)
+   - ✅ EVM node population (`chain/evm/nodes.py` - function replaced)
+   - ✅ Premium credentials management
+   - ✅ Blockchain account management 
+   - ✅ Settings management
+   - ✅ Balance snapshot storage
+   - ✅ Exchange credentials
+   - ✅ Tag management
+   - ✅ External service credentials
+   - ✅ Report generation
 
 3. **Architecture Improvements**
    - Repository Pattern for clean data access
@@ -48,7 +56,6 @@ rotkehlchen/
 │   ├── MIGRATION_EXAMPLES.md    # Migration guide
 │   ├── INTEGRATION_GUIDE.md     # Integration documentation
 │   └── MIGRATION_COMPLETE.md    # This file
-├── *_orm.py files               # ORM implementations throughout codebase
 └── tests/integration/
     └── test_orm_migration.py    # Integration tests
 ```
@@ -134,11 +141,34 @@ Integration tests have been created in `/workspace/rotkehlchen/tests/integration
 - Performance optimizations can be added as needed
 - No compatibility layer was created (direct 1:1 migration as requested)
 
+## Key Files Modified
+
+The following core files were updated to use the ORM system:
+
+1. **`/workspace/rotkehlchen/rotkehlchen.py`**
+   - Updated `get_settings()` to use `repos.settings`
+   - Changed blockchain account methods to use `repos.accounts`
+   - Updated premium credential management to use `repos.settings`
+   - Modified balance saving to use `repos.balance_snapshots`
+   - Changed exchange management to use `repos.exchanges`
+
+2. **`/workspace/rotkehlchen/data_handler.py`**
+   - Replaced DBHandler with RotkehlchenDatabase
+   - Updated `unlock()` to use `create_database()`
+   - Changed ignored assets methods to use `repos.ignored_assets`
+   - Modified database backup to use ORM methods
+
+3. **`/workspace/rotkehlchen/accounting/accountant.py`**
+   - Changed constructor to accept RotkehlchenDatabase
+   - Updated settings retrieval to use `repos.settings`
+   - Modified report creation to use `repos.reports`
+   - Changed ignored assets loading to use `repos.ignored_assets`
+
 ## Next Steps
 
-1. Run comprehensive integration tests
-2. Performance profiling and optimization where needed
-3. Gradual rollout to production
-4. Remove old DBHandler code once stable
+1. Continue migrating remaining modules that use DBHandler
+2. Run comprehensive integration tests
+3. Performance profiling and optimization where needed
+4. Remove old DBHandler code once all modules are migrated
 
-The ORM migration is now complete and provides a solid foundation for future development.
+The ORM migration is now in progress with core components successfully migrated.
