@@ -2372,12 +2372,12 @@ class RestAPI:
     @async_api_call()
     def get_airdrops(self) -> dict[str, Any]:
         try:
-            with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-                data = check_airdrops(
-                    addresses=self.rotkehlchen.data.db.get_evm_accounts(cursor),
-                    database=self.rotkehlchen.data.db,
-                    tolerance_for_amount_check=AIRDROPS_TOLERANCE,
-                )
+            # Get EVM accounts and check airdrops using ORM
+            data = check_airdrops(
+                addresses=self.rotkehlchen.data.db.repos.accounts.get_evm_accounts(),
+                database=self.rotkehlchen.data.db,
+                tolerance_for_amount_check=AIRDROPS_TOLERANCE,
+            )
         except RemoteError as e:
             return wrap_in_fail_result(str(e), status_code=HTTPStatus.BAD_GATEWAY)
         except OSError as e:
@@ -2454,12 +2454,15 @@ class RestAPI:
 
     def delete_rpc_node(self, identifier: int, blockchain: SupportedBlockchain) -> Response:
         try:
-            self.rotkehlchen.data.db.delete_rpc_node(identifier=identifier, blockchain=blockchain)
+            # Delete RPC node using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.rpc_nodes.delete_node(identifier=identifier, blockchain=blockchain)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
         # Update the connected nodes
-        nodes_to_connect = self.rotkehlchen.data.db.get_rpc_nodes(
+        # Get active nodes after deletion using ORM
+        nodes_to_connect = self.rotkehlchen.data.db.repos.rpc_nodes.get_nodes(
             blockchain=blockchain,
             only_active=True,
         )
@@ -2487,13 +2490,20 @@ class RestAPI:
         else:
             query, bindings = 'SELECT name, endpoint, owned, blockchain FROM rpc_nodes WHERE blockchain=?', (blockchain.value,)  # noqa: E501
 
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            if len(db_entries := cursor.execute(query, bindings).fetchall()) == 0:
-                return {
-                    'result': None,
-                    'message': 'RPC node not found',
-                    'status_code': HTTPStatus.BAD_REQUEST,
-                }
+        # Get RPC nodes using ORM
+        if identifier is not None:
+            node = self.rotkehlchen.data.db.repos.rpc_nodes.get_node_by_identifier(identifier)
+            db_entries = [(node.name, node.endpoint, node.owned, node.blockchain)] if node else []
+        else:
+            nodes = self.rotkehlchen.data.db.repos.rpc_nodes.get_nodes(blockchain=blockchain)
+            db_entries = [(n.node_info.name, n.node_info.endpoint, n.node_info.owned, n.node_info.blockchain.value) for n in nodes]
+        
+        if len(db_entries) == 0:
+            return {
+                'result': None,
+                'message': 'RPC node not found',
+                'status_code': HTTPStatus.BAD_REQUEST,
+            }
 
         manager: EvmManager = self.rotkehlchen.chains_aggregator.get_chain_manager(blockchain)  # type: ignore
         errors = []
@@ -2510,7 +2520,9 @@ class RestAPI:
         return {'result': {'errors': errors}, 'status_code': HTTPStatus.OK}
 
     def purge_module_data(self, module_name: PurgeableModuleName | None) -> Response:
-        self.rotkehlchen.data.db.purge_module_data(module_name)
+        # Purge module data using ORM
+        with self.rotkehlchen.data.db.repos.unit_of_work():
+            self.rotkehlchen.data.db.repos.modules.purge_module_data(module_name)
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
     def _eth_module_query(
@@ -2659,12 +2671,13 @@ class RestAPI:
         return self._watcher_query(method='DELETE', data={'watchers': watchers})
 
     def purge_exchange_data(self, location: Location | None) -> Response:
-        with self.rotkehlchen.data.db.user_write() as cursor:
+        # Purge exchange data using ORM
+        with self.rotkehlchen.data.db.repos.unit_of_work():
             if location:
-                self.rotkehlchen.data.db.purge_exchange_data(cursor, location)
+                self.rotkehlchen.data.db.repos.exchanges.purge_exchange_data(location)
             else:
                 for exchange_location in ALL_SUPPORTED_EXCHANGES:
-                    self.rotkehlchen.data.db.purge_exchange_data(cursor, exchange_location)
+                    self.rotkehlchen.data.db.repos.exchanges.purge_exchange_data(exchange_location)
 
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
@@ -2693,24 +2706,27 @@ class RestAPI:
                 querystr += ' WHERE tx_hash=?'
                 bindings = (tx_hash,)  # type: ignore
 
-            with self.rotkehlchen.data.db.user_write() as write_cursor:
-                write_cursor.execute(querystr, bindings)
+            # Delete ZkSync Lite transactions using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                if tx_hash is not None:
+                    self.rotkehlchen.data.db.repos.zksync_transactions.delete_by_tx_hash(tx_hash)
+                else:
+                    self.rotkehlchen.data.db.repos.zksync_transactions.delete_all()
 
         # Then delete events related to the deleted transaction data
         dbevents = DBHistoryEvents(self.rotkehlchen.data.db)
-        with self.rotkehlchen.data.db.user_write() as write_cursor:
+        # Delete related events using ORM
+        with self.rotkehlchen.data.db.repos.unit_of_work():
             if tx_hash is not None:
                 assert chain is not None, 'api should not let this be none if tx_hash is not'
-                dbevents.delete_events_by_tx_hash(
-                    write_cursor=write_cursor,
+                self.rotkehlchen.data.db.repos.history_events.delete_events_by_tx_hash(
                     tx_hashes=[tx_hash],
                     location=Location.from_chain(chain),
                 )
             else:
                 chain_locations = [Location.from_chain(chain)] if chain else EVM_EVMLIKE_LOCATIONS
                 for chain_location in chain_locations:
-                    dbevents.reset_evm_events_for_redecode(
-                        write_cursor=write_cursor,
+                    self.rotkehlchen.data.db.repos.history_events.reset_evm_events_for_redecode(
                         location=chain_location,
                     )
 
@@ -2724,15 +2740,14 @@ class RestAPI:
             accounts: list[OptionalBlockchainAccount] | None,
     ) -> dict[str, Any]:
         blockchain_addresses: dict[SupportedBlockchain, ListOfBlockchainAddresses]
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            if accounts is None or len(accounts) == 0:  # No accounts specified. Get all accounts from DB.  # noqa: E501
-                blockchain_addresses = {
-                    chain: addr_list for chain in CHAINS_WITH_TRANSACTIONS
-                    if len(addr_list := self.rotkehlchen.data.db.get_single_blockchain_addresses(
-                        cursor=cursor,
-                        blockchain=chain,
-                    )) != 0
-                }
+        # Get blockchain addresses using ORM
+        if accounts is None or len(accounts) == 0:  # No accounts specified. Get all accounts from DB.  # noqa: E501
+            blockchain_addresses = {
+                chain: addr_list for chain in CHAINS_WITH_TRANSACTIONS
+                if len(addr_list := self.rotkehlchen.data.db.repos.accounts.get_single_blockchain_addresses(
+                    blockchain=chain,
+                )) != 0
+            }
             else:  # Use specified accounts, getting all chains in which an account is tracked if the chain is not specified.  # noqa: E501
                 blockchain_addresses = defaultdict(list)
                 unspecified_chain_addresses: list[BlockchainAddress] = []
@@ -2743,8 +2758,8 @@ class RestAPI:
                         unspecified_chain_addresses.append(account.address)
 
                 if len(unspecified_chain_addresses) > 0:
-                    for address, chain in self.rotkehlchen.data.db.get_blockchains_for_accounts(
-                        cursor=cursor,
+                    # Get blockchains for accounts using ORM
+                    for address, chain in self.rotkehlchen.data.db.repos.accounts.get_blockchains_for_accounts(
                         accounts=unspecified_chain_addresses,
                     ):
                         blockchain_addresses[chain].append(address)  # type: ignore[arg-type]  # same as above
@@ -2793,10 +2808,12 @@ class RestAPI:
         success, message, status_code, events = True, '', HTTPStatus.OK, []
         for evm_chain, tx_hash in transactions:
             chain_manager = self.rotkehlchen.chains_aggregator.get_evm_manager(evm_chain)
-            with self.rotkehlchen.data.db.user_write() as write_cursor:
-                write_cursor.execute(
-                    'DELETE FROM evm_transactions WHERE tx_hash=? AND chain_id=?',
-                    (tx_hash, evm_chain.serialize_for_db()))
+            # Delete EVM transaction using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.evm_transactions.delete_transaction(
+                    tx_hash=tx_hash,
+                    chain_id=evm_chain,
+                )
             try:
                 chain_manager.transactions.get_or_query_transaction_receipt(tx_hash=tx_hash)
             except RemoteError as e:
