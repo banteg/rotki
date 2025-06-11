@@ -107,6 +107,7 @@ class PnlEvent(Base):
 class TransientSettings(Base):
     """Model for settings table in transient database"""
     __tablename__ = 'settings'
+    __table_args__ = {'extend_existing': True}
 
     name: Mapped[str] = mapped_column(VARCHAR(24), primary_key=True, nullable=False)
     value: Mapped[str | None] = mapped_column(TEXT)

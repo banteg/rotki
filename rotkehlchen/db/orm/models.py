@@ -37,6 +37,7 @@ tag_mappings = Table(
 class UserSettings(Base):
     """Model for settings table in user database"""
     __tablename__ = 'settings'
+    __table_args__ = {'extend_existing': True}
 
     name: Mapped[str] = mapped_column(VARCHAR(24), primary_key=True)
     value: Mapped[str | None] = mapped_column(TEXT)
