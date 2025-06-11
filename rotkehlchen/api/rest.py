@@ -2778,9 +2778,7 @@ class RestAPI:
             )
 
         if not chain or chain == SupportedBlockchain.ZKSYNC_LITE:
-            querystr, bindings = 'DELETE FROM zksynclite_transactions', ()
-            if tx_hash is not None:
-                querystr += ' WHERE tx_hash=?'
+            # Legacy query construction - no longer needed with ORM
 
             # Delete ZkSync Lite transactions using ORM
             with self.rotkehlchen.data.db.repos.unit_of_work():
