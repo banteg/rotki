@@ -1855,7 +1855,8 @@ class RestAPI:
 
     @async_api_call()
     def refresh_evm_accounts(self) -> dict[str, Any]:
-        chains = self.rotkehlchen.data.db.get_chains_to_detect_evm_accounts()
+        # Get chains to detect EVM accounts using ORM
+        chains = self.rotkehlchen.data.db.repos.accounts.get_chains_to_detect_evm_accounts()
         try:
             self.rotkehlchen.chains_aggregator.detect_evm_accounts(chains=chains)
         except EthSyncError as e:
@@ -1866,8 +1867,8 @@ class RestAPI:
         return OK_RESULT
 
     def get_blockchain_accounts(self, blockchain: SupportedBlockchain) -> Response:
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            data = self.rotkehlchen.get_blockchain_account_data(cursor, blockchain)
+        # Get blockchain account data using ORM
+        data = self.rotkehlchen.get_blockchain_account_data(blockchain)
         return api_response(process_result(_wrap_in_result(data, '')), status_code=HTTPStatus.OK)
 
     @overload
@@ -2094,8 +2095,8 @@ class RestAPI:
         )
 
     def get_ignored_assets(self) -> Response:
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            result = self.rotkehlchen.data.db.get_ignored_asset_ids(cursor)
+        # Get ignored assets using ORM
+        result = self.rotkehlchen.data.db.repos.ignored_assets.get_ignored_asset_ids()
         return api_response(_wrap_in_ok_result(list(result)), status_code=HTTPStatus.OK)
 
     def add_ignored_assets(self, assets_to_ignore: list[Asset]) -> Response:
@@ -2111,9 +2112,9 @@ class RestAPI:
 
     def add_ignored_action_ids(self, action_ids: list[str]) -> Response:
         try:
-            with self.rotkehlchen.data.db.user_write() as cursor:
-                self.rotkehlchen.data.db.add_to_ignored_action_ids(
-                    write_cursor=cursor,
+            # Add ignored action IDs using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.history_events.add_to_ignored_action_ids(
                     identifiers=action_ids,
                 )
         except InputError as e:
@@ -2126,9 +2127,9 @@ class RestAPI:
             action_ids: list[str],
     ) -> Response:
         try:
-            with self.rotkehlchen.data.db.user_write() as cursor:
-                self.rotkehlchen.data.db.remove_from_ignored_action_ids(
-                    write_cursor=cursor,
+            # Remove ignored action IDs using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.history_events.remove_from_ignored_action_ids(
                     identifiers=action_ids,
                 )
         except InputError as e:
@@ -2273,13 +2274,13 @@ class RestAPI:
         except ModuleInactive as e:
             return {'result': None, 'message': str(e), 'status_code': HTTPStatus.CONFLICT}
 
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            result = {
-                'entries': [x.serialize() for x in stats],
-                'sum_pnl': str(sum_pnl),
-                'entries_found': filter_total_found,
-                'entries_total': self.rotkehlchen.data.db.get_entries_count(cursor, 'eth2_daily_staking_details'),  # noqa: E501
-            }
+        # Get ETH2 staking details count using ORM
+        result = {
+            'entries': [x.serialize() for x in stats],
+            'sum_pnl': str(sum_pnl),
+            'entries_found': filter_total_found,
+            'entries_total': self.rotkehlchen.data.db.repos.eth2_staking.count_daily_staking_details(),  # noqa: E501
+        }
         return {'result': result, 'message': '', 'status_code': HTTPStatus.OK}
 
     @async_api_call()
@@ -2385,18 +2386,22 @@ class RestAPI:
         return _wrap_in_ok_result(process_result(data))
 
     def get_rpc_nodes(self, blockchain: SupportedBlockchain) -> Response:
-        nodes = self.rotkehlchen.data.db.get_rpc_nodes(blockchain=blockchain)
+        # Get RPC nodes using ORM
+        nodes = self.rotkehlchen.data.db.repos.rpc_nodes.get_nodes(blockchain=blockchain)
         result_dict = _wrap_in_ok_result(process_result_list(list(nodes)))
         return api_response(result_dict, status_code=HTTPStatus.OK)
 
     def add_rpc_node(self, node: WeightedNode) -> Response:
         try:
-            self.rotkehlchen.data.db.add_rpc_node(node)
+            # Add RPC node using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.rpc_nodes.add_node(node)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
         # Update the connected nodes
-        nodes_to_connect = self.rotkehlchen.data.db.get_rpc_nodes(
+        # Get active RPC nodes using ORM
+        nodes_to_connect = self.rotkehlchen.data.db.repos.rpc_nodes.get_nodes(
             blockchain=node.node_info.blockchain,
             only_active=True,
         )
@@ -2410,24 +2415,24 @@ class RestAPI:
         forces a reconnection by clearing the cached Web3 object and re-establishing
         connections to all nodes.
         """
-        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
-            # get the current rpc endpoint so we can identify the node and remove it
-            # from node_inquirer.web3_mapping
-            if (old_endpoint := cursor.execute(
-                'SELECT endpoint FROM rpc_nodes WHERE identifier=?',
-                (node.identifier,),
-            ).fetchone()) is None:
-                return api_response(
-                    wrap_in_fail_result(message=f"Node with identifier {node.identifier} doesn't exist"),  # noqa: E501
-                    status_code=HTTPStatus.CONFLICT,
-                )
+        # Get the current RPC endpoint using ORM
+        existing_node = self.rotkehlchen.data.db.repos.rpc_nodes.get_node_by_identifier(node.identifier)
+        if existing_node is None:
+            return api_response(
+                wrap_in_fail_result(message=f"Node with identifier {node.identifier} doesn't exist"),  # noqa: E501
+                status_code=HTTPStatus.CONFLICT,
+            )
+        old_endpoint = existing_node.endpoint
 
         try:
-            self.rotkehlchen.data.db.update_rpc_node(node)
+            # Update RPC node using ORM
+            with self.rotkehlchen.data.db.repos.unit_of_work():
+                self.rotkehlchen.data.db.repos.rpc_nodes.update_node(node)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
-        nodes_to_connect = self.rotkehlchen.data.db.get_rpc_nodes(
+        # Get active RPC nodes using ORM
+        nodes_to_connect = self.rotkehlchen.data.db.repos.rpc_nodes.get_nodes(
             blockchain=node.node_info.blockchain,
             only_active=True,
         )
