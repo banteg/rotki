@@ -67,7 +67,7 @@ from rotkehlchen.db.orm.models import (
     Asset,
     BlockchainAccount,
     ManuallyTrackedBalance,
-    Settings,
+    UserSettings,
     Tag,
     TimedBalance,
     UserCredentialMapping,
@@ -205,7 +205,7 @@ __all__ = [
     'PriceHistorySourceType',
     'RPCNode',
     # Core models
-    'Settings',
+    'UserSettings',
     'SkippedExternalEvent',
     'Tag',
     'TimedBalance',

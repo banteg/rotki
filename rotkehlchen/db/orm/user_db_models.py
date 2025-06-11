@@ -20,7 +20,7 @@ from rotkehlchen.db.orm.types import BooleanType, FValType, TimestampType
 
 if TYPE_CHECKING:
     from rotkehlchen.db.orm.enums import Location
-    from rotkehlchen.db.orm.models import Asset, BlockchainAccount, Settings
+    from rotkehlchen.db.orm.models import Asset, BlockchainAccount, UserSettings
 
 
 class ExternalServiceCredentials(Base):
@@ -286,7 +286,7 @@ class LinkedRuleProperty(Base):
 
     # Relationships
     rule: Mapped[Optional['AccountingRule']] = relationship(back_populates='linked_properties')
-    setting: Mapped['Settings'] = relationship()
+    setting: Mapped['UserSettings'] = relationship()
 
     def __repr__(self) -> str:
         return f"<LinkedRuleProperty(id={self.identifier}, property='{self.property_name}')>"

@@ -34,15 +34,15 @@ tag_mappings = Table(
 )
 
 
-class Settings(Base):
-    """Model for settings table"""
+class UserSettings(Base):
+    """Model for settings table in user database"""
     __tablename__ = 'settings'
 
     name: Mapped[str] = mapped_column(VARCHAR(24), primary_key=True)
     value: Mapped[str | None] = mapped_column(TEXT)
 
     def __repr__(self) -> str:
-        return f"<Settings(name='{self.name}', value='{self.value}')>"
+        return f"<UserSettings(name='{self.name}', value='{self.value}')>"
 
 
 class Asset(Base):

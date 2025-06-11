@@ -2,17 +2,17 @@
 
 from typing import Any
 
-from rotkehlchen.db.orm.models import Settings
+from rotkehlchen.db.orm.models import UserSettings
 from rotkehlchen.db.orm.repositories.base import BaseRepository
 from rotkehlchen.errors.misc import DBUpgradeError
 from rotkehlchen.types import Timestamp
 
 
-class SettingsRepository(BaseRepository[Settings]):
+class SettingsRepository(BaseRepository[UserSettings]):
     """Repository for managing application settings"""
 
     def __init__(self, session):
-        super().__init__(session, Settings)
+        super().__init__(session, UserSettings)
 
     def get_setting(self, name: str) -> str | None:
         """Get a setting value by name"""
@@ -74,7 +74,7 @@ class SettingsRepository(BaseRepository[Settings]):
             setting.value = str_value
             self.update(setting)
         else:
-            self.add(Settings(name=name, value=str_value))
+            self.add(UserSettings(name=name, value=str_value))
 
     def set_version(self, version: int) -> None:
         """Set database version"""

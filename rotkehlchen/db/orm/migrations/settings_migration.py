@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from rotkehlchen.db.orm.migrations.migrator import BaseMigrationStep
-from rotkehlchen.db.orm.models import Cache, DBSettings
+from rotkehlchen.db.orm.models import Cache, UserSettings
 from rotkehlchen.db.orm.repositories import CacheRepository, SettingsRepository
 
 
