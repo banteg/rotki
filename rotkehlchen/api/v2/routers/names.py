@@ -12,10 +12,10 @@ from rotkehlchen.api.v2.dependencies import (
     require_logged_in_user,
 )
 from rotkehlchen.api.v2.services.names import NamesService
-from rotkehlchen.chain.ethereum.types import string_to_evm_address
+from rotkehlchen.chain.evm.types import string_to_evm_address
 from rotkehlchen.db.drivers.gevent import DBConnection
-from rotkehlchen.db.orm.names import AddressbookType
-from rotkehlchen.db.orm.querying import AddressbookFilterQuery
+from rotkehlchen.db.filtering import AddressbookFilterQuery
+from rotkehlchen.types import AddressbookType
 from rotkehlchen.errors.misc import InputError
 from rotkehlchen.types import ChecksumEvmAddress, OptionalChainAddress
 
@@ -329,12 +329,17 @@ async def update_addressbook_entries(
         ) from e
 
 
+class DeleteAddressbookRequest(BaseModel):
+    """Request model for deleting addressbook entries"""
+    addresses: list[dict[str, Any]]
+
+
 @router.delete('/addressbook/{book_type}')
 async def delete_addressbook_entries(
     book_type: str,
+    request: DeleteAddressbookRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
     service: Annotated[NamesService, Depends(get_names_service)],
-    addresses: list[dict[str, Any]] = Query(...),
 ) -> NamesResponse:
     """Delete addressbook entries"""
     # Parse book type
@@ -348,7 +353,7 @@ async def delete_addressbook_entries(
 
     # Convert addresses to OptionalChainAddress
     chain_addresses = []
-    for addr_data in addresses:
+    for addr_data in request.addresses:
         chain_address = OptionalChainAddress(
             address=addr_data.get('address'),
             blockchain=addr_data.get('blockchain'),

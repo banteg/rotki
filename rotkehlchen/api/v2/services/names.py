@@ -1,18 +1,19 @@
 """Names service for ENS and addressbook operations"""
 from typing import TYPE_CHECKING, Any
 
-from rotkehlchen.chain.ethereum.names import ResolverName
-from rotkehlchen.chain.ethereum.types import string_to_evm_address
+# ResolverName type - simple string alias for ENS names
+ResolverName = str
+from rotkehlchen.chain.evm.types import string_to_evm_address
 from rotkehlchen.db.drivers.gevent import DBConnection
-from rotkehlchen.db.orm.names import AddressbookEntry, AddressbookType
-from rotkehlchen.db.orm.querying import AddressbookFilterQuery
+from rotkehlchen.db.filtering import AddressbookFilterQuery
+from rotkehlchen.types import AddressbookEntry, AddressbookType
 from rotkehlchen.errors.misc import InputError, RemoteError
 from rotkehlchen.types import (
     ChecksumEvmAddress,
     OptionalChainAddress,
     SupportedBlockchain,
 )
-from rotkehlchen.utils.naming import search_for_addresses_names
+from rotkehlchen.chain.evm.names import search_for_addresses_names
 
 if TYPE_CHECKING:
     from rotkehlchen.addressbook.addressbook import AddressbookPrioritizer

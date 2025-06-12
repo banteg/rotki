@@ -1,7 +1,7 @@
 """DeFi service for managing DeFi protocol operations"""
 from typing import TYPE_CHECKING, Any
 
-from rotkehlchen.chain.ethereum.defi.structures import DEFI_PROTOCOLS
+from rotkehlchen.chain.ethereum.defi.protocols import DEFI_PROTOCOLS
 from rotkehlchen.db.drivers.gevent import DBConnection
 from rotkehlchen.errors.misc import InputError, RemoteError
 from rotkehlchen.types import ChecksumEvmAddress, SupportedBlockchain

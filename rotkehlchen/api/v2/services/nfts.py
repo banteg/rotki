@@ -2,7 +2,8 @@
 from typing import TYPE_CHECKING, Any
 
 from rotkehlchen.chain.ethereum.modules.nft.constants import FREE_NFT_LIMIT
-from rotkehlchen.chain.ethereum.modules.nft.structures import NFTFilterQuery, NftLpHandling
+from rotkehlchen.chain.ethereum.modules.nft.structures import NftLpHandling
+from rotkehlchen.db.filtering import NFTFilterQuery
 from rotkehlchen.db.drivers.gevent import DBConnection
 from rotkehlchen.errors.misc import RemoteError
 from rotkehlchen.premium.premium import premium_create_and_verify

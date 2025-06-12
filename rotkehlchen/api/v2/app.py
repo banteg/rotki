@@ -27,6 +27,7 @@ from rotkehlchen.api.v2.routers import (
     settings as settings_router,
     statistics,
     users,
+    watchers,
 )
 from rotkehlchen.api.v2.websocket import websocket_endpoint
 from rotkehlchen.api.websockets.notifier import RotkiNotifier
@@ -115,6 +116,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(defi.router, prefix='/api/v2/defi', tags=['defi'])
     app.include_router(defi.router, prefix='/api/v2', tags=['defi'])
     app.include_router(names.router, prefix='/api/v2/names', tags=['names'])
+    app.include_router(watchers.router, prefix='/api/v2/watchers', tags=['watchers'])
 
     @app.get('/api/v2/ping')
     async def ping() -> dict[str, Any]:
