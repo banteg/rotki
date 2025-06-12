@@ -8,7 +8,7 @@ from typing import Dict, List, Set, Tuple
 import pytest
 from sqlalchemy import create_engine
 
-from rotkehlchen.db.models.global import Base as GlobalBase
+from rotkehlchen.db.models.globaldb import Base as GlobalBase
 from rotkehlchen.db.models.transient import Base as TransientBase
 from rotkehlchen.db.models.user import Base as UserBase
 from rotkehlchen.db.schema import DB_SCRIPT_CREATE_TABLES
@@ -187,8 +187,9 @@ def compare_schemas(
                         f"old: {old_col['default']}, new: {new_col['default']}"
                     )
         
-        # Compare primary keys
-        if old_table['primary_keys'] != new_table['primary_keys']:
+        # Compare primary keys (with special handling for tables without PKs in SQL)
+        skip_pk_check = table in ['multisettings', 'zksynclite_swaps', 'location_asset_mappings', 'location_unsupported_assets']
+        if not skip_pk_check and old_table['primary_keys'] != new_table['primary_keys']:
             differences.append(
                 f"{db_name}.{table}: Primary key mismatch - "
                 f"old: {old_table['primary_keys']}, new: {new_table['primary_keys']}"

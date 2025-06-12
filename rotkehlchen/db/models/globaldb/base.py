@@ -3,7 +3,6 @@
 from sqlalchemy import MetaData
 from sqlmodel import SQLModel
 
-
 metadata = MetaData()
 
 

@@ -1,19 +1,24 @@
 """Core user database models using SQLModel"""
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import (
-    CHAR, INTEGER, REAL, TEXT, VARCHAR, CheckConstraint, Column, ForeignKey,
-    ForeignKeyConstraint, Index, UniqueConstraint,
+    CHAR,
+    INTEGER,
+    TEXT,
+    VARCHAR,
+    Column,
+    ForeignKey,
+    ForeignKeyConstraint,
 )
 from sqlmodel import Field, Relationship
 
-from rotkehlchen.db.models.types import BooleanType, FValType, TimestampType
+from rotkehlchen.db.models.types import FValType, TimestampType
 from rotkehlchen.db.models.user.base import Base
 
 if TYPE_CHECKING:
+
     from rotkehlchen.db.models.user.accounts import BlockchainAccount
-    from rotkehlchen.db.models.user.credentials import UserCredentialMapping
     from rotkehlchen.db.models.user.enums import BalanceCategory, Location
     from rotkehlchen.db.models.user.nfts import NFT
 
@@ -25,23 +30,23 @@ class Asset(Base, table=True):
     identifier: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
 
     # Relationships
-    timed_balances: List['TimedBalance'] = Relationship(
+    timed_balances: list['TimedBalance'] = Relationship(
         back_populates='currency_obj',
         cascade_delete=True,
     )
-    location_data: List['TimedLocationData'] = Relationship(
+    location_data: list['TimedLocationData'] = Relationship(
         back_populates='currency_obj',
         cascade_delete=True,
     )
-    manually_tracked_balances: List['ManuallyTrackedBalance'] = Relationship(
+    manually_tracked_balances: list['ManuallyTrackedBalance'] = Relationship(
         back_populates='asset_obj',
         cascade_delete=True,
     )
-    nfts: List['NFT'] = Relationship(
+    nfts: list['NFT'] = Relationship(
         sa_relationship_kwargs={'foreign_keys': '[NFT.identifier]'},
         cascade_delete=True,
     )
-    nft_price_assets: List['NFT'] = Relationship(
+    nft_price_assets: list['NFT'] = Relationship(
         sa_relationship_kwargs={'foreign_keys': '[NFT.last_price_asset]'},
         cascade_delete=True,
     )
@@ -55,58 +60,50 @@ class Tag(Base, table=True):
     __tablename__ = 'tags'
 
     name: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
-    description: Optional[str] = Field(default=None, sa_column=Column(TEXT))
-    background_color: str = Field(sa_column=Column(TEXT, nullable=False))
-    foreground_color: str = Field(sa_column=Column(TEXT, nullable=False))
-
-    # Relationships
-    accounts: List['BlockchainAccount'] = Relationship(
-        back_populates='tag_obj',
-        cascade_delete=True,
-    )
+    description: str | None = Field(default=None, sa_column=Column(TEXT))
+    background_color: str | None = Field(default=None, sa_column=Column(TEXT, nullable=True))
+    foreground_color: str | None = Field(default=None, sa_column=Column(TEXT, nullable=True))
 
     def __repr__(self) -> str:
         return f"<Tag(name='{self.name}')>"
 
 
-class UserSettings(Base, table=True):
-    """Model for user settings table"""
-    __tablename__ = 'user_settings'
+class TagMapping(Base, table=True):
+    """Model for tag_mappings table"""
+    __tablename__ = 'tag_mappings'
 
-    name: str = Field(sa_column=Column(VARCHAR(24), primary_key=True, nullable=False))
-    value: str = Field(sa_column=Column(TEXT, nullable=False))
+    object_reference: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
+    tag_name: str = Field(
+        sa_column=Column(
+            TEXT,
+            ForeignKey('tags.name'),
+            primary_key=True,
+            nullable=False,
+        ),
+    )
+
+    # Relationships
+    tag: Optional['Tag'] = Relationship()
 
     def __repr__(self) -> str:
-        return f"<UserSettings(name='{self.name}', value='{self.value}')>"
+        return f"<TagMapping(object_reference='{self.object_reference}', tag_name='{self.tag_name}')>"
+
+
+class Settings(Base, table=True):
+    """Model for user settings table"""
+    __tablename__ = 'settings'
+
+    name: str = Field(sa_column=Column(VARCHAR(24), primary_key=True, nullable=False))
+    value: str | None = Field(default=None, sa_column=Column(TEXT, nullable=True))
+
+    def __repr__(self) -> str:
+        return f"<Settings(name='{self.name}', value='{self.value}')>"
 
 
 class TimedBalance(Base, table=True):
     """Model for timed balances table"""
     __tablename__ = 'timed_balances'
-    __table_args__ = (
-        ForeignKeyConstraint(
-            ['category', 'time', 'currency', 'amount', 'usd_value'],
-            [
-                'manually_tracked_balances.category',
-                'manually_tracked_balances.time',
-                'manually_tracked_balances.currency',
-                'manually_tracked_balances.amount',
-                'manually_tracked_balances.usd_value',
-            ],
-            onupdate='CASCADE',
-            ondelete='CASCADE',
-        ),
-    )
 
-    category: str = Field(
-        sa_column=Column(
-            CHAR(1),
-            ForeignKey('balance_category.category'),
-            primary_key=True,
-            nullable=False,
-            server_default='A',
-        )
-    )
     timestamp: int = Field(sa_column=Column(TimestampType, primary_key=True, nullable=False))
     currency: str = Field(
         sa_column=Column(
@@ -114,10 +111,19 @@ class TimedBalance(Base, table=True):
             ForeignKey('assets.identifier', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
-    amount: str = Field(sa_column=Column(FValType, primary_key=True, nullable=False))
-    usd_value: str = Field(sa_column=Column(FValType, primary_key=True, nullable=False))
+    category: str = Field(
+        sa_column=Column(
+            CHAR(1),
+            ForeignKey('balance_category.category'),
+            primary_key=True,
+            nullable=False,
+            server_default='A',
+        ),
+    )
+    amount: str | None = Field(default=None, sa_column=Column(TEXT, nullable=True))
+    usd_value: str | None = Field(default=None, sa_column=Column(TEXT, nullable=True))
 
     # Relationships
     category_obj: Optional['BalanceCategory'] = Relationship()
@@ -139,9 +145,9 @@ class TimedLocationData(Base, table=True):
             primary_key=True,
             nullable=False,
             server_default='A',
-        )
+        ),
     )
-    usd_value: str = Field(sa_column=Column(FValType, primary_key=True, nullable=False))
+    usd_value: str | None = Field(default=None, sa_column=Column(TEXT, nullable=True))
 
     # Relationships
     location_obj: Optional['Location'] = Relationship()
@@ -160,32 +166,31 @@ class ManuallyTrackedBalance(Base, table=True):
             TEXT,
             ForeignKey('assets.identifier', onupdate='CASCADE'),
             nullable=False,
-        )
+        ),
     )
     label: str = Field(sa_column=Column(TEXT, nullable=False))
-    amount: str = Field(sa_column=Column(FValType, nullable=False))
+    amount: str | None = Field(default=None, sa_column=Column(TEXT, nullable=True))
     location: str = Field(
         sa_column=Column(
             CHAR(1),
             ForeignKey('location.location'),
             nullable=False,
             server_default='A',
-        )
+        ),
     )
-    tags: Optional[str] = Field(default=None, sa_column=Column(TEXT))
-    balance_type: str = Field(
+    category: str = Field(
         sa_column=Column(
             CHAR(1),
             ForeignKey('balance_category.category'),
             nullable=False,
             server_default='A',
-        )
+        ),
     )
 
     # Relationships
     asset_obj: Optional['Asset'] = Relationship(back_populates='manually_tracked_balances')
     location_obj: Optional['Location'] = Relationship()
-    balance_type_obj: Optional['BalanceCategory'] = Relationship()
+    category_obj: Optional['BalanceCategory'] = Relationship()
 
     def __repr__(self) -> str:
         return f"<ManuallyTrackedBalance(id={self.id}, asset='{self.asset}', label='{self.label}')>"

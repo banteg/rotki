@@ -1,15 +1,12 @@
 """Report-related models for transient database using SQLModel"""
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import Optional
 
 from sqlalchemy import INTEGER, TEXT, Column, ForeignKey
 from sqlmodel import Field, Relationship
 
-from rotkehlchen.db.models.types import FValType, TimestampType
 from rotkehlchen.db.models.transient.base import Base
-
-if TYPE_CHECKING:
-    pass
+from rotkehlchen.db.models.types import FValType, TimestampType
 
 
 class PnlReport(Base, table=True):
@@ -17,24 +14,24 @@ class PnlReport(Base, table=True):
     __tablename__ = 'pnl_reports'
 
     identifier: int = Field(sa_column=Column(INTEGER, primary_key=True, nullable=False))
-    timestamp: Optional[int] = Field(default=None, sa_column=Column(TimestampType))
-    start_ts: Optional[int] = Field(default=None, sa_column=Column(TimestampType))
-    end_ts: Optional[int] = Field(default=None, sa_column=Column(TimestampType))
-    first_processed_timestamp: Optional[int] = Field(default=None, sa_column=Column(TimestampType))
+    timestamp: int | None = Field(default=None, sa_column=Column(TimestampType))
+    start_ts: int | None = Field(default=None, sa_column=Column(TimestampType))
+    end_ts: int | None = Field(default=None, sa_column=Column(TimestampType))
+    first_processed_timestamp: int | None = Field(default=None, sa_column=Column(TimestampType))
     last_processed_timestamp: int = Field(sa_column=Column(TimestampType, nullable=False))
     processed_actions: int = Field(sa_column=Column(INTEGER, nullable=False))
     total_actions: int = Field(sa_column=Column(INTEGER, nullable=False))
 
     # Relationships
-    totals: List['PnlReportTotal'] = Relationship(
+    totals: list['PnlReportTotal'] = Relationship(
         back_populates='report',
         cascade_delete=True,
     )
-    settings: List['PnlReportSetting'] = Relationship(
+    settings: list['PnlReportSetting'] = Relationship(
         back_populates='report',
         cascade_delete=True,
     )
-    events: List['PnlEvent'] = Relationship(
+    events: list['PnlEvent'] = Relationship(
         back_populates='report',
         cascade_delete=True,
     )
@@ -53,11 +50,11 @@ class PnlReportTotal(Base, table=True):
             ForeignKey('pnl_reports.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
     name: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
-    taxable_value: str = Field(sa_column=Column(FValType, nullable=False))
-    free_value: str = Field(sa_column=Column(FValType, nullable=False))
+    taxable_value: str = Field(sa_column=Column(TEXT, nullable=False))
+    free_value: str = Field(sa_column=Column(TEXT, nullable=False))
 
     # Relationships
     report: Optional['PnlReport'] = Relationship(back_populates='totals')
@@ -76,7 +73,7 @@ class PnlReportSetting(Base, table=True):
             ForeignKey('pnl_reports.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
     name: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
     type: str = Field(sa_column=Column(TEXT, nullable=False))
@@ -99,13 +96,13 @@ class PnlEvent(Base, table=True):
             INTEGER,
             ForeignKey('pnl_reports.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             nullable=False,
-        )
+        ),
     )
     timestamp: int = Field(sa_column=Column(TimestampType, nullable=False))
     data: str = Field(sa_column=Column(TEXT, nullable=False))
-    pnl_taxable: str = Field(sa_column=Column(FValType, nullable=False))
-    pnl_free: str = Field(sa_column=Column(FValType, nullable=False))
-    asset: Optional[str] = Field(default=None, sa_column=Column(TEXT))
+    pnl_taxable: str = Field(sa_column=Column(TEXT, nullable=False))
+    pnl_free: str = Field(sa_column=Column(TEXT, nullable=False))
+    asset: str | None = Field(default=None, sa_column=Column(TEXT))
 
     # Relationships
     report: Optional['PnlReport'] = Relationship(back_populates='events')

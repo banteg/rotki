@@ -1,8 +1,7 @@
 """ENS-related models for user database using SQLModel"""
 
-from typing import Optional
 
-from sqlalchemy import TEXT, UniqueConstraint, Column
+from sqlalchemy import TEXT, Column
 from sqlmodel import Field
 
 from rotkehlchen.db.models.types import TimestampType
@@ -14,7 +13,7 @@ class ENSMapping(Base, table=True):
     __tablename__ = 'ens_mappings'
 
     address: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
-    ens_name: Optional[str] = Field(default=None, sa_column=Column(TEXT, unique=True))
+    ens_name: str | None = Field(default=None, sa_column=Column(TEXT, unique=True))
     last_update: int = Field(sa_column=Column(TimestampType, nullable=False))
     last_avatar_update: int = Field(sa_column=Column(TimestampType, nullable=False, server_default='0'))
 

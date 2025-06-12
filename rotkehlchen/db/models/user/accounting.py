@@ -1,17 +1,19 @@
 """Accounting-related models for user database using SQLModel"""
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import Optional
 
 from sqlalchemy import (
-    INTEGER, TEXT, CheckConstraint, Column, ForeignKey, UniqueConstraint,
+    INTEGER,
+    TEXT,
+    CheckConstraint,
+    Column,
+    ForeignKey,
+    UniqueConstraint,
 )
 from sqlmodel import Field, Relationship
 
 from rotkehlchen.db.models.types import BooleanType
 from rotkehlchen.db.models.user.base import Base
-
-if TYPE_CHECKING:
-    pass
 
 
 class AccountingRule(Base, table=True):
@@ -31,10 +33,10 @@ class AccountingRule(Base, table=True):
     taxable: bool = Field(sa_column=Column(BooleanType, nullable=False))
     count_entire_amount_spend: bool = Field(sa_column=Column(BooleanType, nullable=False))
     count_cost_basis_pnl: bool = Field(sa_column=Column(BooleanType, nullable=False))
-    accounting_treatment: Optional[str] = Field(default=None, sa_column=Column(TEXT))
+    accounting_treatment: str | None = Field(default=None, sa_column=Column(TEXT))
 
     # Relationships
-    properties: List['LinkedRuleProperty'] = Relationship(
+    properties: list['LinkedRuleProperty'] = Relationship(
         back_populates='rule',
         cascade_delete=True,
     )
@@ -47,20 +49,26 @@ class LinkedRuleProperty(Base, table=True):
     """Model for linked rule properties table"""
     __tablename__ = 'linked_rules_properties'
 
-    id: int = Field(sa_column=Column(INTEGER, primary_key=True, nullable=False))
-    rule_id: int = Field(
+    identifier: int = Field(sa_column=Column(INTEGER, primary_key=True, nullable=False))
+    accounting_rule: int | None = Field(
+        default=None,
         sa_column=Column(
             INTEGER,
-            ForeignKey('accounting_rules.identifier', ondelete='CASCADE'),
-            nullable=False,
-        )
+            ForeignKey('accounting_rules.identifier'),
+            nullable=True,
+        ),
     )
     property_name: str = Field(sa_column=Column(TEXT, nullable=False))
-    setting_name: str = Field(sa_column=Column(TEXT, nullable=False))
-    setting_value: Optional[str] = Field(default=None, sa_column=Column(TEXT))
+    setting_name: str = Field(
+        sa_column=Column(
+            TEXT,
+            ForeignKey('settings.name'),
+            nullable=False,
+        ),
+    )
 
     # Relationships
     rule: Optional['AccountingRule'] = Relationship(back_populates='properties')
 
     def __repr__(self) -> str:
-        return f"<LinkedRuleProperty(id={self.id}, rule_id={self.rule_id}, property='{self.property_name}')>"
+        return f"<LinkedRuleProperty(id={self.identifier}, rule={self.accounting_rule}, property='{self.property_name}')>"

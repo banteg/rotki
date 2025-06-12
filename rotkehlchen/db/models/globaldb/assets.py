@@ -3,15 +3,15 @@
 from typing import List, Optional, TYPE_CHECKING
 
 from sqlalchemy import (
-    CHAR, INTEGER, TEXT, Column, ForeignKey, Index, UniqueConstraint
+    CHAR, INTEGER, TEXT, VARCHAR, Column, ForeignKey, Index, UniqueConstraint
 )
 from sqlmodel import Field, Relationship
 
 from rotkehlchen.db.models.types import BooleanType, FValType, TimestampType
-from rotkehlchen.db.models.global.base import Base
+from rotkehlchen.db.models.globaldb.base import Base
 
 if TYPE_CHECKING:
-    from rotkehlchen.db.models.global.enums import AssetType, TokenKind
+    from rotkehlchen.db.models.globaldb.enums import AssetType, TokenKind
 
 
 class GlobalAsset(Base, table=True):
@@ -127,13 +127,13 @@ class EvmToken(Base, table=True):
     token_kind: str = Field(
         sa_column=Column(
             CHAR(1),
-            ForeignKey('token_kinds.kind'),
+            ForeignKey('token_kinds.token_kind'),
             nullable=False,
             server_default='A',
         )
     )
     chain: int = Field(sa_column=Column(INTEGER, nullable=False))
-    address: str = Field(sa_column=Column(TEXT, nullable=False))
+    address: str = Field(sa_column=Column(VARCHAR(42), nullable=False))
     decimals: Optional[int] = Field(default=None, sa_column=Column(INTEGER))
     protocol: Optional[str] = Field(default=None, sa_column=Column(TEXT))
 
@@ -162,17 +162,10 @@ class CustomAsset(Base, table=True):
         )
     )
     notes: Optional[str] = Field(default=None, sa_column=Column(TEXT))
-    type: str = Field(
-        sa_column=Column(
-            CHAR(1),
-            ForeignKey('asset_types.type'),
-            nullable=False,
-        )
-    )
+    type: str = Field(sa_column=Column(TEXT, nullable=False))
 
     # Relationships
     asset: Optional['GlobalAsset'] = Relationship(back_populates='custom_asset')
-    type_ref: Optional['AssetType'] = Relationship()
 
     def __repr__(self) -> str:
         return f"<CustomAsset(identifier='{self.identifier}', type='{self.type}')>"
@@ -181,13 +174,18 @@ class CustomAsset(Base, table=True):
 class AssetCollection(Base, table=True):
     """Model for asset collections table"""
     __tablename__ = 'asset_collections'
+    __table_args__ = (
+        UniqueConstraint('name', 'symbol'),
+    )
 
     id: int = Field(sa_column=Column(INTEGER, primary_key=True, nullable=False))
     name: str = Field(sa_column=Column(TEXT, nullable=False))
+    symbol: str = Field(sa_column=Column(TEXT, nullable=False))
     main_asset: str = Field(
         sa_column=Column(
             TEXT,
             ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
+            unique=True,
             nullable=False,
         )
     )
@@ -203,18 +201,18 @@ class MultiassetMapping(Base, table=True):
     """Model for multiasset mappings table"""
     __tablename__ = 'multiasset_mappings'
 
-    asset: str = Field(
-        sa_column=Column(
-            TEXT,
-            ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
-            primary_key=True,
-            nullable=False,
-        )
-    )
     collection_id: int = Field(
         sa_column=Column(
             INTEGER,
             ForeignKey('asset_collections.id', ondelete='CASCADE'),
+            primary_key=True,
+            nullable=False,
+        )
+    )
+    asset: str = Field(
+        sa_column=Column(
+            TEXT,
+            ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,
         )
@@ -240,8 +238,7 @@ class UnderlyingTokensList(Base, table=True):
             nullable=False,
         )
     )
-    weight: str = Field(sa_column=Column(FValType, primary_key=True, nullable=False))
-    underlying_token: str = Field(
+    parent_token_entry: str = Field(
         sa_column=Column(
             TEXT,
             ForeignKey('evm_tokens.identifier', ondelete='CASCADE', onupdate='CASCADE'),
@@ -249,6 +246,7 @@ class UnderlyingTokensList(Base, table=True):
             nullable=False,
         )
     )
+    weight: str = Field(sa_column=Column(TEXT, nullable=False))
 
     # Relationships
     parent_token: Optional['EvmToken'] = Relationship(
@@ -256,11 +254,11 @@ class UnderlyingTokensList(Base, table=True):
         back_populates='underlying_tokens',
     )
     underlying: Optional['EvmToken'] = Relationship(
-        sa_relationship_kwargs={'foreign_keys': '[UnderlyingTokensList.underlying_token]'}
+        sa_relationship_kwargs={'foreign_keys': '[UnderlyingTokensList.parent_token_entry]'}
     )
 
     def __repr__(self) -> str:
-        return f"<UnderlyingTokensList(identifier='{self.identifier}', underlying='{self.underlying_token}')>"
+        return f"<UnderlyingTokensList(identifier='{self.identifier}', parent_token='{self.parent_token_entry}')>"
 
 
 class UserOwnedAsset(Base, table=True):
@@ -269,7 +267,7 @@ class UserOwnedAsset(Base, table=True):
 
     asset_id: str = Field(
         sa_column=Column(
-            TEXT,
+            VARCHAR(24),
             ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,

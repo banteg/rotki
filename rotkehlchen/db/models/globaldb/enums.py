@@ -1,9 +1,9 @@
 """Enum tables for global database using SQLModel"""
 
-from sqlalchemy import CHAR, VARCHAR, Column
+from sqlalchemy import CHAR, INTEGER, VARCHAR, Column
 from sqlmodel import Field
 
-from rotkehlchen.db.models.global.base import Base
+from rotkehlchen.db.models.globaldb.base import Base
 
 
 class AssetType(Base, table=True):
@@ -11,7 +11,7 @@ class AssetType(Base, table=True):
     __tablename__ = 'asset_types'
 
     type: str = Field(sa_column=Column(CHAR(1), primary_key=True, nullable=False))
-    seq: int = Field(sa_column=Column(VARCHAR(10), nullable=False))
+    seq: int | None = Field(default=None, sa_column=Column(INTEGER, nullable=True))
 
     def __repr__(self) -> str:
         return f"<AssetType(type='{self.type}', seq={self.seq})>"
@@ -21,11 +21,11 @@ class TokenKind(Base, table=True):
     """Model for token kinds enum table"""
     __tablename__ = 'token_kinds'
 
-    kind: str = Field(sa_column=Column(CHAR(1), primary_key=True, nullable=False))
-    seq: int = Field(sa_column=Column(VARCHAR(10), nullable=False))
+    token_kind: str = Field(sa_column=Column(CHAR(1), primary_key=True, nullable=False))
+    seq: int | None = Field(default=None, sa_column=Column(INTEGER, nullable=True))
 
     def __repr__(self) -> str:
-        return f"<TokenKind(kind='{self.kind}', seq={self.seq})>"
+        return f"<TokenKind(token_kind='{self.token_kind}', seq={self.seq})>"
 
 
 class PriceHistorySourceType(Base, table=True):
@@ -33,7 +33,7 @@ class PriceHistorySourceType(Base, table=True):
     __tablename__ = 'price_history_source_types'
 
     type: str = Field(sa_column=Column(CHAR(1), primary_key=True, nullable=False))
-    seq: int = Field(sa_column=Column(VARCHAR(10), nullable=False))
+    seq: int | None = Field(default=None, sa_column=Column(INTEGER, nullable=True))
 
     def __repr__(self) -> str:
         return f"<PriceHistorySourceType(type='{self.type}', seq={self.seq})>"

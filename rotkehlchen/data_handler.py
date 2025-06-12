@@ -9,7 +9,7 @@ from pathlib import Path
 from rotkehlchen.assets.asset import Asset
 from rotkehlchen.constants.misc import USERDB_NAME, USERSDIR_NAME
 from rotkehlchen.crypto import decrypt, encrypt
-from rotkehlchen.db.orm.database import RotkehlchenDatabase, create_database
+from rotkehlchen.db.dbhandler import DBHandler
 from rotkehlchen.db.settings import ModifiableDBSettings
 from rotkehlchen.errors.api import AuthenticationError
 from rotkehlchen.errors.misc import SystemPermissionError
@@ -36,7 +36,7 @@ class DataHandler:
         self.username = 'no_user'
         self.msg_aggregator = msg_aggregator
         self.sql_vm_instructions_cb = sql_vm_instructions_cb
-        self.db: RotkehlchenDatabase | None = None
+        self.db: DBHandler | None = None
 
     def logout(self) -> None:
         if self.logged_in:
@@ -44,10 +44,7 @@ class DataHandler:
             self.user_data_dir: Path | None = None
             db = getattr(self, 'db', None)
             if db is not None:
-                # Update owned assets in global DB before logout
-                self.db.repos.owned_assets.get_all_owned_assets()
-                # TODO: Update global DB with owned assets
-                self.db.close()
+                self.db.logout()
                 self.db = None
             self.logged_in = False
 
@@ -111,17 +108,14 @@ class DataHandler:
                     'A backup of the user directory was created.',
                 ) from e
 
-        self.db: RotkehlchenDatabase = create_database(
+        self.db = DBHandler(
             user_data_dir=user_data_dir,
             password=password,
-            echo_sql=False,
+            msg_aggregator=self.msg_aggregator,
+            initial_settings=initial_settings if create_new else None,
+            sql_vm_instructions_cb=self.sql_vm_instructions_cb,
+            resume_from_backup=resume_from_backup,
         )
-
-        # Set initial settings if creating new user
-        if create_new and initial_settings is not None:
-            with self.db.repos.unit_of_work():
-                for key, value in initial_settings.serialize_for_db().items():
-                    self.db.repos.settings.set_setting(key, value)
         self.user_data_dir = user_data_dir
         self.logged_in = True
         self.username = username
@@ -136,8 +130,9 @@ class DataHandler:
         already_ignored, to_ignore = set(), set()
 
         # Get currently ignored assets
-        ignored_assets = self.db.repos.ignored_assets.get_all_ignored_assets()
-        ignored_asset_ids = {asset.identifier for asset in ignored_assets}
+        with self.db.conn.read_ctx() as cursor:
+            cursor.execute("SELECT value FROM multisettings WHERE name='ignored_asset'")
+            ignored_asset_ids = {row[0] for row in cursor}
 
         for asset in assets:
             if asset.identifier in ignored_asset_ids:
@@ -146,9 +141,9 @@ class DataHandler:
                 to_ignore.add(asset)
 
         # Add new ignored assets
-        with self.db.repos.unit_of_work():
+        with self.db.user_write() as write_cursor:
             for asset in to_ignore:
-                self.db.repos.ignored_assets.add_ignored_asset(asset.identifier)
+                self.db.add_to_ignored_assets(write_cursor, asset)
 
         return to_ignore, already_ignored
 
@@ -161,8 +156,9 @@ class DataHandler:
         not_ignored, to_unignore = set(), set()
 
         # Get currently ignored assets
-        ignored_assets = self.db.repos.ignored_assets.get_all_ignored_assets()
-        ignored_asset_ids = {asset.identifier for asset in ignored_assets}
+        with self.db.conn.read_ctx() as cursor:
+            cursor.execute("SELECT value FROM multisettings WHERE name='ignored_asset'")
+            ignored_asset_ids = {row[0] for row in cursor}
 
         for asset in assets:
             if asset.identifier not in ignored_asset_ids:
@@ -171,9 +167,9 @@ class DataHandler:
                 to_unignore.add(asset)
 
         # Remove from ignored assets
-        with self.db.repos.unit_of_work():
+        with self.db.user_write() as write_cursor:
             for asset in to_unignore:
-                self.db.repos.ignored_assets.remove_ignored_asset(asset.identifier)
+                self.db.remove_from_ignored_assets(write_cursor, asset)
 
         return to_unignore, not_ignored
 

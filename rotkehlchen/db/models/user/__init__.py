@@ -6,21 +6,8 @@ Example:
 """
 
 # Base class
-from rotkehlchen.db.models.user.base import Base
-
-# Enums
-from rotkehlchen.db.models.user.enums import BalanceCategory, Location, ZkSyncLiteTxType
-
-# Core models
-from rotkehlchen.db.models.user.models import (
-    Asset,
-    IgnoredAction,
-    ManuallyTrackedBalance,
-    Tag,
-    TimedBalance,
-    TimedLocationData,
-    UserSettings,
-)
+# Accounting models
+from rotkehlchen.db.models.user.accounting import AccountingRule, LinkedRuleProperty
 
 # Account models
 from rotkehlchen.db.models.user.accounts import (
@@ -30,35 +17,44 @@ from rotkehlchen.db.models.user.accounts import (
     UserCredentials,
 )
 
-# Xpub models
-from rotkehlchen.db.models.user.xpubs import Xpub, XpubMapping
+# Address book models
+from rotkehlchen.db.models.user.address_book import AddressBook
+from rotkehlchen.db.models.user.base import Base
 
-# NFT models
-from rotkehlchen.db.models.user.nfts import NFT
+# EVM models
+from rotkehlchen.db.models.user.evm import (
+    EvmInternalTransaction,
+    EvmTransaction,
+    EvmTransactionAuthorization,
+    EvmTxAddressMapping,
+    EvmTxMapping,
+    EvmTxReceipt,
+    EvmTxReceiptLog,
+    EvmTxReceiptLogTopic,
+    OptimismTransaction,
+)
 
-# Service models
-from rotkehlchen.db.models.user.services import ExternalServiceCredentials
+# History models
+from rotkehlchen.db.models.user.history import (
+    EvmEventInfo,
+    HistoryEvent,
+    HistoryEventMapping,
+    SkippedExternalEvent,
+)
 
-# Trading models
-from rotkehlchen.db.models.user.trading import MarginPosition
+# Staking models
+from rotkehlchen.db.models.user.staking import (
+    Eth2DailyStakingDetails,
+    Eth2Validator,
+    EthStakingEventInfo,
+    EthValidatorsDataCache,
+)
 
-# Node models
-from rotkehlchen.db.models.user.nodes import RPCNode
+# zkSync Lite models
+from rotkehlchen.db.models.user.zksynclite import ZkSyncLiteSwap, ZkSyncLiteTransaction
 
 # Cache models
 from rotkehlchen.db.models.user.cache import KeyValueCache, MultiSettings, UsedQueryRange
-
-# Note models
-from rotkehlchen.db.models.user.notes import UserNote
-
-# ENS models
-from rotkehlchen.db.models.user.ens import ENSMapping
-
-# DeFi models
-from rotkehlchen.db.models.user.defi import CowswapOrder, GnosisPayData
-
-# Accounting models
-from rotkehlchen.db.models.user.accounting import AccountingRule, LinkedRuleProperty
 
 # Calendar models
 from rotkehlchen.db.models.user.calendar import Calendar, CalendarReminder
@@ -66,59 +62,119 @@ from rotkehlchen.db.models.user.calendar import Calendar, CalendarReminder
 # Conflict models
 from rotkehlchen.db.models.user.conflicts import UnresolvedRemoteConflict
 
-# Address book models
-from rotkehlchen.db.models.user.address_book import AddressBook
+# DeFi models
+from rotkehlchen.db.models.user.defi import CowswapOrder, GnosisPayData
+
+# ENS models
+from rotkehlchen.db.models.user.ens import ENSMapping
+
+# Enums
+from rotkehlchen.db.models.user.enums import BalanceCategory, Location, ZkSyncLiteTxType
+
+# Core models
+from rotkehlchen.db.models.user.models import (
+    Asset,
+    IgnoredAction,
+    ManuallyTrackedBalance,
+    Settings,
+    Tag,
+    TagMapping,
+    TimedBalance,
+    TimedLocationData,
+)
+
+# NFT models
+from rotkehlchen.db.models.user.nfts import NFT
+
+# Node models
+from rotkehlchen.db.models.user.nodes import RPCNode
+
+# Note models
+from rotkehlchen.db.models.user.notes import UserNote
+
+# Service models
+from rotkehlchen.db.models.user.services import ExternalServiceCredentials
+
+# Trading models
+from rotkehlchen.db.models.user.trading import MarginPosition
+
+# Xpub models
+from rotkehlchen.db.models.user.xpubs import Xpub, XpubMapping
 
 __all__ = [
-    # Base
-    'Base',
-    # Enums
-    'BalanceCategory',
-    'Location',
-    'ZkSyncLiteTxType',
-    # Core models
-    'Asset',
-    'IgnoredAction',
-    'ManuallyTrackedBalance',
-    'Tag',
-    'TimedBalance',
-    'TimedLocationData',
-    'UserSettings',
-    # Account models
-    'BlockchainAccount',
-    'EvmAccountDetails',
-    'UserCredentialMapping',
-    'UserCredentials',
-    # Xpub models
-    'Xpub',
-    'XpubMapping',
     # NFT models
     'NFT',
-    # Service models
-    'ExternalServiceCredentials',
-    # Trading models
-    'MarginPosition',
-    # Node models
-    'RPCNode',
-    # Cache models
-    'KeyValueCache',
-    'MultiSettings',
-    'UsedQueryRange',
-    # Note models
-    'UserNote',
-    # ENS models
-    'ENSMapping',
-    # DeFi models
-    'CowswapOrder',
-    'GnosisPayData',
     # Accounting models
     'AccountingRule',
-    'LinkedRuleProperty',
+    # Address book models
+    'AddressBook',
+    # Core models
+    'Asset',
+    # Enums
+    'BalanceCategory',
+    # Base
+    'Base',
+    # Account models
+    'BlockchainAccount',
     # Calendar models
     'Calendar',
     'CalendarReminder',
+    # DeFi models
+    'CowswapOrder',
+    # ENS models
+    'ENSMapping',
+    'EvmAccountDetails',
+    # Service models
+    'ExternalServiceCredentials',
+    'GnosisPayData',
+    'IgnoredAction',
+    # Cache models
+    'KeyValueCache',
+    'LinkedRuleProperty',
+    'Location',
+    'ManuallyTrackedBalance',
+    # Trading models
+    'MarginPosition',
+    'MultiSettings',
+    # Node models
+    'RPCNode',
+    'Tag',
+    'TagMapping',
+    'TimedBalance',
+    'TimedLocationData',
     # Conflict models
     'UnresolvedRemoteConflict',
-    # Address book models
-    'AddressBook',
+    'UsedQueryRange',
+    'UserCredentialMapping',
+    'UserCredentials',
+    # Note models
+    'UserNote',
+    'Settings',
+    # Xpub models
+    'Xpub',
+    'XpubMapping',
+    'ZkSyncLiteTxType',
+    # EVM models
+    'EvmTransaction',
+    'EvmTxReceipt',
+    'EvmTxReceiptLog',
+    'EvmTxReceiptLogTopic',
+    'EvmInternalTransaction',
+    'EvmTxMapping',
+    'EvmTxAddressMapping',
+    'OptimismTransaction',
+    'EvmTransactionAuthorization',
+    # History models
+    'HistoryEvent',
+    'HistoryEventMapping',
+    'EvmEventInfo',
+    'SkippedExternalEvent',
+    # Staking models
+    'Eth2Validator',
+    'Eth2DailyStakingDetails',
+    'EthStakingEventInfo',
+    'EthValidatorsDataCache',
+    # zkSync Lite models
+    'ZkSyncLiteTransaction',
+    'ZkSyncLiteSwap',
 ]

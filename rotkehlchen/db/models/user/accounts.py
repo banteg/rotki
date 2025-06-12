@@ -1,9 +1,15 @@
 """Account-related models for user database using SQLModel"""
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import (
-    CHAR, INTEGER, TEXT, VARCHAR, Column, ForeignKey, ForeignKeyConstraint, UniqueConstraint,
+    CHAR,
+    INTEGER,
+    TEXT,
+    VARCHAR,
+    Column,
+    ForeignKey,
+    ForeignKeyConstraint,
 )
 from sqlmodel import Field, Relationship
 
@@ -11,7 +17,6 @@ from rotkehlchen.db.models.types import TimestampType
 from rotkehlchen.db.models.user.base import Base
 
 if TYPE_CHECKING:
-    from rotkehlchen.db.models.user.models import Tag
     from rotkehlchen.db.models.user.xpubs import XpubMapping
 
 
@@ -27,15 +32,15 @@ class UserCredentials(Base, table=True):
             primary_key=True,
             nullable=False,
             server_default='A',
-        )
+        ),
     )
-    api_key: Optional[str] = Field(default=None, sa_column=Column(TEXT))
-    api_secret: Optional[str] = Field(default=None, sa_column=Column(TEXT))
-    passphrase: Optional[str] = Field(default=None, sa_column=Column(TEXT))
+    api_key: str | None = Field(default=None, sa_column=Column(TEXT))
+    api_secret: str | None = Field(default=None, sa_column=Column(TEXT))
+    passphrase: str | None = Field(default=None, sa_column=Column(TEXT))
 
     # Relationships
     location_ref: Optional['Location'] = Relationship()
-    mappings: List['UserCredentialMapping'] = Relationship(
+    mappings: list['UserCredentialMapping'] = Relationship(
         back_populates='credential',
         cascade_delete=True,
     )
@@ -62,7 +67,7 @@ class UserCredentialMapping(Base, table=True):
             ForeignKey('user_credentials.name'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
     credential_location: str = Field(
         sa_column=Column(
@@ -71,7 +76,7 @@ class UserCredentialMapping(Base, table=True):
             primary_key=True,
             nullable=False,
             server_default='A',
-        )
+        ),
     )
     setting_name: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
     setting_value: str = Field(sa_column=Column(TEXT, nullable=False))
@@ -89,18 +94,12 @@ class BlockchainAccount(Base, table=True):
 
     blockchain: str = Field(sa_column=Column(VARCHAR(24), primary_key=True, nullable=False))
     account: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
-    label: Optional[str] = Field(default=None, sa_column=Column(TEXT))
-    tag: Optional[str] = Field(
-        default=None,
-        sa_column=Column(TEXT, ForeignKey('tags.name', onupdate='CASCADE'))
-    )
 
     # Relationships
-    tag_obj: Optional['Tag'] = Relationship(back_populates='accounts')
-    xpub_mappings: List['XpubMapping'] = Relationship(
+    xpub_mappings: list['XpubMapping'] = Relationship(
         cascade_delete=True,
     )
-    evm_details: List['EvmAccountDetails'] = Relationship(
+    evm_details: list['EvmAccountDetails'] = Relationship(
         back_populates='account_obj',
         cascade_delete=True,
     )
@@ -113,19 +112,10 @@ class EvmAccountDetails(Base, table=True):
     """Model for EVM account details table"""
     __tablename__ = 'evm_accounts_details'
 
-    account: str = Field(
-        sa_column=Column(
-            VARCHAR(42),
-            ForeignKey('blockchain_accounts.account'),
-            primary_key=True,
-            nullable=False,
-        )
-    )
+    account: str = Field(sa_column=Column(VARCHAR(42), primary_key=True, nullable=False))
     chain_id: int = Field(sa_column=Column(INTEGER, primary_key=True, nullable=False))
-    last_queried_timestamp: int = Field(sa_column=Column(TimestampType, nullable=False))
-
-    # Relationships
-    account_obj: Optional['BlockchainAccount'] = Relationship(back_populates='evm_details')
+    key: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
+    value: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
 
     def __repr__(self) -> str:
         return f"<EvmAccountDetails(account='{self.account}', chain_id={self.chain_id})"

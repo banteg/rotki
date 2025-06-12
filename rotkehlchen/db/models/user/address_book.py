@@ -1,6 +1,5 @@
 """Address book models for user database using SQLModel"""
 
-from typing import Optional
 
 from sqlalchemy import TEXT, VARCHAR, Column
 from sqlmodel import Field
@@ -13,9 +12,9 @@ class AddressBook(Base, table=True):
     __tablename__ = 'address_book'
 
     address: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
-    blockchain: Optional[str] = Field(
-        default=None, 
-        sa_column=Column(VARCHAR(24), primary_key=True)
+    blockchain: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, primary_key=True),
     )
     name: str = Field(sa_column=Column(TEXT, nullable=False))
 

@@ -1,8 +1,7 @@
 """DeFi protocol-related models for user database using SQLModel"""
 
-from typing import Optional
 
-from sqlalchemy import INTEGER, TEXT, Column, ForeignKey
+from sqlalchemy import BLOB, INTEGER, TEXT, Column, ForeignKey
 from sqlmodel import Field
 
 from rotkehlchen.db.models.types import FValType, TimestampType
@@ -15,26 +14,7 @@ class CowswapOrder(Base, table=True):
 
     identifier: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
     order_type: str = Field(sa_column=Column(TEXT, nullable=False))
-    raw_fee_amount: str = Field(sa_column=Column(FValType, nullable=False))
-    sell_token: str = Field(
-        sa_column=Column(
-            TEXT,
-            ForeignKey('assets.identifier', onupdate='CASCADE'),
-            nullable=False,
-        )
-    )
-    buy_token: str = Field(
-        sa_column=Column(
-            TEXT,
-            ForeignKey('assets.identifier', onupdate='CASCADE'),
-            nullable=False,
-        )
-    )
-    sell_amount: str = Field(sa_column=Column(FValType, nullable=False))
-    buy_amount: str = Field(sa_column=Column(FValType, nullable=False))
-    limit_price: Optional[str] = Field(default=None, sa_column=Column(FValType))
-    fee_amount: str = Field(sa_column=Column(FValType, nullable=False))
-    settlement_contract_address: str = Field(sa_column=Column(TEXT, nullable=False))
+    raw_fee_amount: str = Field(sa_column=Column(TEXT, nullable=False))
 
     def __repr__(self) -> str:
         return f"<CowswapOrder(identifier='{self.identifier}')>"
@@ -44,13 +24,20 @@ class GnosisPayData(Base, table=True):
     """Model for Gnosis Pay data table"""
     __tablename__ = 'gnosispay_data'
 
-    tx_hash: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
+    identifier: int = Field(sa_column=Column(INTEGER, primary_key=True, nullable=False))
+    tx_hash: bytes = Field(sa_column=Column(BLOB, unique=True, nullable=False))
     timestamp: int = Field(sa_column=Column(TimestampType, nullable=False))
     merchant_name: str = Field(sa_column=Column(TEXT, nullable=False))
-    merchant_city: Optional[str] = Field(default=None, sa_column=Column(TEXT))
+    merchant_city: str | None = Field(default=None, sa_column=Column(TEXT))
     country: str = Field(sa_column=Column(TEXT, nullable=False))
     mcc: int = Field(sa_column=Column(INTEGER, nullable=False))
-    amount_in_eur: str = Field(sa_column=Column(FValType, nullable=False))
+    transaction_symbol: str = Field(sa_column=Column(TEXT, nullable=False))
+    transaction_amount: str = Field(sa_column=Column(TEXT, nullable=False))
+    billing_symbol: str | None = Field(default=None, sa_column=Column(TEXT))
+    billing_amount: str | None = Field(default=None, sa_column=Column(TEXT))
+    reversal_symbol: str | None = Field(default=None, sa_column=Column(TEXT))
+    reversal_amount: str | None = Field(default=None, sa_column=Column(TEXT))
+    reversal_tx_hash: bytes | None = Field(default=None, sa_column=Column(BLOB, unique=True))
 
     def __repr__(self) -> str:
-        return f"<GnosisPayData(tx_hash='{self.tx_hash}', merchant='{self.merchant_name}')>"
+        return f"<GnosisPayData(identifier={self.identifier}, merchant='{self.merchant_name}')>"

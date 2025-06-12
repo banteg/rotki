@@ -1,9 +1,15 @@
 """NFT-related models for user database using SQLModel"""
 
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import (
-    REAL, TEXT, CheckConstraint, Computed, ForeignKey, ForeignKeyConstraint, Column
+    REAL,
+    TEXT,
+    CheckConstraint,
+    Column,
+    Computed,
+    ForeignKey,
+    ForeignKeyConstraint,
 )
 from sqlmodel import Field, Relationship
 
@@ -33,29 +39,29 @@ class NFT(Base, table=True):
             ForeignKey('assets.identifier', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
-    name: Optional[str] = Field(default=None, sa_column=Column(TEXT))
-    last_price: str = Field(sa_column=Column(FValType, nullable=False))
+    name: str | None = Field(default=None, sa_column=Column(TEXT))
+    last_price: str = Field(sa_column=Column(TEXT, nullable=False))
     last_price_asset: str = Field(
         sa_column=Column(
             TEXT,
             ForeignKey('assets.identifier', onupdate='CASCADE'),
             nullable=False,
-        )
+        ),
     )
     manual_price: bool = Field(sa_column=Column(BooleanType, nullable=False))
-    owner_address: Optional[str] = Field(default=None, sa_column=Column(TEXT))
+    owner_address: str | None = Field(default=None, sa_column=Column(TEXT))
     blockchain: str = Field(
         sa_column=Column(
             TEXT,
             Computed("'ETH'", persisted=False),  # GENERATED ALWAYS AS ('ETH') VIRTUAL
             nullable=False,
-        )
+        ),
     )
     is_lp: bool = Field(sa_column=Column(BooleanType, nullable=False))
-    image_url: Optional[str] = Field(default=None, sa_column=Column(TEXT))
-    collection_name: Optional[str] = Field(default=None, sa_column=Column(TEXT))
+    image_url: str | None = Field(default=None, sa_column=Column(TEXT))
+    collection_name: str | None = Field(default=None, sa_column=Column(TEXT))
     usd_price: float = Field(sa_column=Column(REAL, nullable=False, server_default='0'))
 
     # Relationships

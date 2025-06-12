@@ -6,7 +6,7 @@ from sqlalchemy import CHAR, INTEGER, TEXT, Column, ForeignKey
 from sqlmodel import Field
 
 from rotkehlchen.db.models.types import FValType, TimestampType
-from rotkehlchen.db.models.global.base import Base
+from rotkehlchen.db.models.globaldb.base import Base
 
 
 class PriceHistory(Base, table=True):
@@ -35,10 +35,11 @@ class PriceHistory(Base, table=True):
             ForeignKey('price_history_source_types.type'),
             primary_key=True,
             nullable=False,
+            server_default='A',
         )
     )
     timestamp: int = Field(sa_column=Column(TimestampType, primary_key=True, nullable=False))
-    price: str = Field(sa_column=Column(FValType, nullable=False))
+    price: str = Field(sa_column=Column(TEXT, nullable=False))
 
     def __repr__(self) -> str:
         return f"<PriceHistory(from='{self.from_asset}', to='{self.to_asset}', time={self.timestamp})>"
@@ -49,7 +50,7 @@ class GeneralCache(Base, table=True):
     __tablename__ = 'general_cache'
 
     key: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
-    value: str = Field(sa_column=Column(TEXT, nullable=False))
+    value: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
     last_queried_ts: int = Field(sa_column=Column(TimestampType, nullable=False))
 
     def __repr__(self) -> str:

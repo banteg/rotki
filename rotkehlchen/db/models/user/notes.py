@@ -1,8 +1,8 @@
 """Note-related models for user database using SQLModel"""
 
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import CHAR, INTEGER, TEXT, Column, ForeignKey
+from sqlalchemy import CHAR, INTEGER, TEXT, CheckConstraint, Column, ForeignKey
 from sqlmodel import Field, Relationship
 
 from rotkehlchen.db.models.types import BooleanType, TimestampType
@@ -15,23 +15,16 @@ if TYPE_CHECKING:
 class UserNote(Base, table=True):
     """Model for user notes table"""
     __tablename__ = 'user_notes'
+    __table_args__ = (
+        CheckConstraint('is_pinned IN (0, 1)'),
+    )
 
     identifier: int = Field(sa_column=Column(INTEGER, primary_key=True, nullable=False))
     title: str = Field(sa_column=Column(TEXT, nullable=False))
     content: str = Field(sa_column=Column(TEXT, nullable=False))
-    location: str = Field(
-        sa_column=Column(
-            CHAR(1),
-            ForeignKey('location.location'),
-            nullable=False,
-            server_default='A',
-        )
-    )
+    location: str = Field(sa_column=Column(TEXT, nullable=False))
     last_update_timestamp: int = Field(sa_column=Column(TimestampType, nullable=False))
     is_pinned: bool = Field(sa_column=Column(BooleanType, nullable=False))
-
-    # Relationships
-    location_ref: Optional['Location'] = Relationship()
 
     def __repr__(self) -> str:
         return f"<UserNote(id={self.identifier}, title='{self.title}')>"
