@@ -13,6 +13,7 @@ from rotkehlchen.api.v2.routers import (
     blockchain,
     exchanges,
     history,
+    settings as settings_router,
     statistics,
     users,
 )
@@ -53,7 +54,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Include routers
     app.include_router(auth.router, prefix='/api/v2/auth', tags=['authentication'])
     app.include_router(users.router, prefix='/api/v2/users', tags=['users'])
-    app.include_router(settings.router, prefix='/api/v2/settings', tags=['settings'])
+    app.include_router(settings_router.router, prefix='/api/v2/settings', tags=['settings'])
     app.include_router(assets.router, prefix='/api/v2/assets', tags=['assets'])
     app.include_router(balances.router, prefix='/api/v2/balances', tags=['balances'])
     app.include_router(blockchain.router, prefix='/api/v2/blockchain', tags=['blockchain'])

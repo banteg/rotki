@@ -29,9 +29,10 @@ def get_database_service(
 
 def get_auth_service(
     db_service: Annotated[DatabaseService, Depends(get_database_service)],
+    session: Annotated[Session, Depends(get_db_session)],
 ) -> AuthService:
     """Get authentication service instance"""
-    return AuthService(db_service)
+    return AuthService(db_service, session)
 
 
 async def require_logged_in_user(

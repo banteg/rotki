@@ -1,7 +1,12 @@
 """Authentication service"""
+import hashlib
 import secrets
+from datetime import datetime
 from typing import Any
 
+from sqlmodel import Session
+
+from rotkehlchen.api.v2.repositories.user import UserRepository
 from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.errors.api import AuthenticationError
 
@@ -9,8 +14,10 @@ from rotkehlchen.errors.api import AuthenticationError
 class AuthService:
     """Service for handling authentication"""
 
-    def __init__(self, db_service: DatabaseService):
+    def __init__(self, db_service: DatabaseService, session: Session | None = None):
         self.db = db_service
+        self.session = session or db_service.get_session()
+        self.user_repo = UserRepository(self.session)
 
     def authenticate_user(self, username: str, password: str) -> dict[str, Any]:
         """Authenticate user with username and password"""
@@ -35,31 +42,90 @@ class AuthService:
         """Authenticate using API key"""
         if not api_key or len(api_key) < 32:
             raise AuthenticationError('Invalid API key format')
+        
+        # Hash the provided API key
+        key_hash = self._hash_api_key(api_key)
+        
+        # Look up the API key in the database
+        try:
+            api_key_record = self.user_repo.find_api_key_by_hash(key_hash)
+            
+            if not api_key_record:
+                raise AuthenticationError('Invalid API key')
+            
+            # Check if key is expired
+            if api_key_record.expires_at and api_key_record.expires_at < datetime.now():
+                raise AuthenticationError('API key has expired')
+            
+            # Update last used timestamp
+            api_key_record.last_used = datetime.now()
+            self.session.add(api_key_record)
+            self.session.commit()
+            
+            return api_key_record.username
+        except Exception:
+            # If the API key table doesn't exist or other DB issues
+            # This is a temporary fallback until the schema is updated
+            raise AuthenticationError('API key authentication not available')
 
-        # TODO: Implement API key storage and validation
-        # Currently no API key table exists in the database
-        # This would need:
-        # 1. A new table for API keys (api_key, username, created_at, revoked)
-        # 2. Hashing of API keys before storage
-        # 3. Validation against the stored hashes
-
-        # For now, return None to indicate not implemented
-        raise AuthenticationError('API key authentication not yet implemented')
-
-    def generate_api_key(self, username: str) -> str:
+    def generate_api_key(self, username: str, name: str | None = None) -> dict[str, Any]:
         """Generate new API key for user"""
+        # In rotkehlchen, users are identified by their database existence
+        # For now, we'll assume the user exists if we can access the database
+        # TODO: Properly integrate with the user system
+        
         # Generate a secure random API key
         api_key = secrets.token_urlsafe(32)
-
-        # TODO: Store the API key hash in the database
-        # Would need to:
-        # 1. Hash the API key
-        # 2. Store in api_keys table with username and metadata
-        # 3. Return the plain API key (only shown once)
-
-        return api_key
+        
+        # Hash the API key for storage
+        key_hash = self._hash_api_key(api_key)
+        
+        # Store the API key hash in the database
+        api_key_record = self.user_repo.create_api_key(
+            username=username,
+            key_hash=key_hash,
+            name=name or f"API Key {datetime.now().strftime('%Y-%m-%d')}",
+        )
+        
+        return {
+            'api_key': api_key,  # Return plain key only once
+            'key_id': api_key_record.id,
+            'name': api_key_record.name,
+            'created_at': api_key_record.created_at.isoformat(),
+        }
 
     def revoke_api_key(self, api_key: str) -> bool:
         """Revoke an API key"""
-        # In real implementation, would mark key as revoked in database
-        return True
+        # Hash the API key to find it
+        key_hash = self._hash_api_key(api_key)
+        
+        # Find the API key
+        api_key_record = self.user_repo.find_api_key_by_hash(key_hash)
+        if not api_key_record:
+            return False
+        
+        # Delete the API key
+        return self.user_repo.delete_api_key(api_key_record.id)
+    
+    def revoke_api_key_by_id(self, key_id: int) -> bool:
+        """Revoke an API key by its ID"""
+        return self.user_repo.delete_api_key(key_id)
+    
+    def list_api_keys(self, username: str) -> list[dict[str, Any]]:
+        """List all API keys for a user"""
+        api_keys = self.user_repo.get_user_api_keys(username)
+        
+        return [
+            {
+                'key_id': key.id,
+                'name': key.name,
+                'created_at': key.created_at.isoformat(),
+                'last_used': key.last_used.isoformat() if key.last_used else None,
+                'expires_at': key.expires_at.isoformat() if key.expires_at else None,
+            }
+            for key in api_keys
+        ]
+    
+    def _hash_api_key(self, api_key: str) -> str:
+        """Hash an API key for secure storage"""
+        return hashlib.sha256(api_key.encode()).hexdigest()
