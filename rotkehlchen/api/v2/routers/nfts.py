@@ -11,8 +11,9 @@ from rotkehlchen.api.v2.dependencies import (
     require_logged_in_user,
 )
 from rotkehlchen.api.v2.services.nfts import NFTService
-from rotkehlchen.chain.ethereum.modules.nft.structures import NFTFilterQuery, NftLpHandling
+from rotkehlchen.chain.ethereum.modules.nft.structures import NftLpHandling
 from rotkehlchen.db.drivers.gevent import DBConnection
+from rotkehlchen.db.filtering import NFTFilterQuery
 from rotkehlchen.types import ChecksumEvmAddress
 
 if TYPE_CHECKING:
