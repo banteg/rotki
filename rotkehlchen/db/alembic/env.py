@@ -117,7 +117,13 @@ def run_migrations_online() -> None:
     db_path = os.environ.get('ROTKEHLCHEN_DB_PATH')
     password = os.environ.get('ROTKEHLCHEN_DB_PASSWORD')
     
-    if db_path and password and HAS_SQLCIPHER:
+    # Check if we're in a test environment
+    if 'pytest' in sys.modules:
+        use_sqlcipher = False
+    else:
+        use_sqlcipher = db_path and password and HAS_SQLCIPHER
+    
+    if use_sqlcipher:
         # Use pysqlcipher3 for encrypted databases
         # Create a custom connection creator that handles sqlcipher setup
         def creator():

@@ -28,6 +28,10 @@ def alembic_config(temp_db_dir):
     cfg_path = Path(__file__).parent.parent.parent / 'alembic.ini'
     cfg = Config(str(cfg_path))
     
+    # Set the script location to absolute path
+    rotkehlchen_dir = Path(__file__).parent.parent.parent
+    cfg.set_main_option('script_location', str(rotkehlchen_dir / 'db' / 'alembic'))
+    
     # Set test database path
     test_db_path = Path(temp_db_dir) / 'test.db'
     os.environ['ROTKEHLCHEN_DB_PATH'] = str(test_db_path)

@@ -33,6 +33,10 @@ def alembic_config(temp_db_dir):
     cfg_path = Path(__file__).parent.parent.parent / 'alembic.ini'
     cfg = Config(str(cfg_path))
     
+    # Set the script location to absolute path
+    rotkehlchen_dir = Path(__file__).parent.parent.parent
+    cfg.set_main_option('script_location', str(rotkehlchen_dir / 'db' / 'alembic'))
+    
     # Set test database path
     test_db_path = Path(temp_db_dir) / 'test.db'
     os.environ['ROTKEHLCHEN_DB_PATH'] = str(test_db_path)
@@ -44,30 +48,47 @@ class TestAlembicMigrations:
     """Test Alembic migration functionality"""
     
     def test_initial_migration_creates_all_tables(self, alembic_config, temp_db_dir):
-        """Test that the initial migration creates all expected tables"""
-        # Run migrations up to head
-        command.upgrade(alembic_config, "head")
+        """Test that the initial migration creates expected v26 tables"""
+        # Run only the initial migration
+        command.upgrade(alembic_config, "001_initial_v26")
         
         # Connect to the database and check tables
         db_path = Path(temp_db_dir) / 'test.db'
         engine = create_engine(f'sqlite:///{db_path}')
         inspector = inspect(engine)
         
-        # Check that key tables exist
-        expected_tables = [
+        # Check that key v26 tables exist
+        expected_v26_tables = [
             'assets',
             'settings',
             'blockchain_accounts',
-            'history_events',
-            'evm_transactions',
+            'ethereum_transactions',
+            'ethereum_internal_transactions',
             'tags',
             'manually_tracked_balances',
-            # ... add more tables
+            'trades',
+            'margin_positions',
+            'eth2_validators',
+            'eth2_deposits',
+            'eth2_daily_staking_details',
+            'xpubs',
+            'xpub_mappings',
+            'used_query_ranges',
+            'ignored_actions',
+            'timed_balances',
+            'timed_location_data',
+            'user_credentials',
+            'external_service_credentials',
+            'multisettings',
+            'alembic_version',
         ]
         
         tables = inspector.get_table_names()
-        for table in expected_tables:
+        for table in expected_v26_tables:
             assert table in tables, f"Table {table} not found in database"
+        
+        # Verify we have the expected number of tables for v26
+        assert len(tables) >= 25, f"Expected at least 25 tables for v26, got {len(tables)}"
     
     def test_migration_sequence(self, alembic_config, temp_db_dir):
         """Test running migrations in sequence"""

@@ -77,19 +77,30 @@ def upgrade() -> None:
     op.execute("UPDATE history_events SET subtype='reward' WHERE type='staking' AND subtype IS NULL")
     
     # Remove gitcoin-related data and tables
-    op.execute("""
-        DELETE FROM ledger_actions 
-        WHERE identifier IN (
-            SELECT parent_id FROM ledger_actions_gitcoin_data
-        )
-    """)
+    with op.get_bind() as conn:
+        # Check if ledger_actions and gitcoin tables exist
+        ledger_actions_exists = conn.exec_driver_sql(
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='ledger_actions'"
+        ).fetchone()[0] == 1
+        
+        gitcoin_data_exists = conn.exec_driver_sql(
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='ledger_actions_gitcoin_data'"
+        ).fetchone()[0] == 1
+        
+        if ledger_actions_exists and gitcoin_data_exists:
+            op.execute("""
+                DELETE FROM ledger_actions 
+                WHERE identifier IN (
+                    SELECT parent_id FROM ledger_actions_gitcoin_data
+                )
+            """)
     
     op.execute("DELETE FROM used_query_ranges WHERE name LIKE 'gitcoingrants\\_%' ESCAPE '\\'")
     
-    # Drop gitcoin tables
-    op.drop_table('gitcoin_grant_metadata')
-    op.drop_table('ledger_actions_gitcoin_data')
-    op.drop_table('gitcoin_tx_type')
+    # Drop gitcoin tables if they exist
+    op.execute('DROP TABLE IF EXISTS gitcoin_grant_metadata')
+    op.execute('DROP TABLE IF EXISTS ledger_actions_gitcoin_data')
+    op.execute('DROP TABLE IF EXISTS gitcoin_tx_type')
     
     # Add new location for Gitcoin
     op.execute("INSERT OR IGNORE INTO location(location, seq) VALUES ('^', 30)")

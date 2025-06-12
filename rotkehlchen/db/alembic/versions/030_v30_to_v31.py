@@ -31,7 +31,22 @@ def upgrade() -> None:
     ).fetchone()
     
     if result and result[0] == 1:
-        op.execute("DELETE FROM ignored_actions WHERE type='C'")
+        # Check if type column exists
+        inspector = conn.exec_driver_sql(
+            'PRAGMA table_info(ignored_actions)',
+        ).fetchall()
+        has_type_column = any(col[1] == 'type' for col in inspector)
+        
+        if has_type_column:
+            op.execute("DELETE FROM ignored_actions WHERE type='C'")
+        else:
+            # If the table exists but without type column, recreate it
+            op.drop_table('ignored_actions')
+            op.create_table('ignored_actions',
+                sa.Column('type', sa.CHAR(1), nullable=False, server_default='A'),
+                sa.Column('identifier', sa.TEXT),
+                sa.PrimaryKeyConstraint('type', 'identifier')
+            )
     else:
         # Create the table if it doesn't exist
         op.create_table('ignored_actions',
@@ -45,8 +60,9 @@ def upgrade() -> None:
     op.execute("DELETE FROM used_query_ranges WHERE name LIKE 'kraken\\_trades\\_%' ESCAPE '\\'")
     
     # Update eth2 tables
-    op.execute('DROP TABLE IF EXISTS eth2_deposits')
     op.execute('DROP TABLE IF EXISTS eth2_daily_staking_details')
+    op.execute('DROP TABLE IF EXISTS eth2_deposits')
+    op.execute('DROP TABLE IF EXISTS eth2_validators')
     
     op.create_table('eth2_validators',
         sa.Column('validator_index', sa.INTEGER, primary_key=True, nullable=False),

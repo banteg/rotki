@@ -43,6 +43,10 @@ class AlembicManager:
         
         self.alembic_cfg = Config(str(self.alembic_cfg_path))
         
+        # Set the script location to absolute path
+        rotkehlchen_dir = Path(__file__).parent.parent
+        self.alembic_cfg.set_main_option('script_location', str(rotkehlchen_dir / 'db' / 'alembic'))
+        
         # Set the database path in environment for the env.py script
         os.environ['ROTKEHLCHEN_DB_PATH'] = str(self.db.user_data_dir / 'rotkehlchen.db')
         if hasattr(self.db, 'password') and self.db.password and isinstance(self.db.password, str):

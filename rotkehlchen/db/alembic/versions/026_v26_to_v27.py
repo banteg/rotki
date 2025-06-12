@@ -1,13 +1,9 @@
-"""Upgrade from v26 to v27
+"""v26 to v27
 
 Revision ID: 026_v26_to_v27
-Revises: 001_initial_v48
+Revises: 001_initial_v26
 Create Date: 2025-01-06
 
-This upgrade includes:
-- Update balancer tables structure
-- Update amm_swaps table
-- Update uniswap_events table
 """
 from alembic import op
 import sqlalchemy as sa
@@ -20,82 +16,103 @@ depends_on = None
 
 
 def upgrade() -> None:
-    """Upgrade from v26 to v27"""
+    """Upgrade from v26 to v27
     
-    # Update balancer tables
-    op.execute('DROP TABLE IF EXISTS balancer_events')
-    op.create_table('balancer_events',
-        sa.Column('tx_hash', sa.VARCHAR(42), nullable=False),
-        sa.Column('log_index', sa.INTEGER, nullable=False),
-        sa.Column('address', sa.VARCHAR(42), nullable=False),
-        sa.Column('timestamp', sa.INTEGER, nullable=False),
-        sa.Column('type', sa.TEXT, nullable=False),
-        sa.Column('pool_address_token', sa.TEXT, nullable=False),
-        sa.Column('lp_amount', sa.TEXT, nullable=False),
-        sa.Column('usd_value', sa.TEXT, nullable=False),
-        sa.Column('amount0', sa.TEXT, nullable=False),
-        sa.Column('amount1', sa.TEXT, nullable=False),
-        sa.Column('amount2', sa.TEXT),
-        sa.Column('amount3', sa.TEXT),
-        sa.Column('amount4', sa.TEXT),
-        sa.Column('amount5', sa.TEXT),
-        sa.Column('amount6', sa.TEXT),
-        sa.Column('amount7', sa.TEXT),
-        sa.ForeignKeyConstraint(['pool_address_token'], ['assets.identifier'], onupdate='CASCADE'),
-        sa.PrimaryKeyConstraint('tx_hash', 'log_index')
+    - Deletes and recreates the tables that were changed after removing UnknownEthereumToken
+    """
+    # Drop and recreate balancer_events table
+    op.drop_table('balancer_events')
+    op.execute("""
+CREATE TABLE IF NOT EXISTS balancer_events (
+    tx_hash VARCHAR[42] NOT NULL,
+    log_index INTEGER NOT NULL,
+    address VARCHAR[42] NOT NULL,
+    timestamp INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    pool_address_token TEXT NOT NULL,
+    lp_amount TEXT NOT NULL,
+    usd_value TEXT NOT NULL,
+    amount0 TEXT NOT NULL,
+    amount1 TEXT NOT NULL,
+    amount2 TEXT,
+    amount3 TEXT,
+    amount4 TEXT,
+    amount5 TEXT,
+    amount6 TEXT,
+    amount7 TEXT,
+    FOREIGN KEY (pool_address_token) REFERENCES assets(identifier) ON UPDATE CASCADE,
+    PRIMARY KEY (tx_hash, log_index)
+)
+    """)
+    
+    # Drop balancer_pools table
+    op.drop_table('balancer_pools')
+    
+    # Delete balancer query ranges
+    op.execute(
+        "DELETE FROM used_query_ranges WHERE name LIKE 'balancer\\_events%' ESCAPE '\\'"
     )
     
-    op.execute('DROP TABLE IF EXISTS balancer_pools')
-    op.execute("DELETE FROM used_query_ranges WHERE name LIKE 'balancer\\_events%' ESCAPE '\\'")
+    # Drop and recreate amm_swaps table
+    op.drop_table('amm_swaps')
+    op.execute("""
+CREATE TABLE IF NOT EXISTS amm_swaps (
+    tx_hash VARCHAR[42] NOT NULL,
+    log_index INTEGER NOT NULL,
+    address VARCHAR[42] NOT NULL,
+    from_address VARCHAR[42] NOT NULL,
+    to_address VARCHAR[42] NOT NULL,
+    timestamp INTEGER NOT NULL,
+    location CHAR(1) NOT NULL DEFAULT('A') REFERENCES location(location),
+    token0_identifier TEXT NOT NULL,
+    token1_identifier TEXT NOT NULL,
+    amount0_in TEXT,
+    amount1_in TEXT,
+    amount0_out TEXT,
+    amount1_out TEXT,
+    FOREIGN KEY(token0_identifier) REFERENCES assets(identifier) ON UPDATE CASCADE,
+    FOREIGN KEY(token1_identifier) REFERENCES assets(identifier) ON UPDATE CASCADE,
+    PRIMARY KEY (tx_hash, log_index)
+)
+    """)
     
-    # Update amm_swaps table
-    op.execute('DROP TABLE IF EXISTS amm_swaps')
-    op.create_table('amm_swaps',
-        sa.Column('tx_hash', sa.VARCHAR(42), nullable=False),
-        sa.Column('log_index', sa.INTEGER, nullable=False),
-        sa.Column('address', sa.VARCHAR(42), nullable=False),
-        sa.Column('from_address', sa.VARCHAR(42), nullable=False),
-        sa.Column('to_address', sa.VARCHAR(42), nullable=False),
-        sa.Column('timestamp', sa.INTEGER, nullable=False),
-        sa.Column('location', sa.CHAR(1), nullable=False, server_default='A'),
-        sa.Column('token0_identifier', sa.TEXT, nullable=False),
-        sa.Column('token1_identifier', sa.TEXT, nullable=False),
-        sa.Column('amount0_in', sa.TEXT),
-        sa.Column('amount1_in', sa.TEXT),
-        sa.Column('amount0_out', sa.TEXT),
-        sa.Column('amount1_out', sa.TEXT),
-        sa.ForeignKeyConstraint(['location'], ['location.location']),
-        sa.ForeignKeyConstraint(['token0_identifier'], ['assets.identifier'], onupdate='CASCADE'),
-        sa.ForeignKeyConstraint(['token1_identifier'], ['assets.identifier'], onupdate='CASCADE'),
-        sa.PrimaryKeyConstraint('tx_hash', 'log_index')
+    # Delete related query ranges
+    op.execute(
+        "DELETE FROM used_query_ranges WHERE name LIKE 'balancer\\_trades%' ESCAPE '\\'"
+    )
+    op.execute(
+        "DELETE FROM used_query_ranges WHERE name LIKE 'uniswap\\_trades%' ESCAPE '\\'"
     )
     
-    op.execute("DELETE FROM used_query_ranges WHERE name LIKE 'balancer\\_trades%' ESCAPE '\\'")
-    op.execute("DELETE FROM used_query_ranges WHERE name LIKE 'uniswap\\_trades%' ESCAPE '\\'")
+    # Drop and recreate uniswap_events table
+    op.drop_table('uniswap_events')
+    op.execute("""
+CREATE TABLE IF NOT EXISTS uniswap_events (
+    tx_hash VARCHAR[42] NOT NULL,
+    log_index INTEGER NOT NULL,
+    address VARCHAR[42] NOT NULL,
+    timestamp INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    pool_address VARCHAR[42] NOT NULL,
+    token0_identifier TEXT NOT NULL,
+    token1_identifier TEXT NOT NULL,
+    amount0 TEXT,
+    amount1 TEXT,
+    usd_price TEXT,
+    lp_amount TEXT,
+    FOREIGN KEY(token0_identifier) REFERENCES assets(identifier) ON UPDATE CASCADE,
+    FOREIGN KEY(token1_identifier) REFERENCES assets(identifier) ON UPDATE CASCADE,
+    PRIMARY KEY (tx_hash, log_index)
+)
+    """)
     
-    # Update uniswap_events table
-    op.execute('DROP TABLE IF EXISTS uniswap_events')
-    op.create_table('uniswap_events',
-        sa.Column('tx_hash', sa.VARCHAR(42), nullable=False),
-        sa.Column('log_index', sa.INTEGER, nullable=False),
-        sa.Column('address', sa.VARCHAR(42), nullable=False),
-        sa.Column('timestamp', sa.INTEGER, nullable=False),
-        sa.Column('type', sa.TEXT, nullable=False),
-        sa.Column('pool_address', sa.VARCHAR(42), nullable=False),
-        sa.Column('token0_identifier', sa.TEXT, nullable=False),
-        sa.Column('token1_identifier', sa.TEXT, nullable=False),
-        sa.Column('amount0', sa.TEXT),
-        sa.Column('amount1', sa.TEXT),
-        sa.Column('usd_price', sa.TEXT),
-        sa.Column('lp_amount', sa.TEXT),
-        sa.ForeignKeyConstraint(['token0_identifier'], ['assets.identifier'], onupdate='CASCADE'),
-        sa.ForeignKeyConstraint(['token1_identifier'], ['assets.identifier'], onupdate='CASCADE'),
-        sa.PrimaryKeyConstraint('tx_hash', 'log_index')
+    # Delete uniswap query ranges
+    op.execute(
+        "DELETE FROM used_query_ranges WHERE name LIKE 'uniswap\\_events%' ESCAPE '\\'"
     )
-    
-    op.execute("DELETE FROM used_query_ranges WHERE name LIKE 'uniswap\\_events%' ESCAPE '\\'")
 
 
 def downgrade() -> None:
     """Downgrade from v27 to v26"""
-    raise NotImplementedError("Downgrade not implemented for this migration")
+    # This would require recreating the old schema with UnknownEthereumToken columns
+    raise NotImplementedError("Downgrade not implemented")
