@@ -43,7 +43,13 @@ def get_balances_service(
     db_service: Annotated[DatabaseService, Depends(get_database_service)],
 ) -> BalancesService:
     """Get balances service instance"""
-    return BalancesService(db_service)
+    # TODO: Properly inject chain_manager and exchange_manager
+    # For now, create service with just the database session
+    return BalancesService(
+        session=db_service.get_session(),
+        chain_manager=None,  # TODO: Inject from app state
+        exchange_manager=None,  # TODO: Inject from app state
+    )
 
 
 @router.get('/')

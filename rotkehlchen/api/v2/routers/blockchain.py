@@ -12,7 +12,7 @@ from rotkehlchen.api.v2.services.blockchain import BlockchainService
 from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.chain.constants import SUPPORTED_BLOCKCHAIN_TO_CHAINID
 from rotkehlchen.chain.evm.types import string_to_evm_address
-from rotkehlchen.types import Blockchain, SupportedBlockchain
+from rotkehlchen.types import SupportedBlockchain
 
 router = APIRouter()
 

@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from rotkehlchen.api.v2.repositories.base import BaseRepository
 from rotkehlchen.db.models.user.models import Asset
-from rotkehlchen.typing import AssetType
+from rotkehlchen.assets.types import AssetType
 
 
 class AssetRepository(BaseRepository[Asset]):

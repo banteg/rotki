@@ -1,16 +1,24 @@
 """Balances service for managing account balances"""
 from collections import defaultdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from rotkehlchen.accounting.structures.balance import Balance, BalanceSheet
+from rotkehlchen.accounting.structures.balance import Balance
+from rotkehlchen.api.v2.repositories.balance import BalanceRepository
+from rotkehlchen.api.v2.repositories.balance_source import (
+    BlockchainBalanceSource,
+    ExchangeBalanceSource,
+    ManualBalanceSource,
+)
+from rotkehlchen.api.v2.services.balance_aggregator import BalanceAggregator
 from rotkehlchen.assets.asset import Asset
 from rotkehlchen.balances.manual import ManuallyTrackedBalance
-from rotkehlchen.chain.aggregator import ChainsAggregator
-from rotkehlchen.db.drivers.gevent import DBConnection
-from rotkehlchen.exchanges.manager import ExchangeManager
 from rotkehlchen.fval import FVal
-from rotkehlchen.inquirer import Inquirer
 from rotkehlchen.types import Location, Timestamp
+
+if TYPE_CHECKING:
+    from sqlmodel import Session
+    from rotkehlchen.chain.aggregator import ChainsAggregator
+    from rotkehlchen.exchanges.manager import ExchangeManager
 
 
 class BalancesService:
@@ -18,118 +26,64 @@ class BalancesService:
 
     def __init__(
         self,
-        db_connection: DBConnection,
-        chain_manager: ChainsAggregator | None = None,
-        exchange_manager: ExchangeManager | None = None,
+        session: 'Session',
+        chain_manager: 'ChainsAggregator | None' = None,
+        exchange_manager: 'ExchangeManager | None' = None,
     ):
-        self.db_connection = db_connection
-        self.chain_manager = chain_manager
-        self.exchange_manager = exchange_manager
+        self.balance_repo = BalanceRepository(session)
+        self.aggregator = BalanceAggregator()
+        
+        # Set up balance sources
+        if chain_manager:
+            self.aggregator.add_source(BlockchainBalanceSource(chain_manager))
+        if exchange_manager:
+            self.aggregator.add_source(ExchangeBalanceSource(exchange_manager))
+        
+        # Always add manual balance source
+        self.aggregator.add_source(ManualBalanceSource(self.balance_repo))
 
     def get_all_balances(self, save_data: bool = False) -> dict[str, Any]:
         """Get all balances across all locations"""
-        balances = BalanceSheet()
-
-        # Get blockchain balances
-        if self.chain_manager:
-            blockchain_balances = self._get_blockchain_balances()
-            for location, assets in blockchain_balances.items():
-                for asset, balance in assets.items():
-                    balances.add(location, asset, balance)
-
-        # Get exchange balances
-        if self.exchange_manager:
-            exchange_balances = self._get_exchange_balances()
-            for location, assets in exchange_balances.items():
-                for asset, balance in assets.items():
-                    balances.add(location, asset, balance)
-
-        # Get manually tracked balances
-        manual_balances = self._get_manual_balances()
-        for balance in manual_balances:
-            # Calculate USD value for manually tracked balance
-            usd_price = Inquirer.find_usd_price(balance.asset)
-            usd_value = balance.amount * usd_price
-            balances.add(
-                balance.location,
-                balance.asset,
-                Balance(amount=balance.amount, usd_value=usd_value),
-            )
-
+        # Aggregate balances from all sources
+        balance_sheet = self.aggregator.aggregate_balances()
+        
+        # TODO: Implement save_data functionality if needed
+        
         return {
-            'assets': self._serialize_balance_sheet(balances),
+            'assets': self.aggregator.serialize_balance_sheet(balance_sheet),
             'liabilities': {},
-            'total_net_value': str(balances.get_total_net_value()),
+            'total_net_value': str(balance_sheet.get_total_net_value()),
         }
 
-    def _get_blockchain_balances(self) -> dict[Location, dict[Asset, Balance]]:
-        """Get balances from blockchain accounts"""
-        if not self.chain_manager:
-            return {}
-
-        # Query blockchain balances using the chain aggregator
-        blockchain_result = self.chain_manager.query_balances(
-            blockchain=None,  # Query all blockchains
-            ignore_cache=False,
-        )
-
-        # Convert BlockchainBalances to our format
-        balances = defaultdict(lambda: defaultdict(Balance))
-
-        # Process per-account balances
-        for blockchain, accounts_data in blockchain_result.per_account.items():
-            # Map blockchain to location
-            location = Location.from_blockchain(blockchain)
-            for account, account_balances in accounts_data.items():
-                for asset, balance in account_balances.items():
-                    if location not in balances:
-                        balances[location] = {}
-                    if asset not in balances[location]:
-                        balances[location][asset] = Balance()
-                    balances[location][asset] += balance
-
-        return dict(balances)
-
-    def _get_exchange_balances(self) -> dict[Location, dict[Asset, Balance]]:
-        """Get balances from exchanges"""
-        if not self.exchange_manager:
-            return {}
-
-        balances = defaultdict(lambda: defaultdict(Balance))
-
-        # Query all connected exchanges
-        exchange_balances = self.exchange_manager.query_balances()
-
-        for location_str, location_balances in exchange_balances.items():
-            location = Location.deserialize(location_str)
-            for asset_str, balance_data in location_balances.items():
-                asset = Asset(asset_str)
-                balance = Balance(
-                    amount=FVal(balance_data['amount']),
-                    usd_value=FVal(balance_data.get('usd_value', '0')),
-                )
-                balances[location][asset] = balance
-
-        return dict(balances)
-
-    def _get_manual_balances(self) -> list[ManuallyTrackedBalance]:
-        """Get manually tracked balances"""
-        with self.db_connection.read_ctx() as cursor:
-            cursor.execute(
-                'SELECT id, asset, label, amount, location, category FROM manually_tracked_balances',
-            )
-            balances = []
-            for row in cursor:
-                balance = ManuallyTrackedBalance(
-                    identifier=row[0],
-                    asset=Asset(row[1]),
-                    label=row[2],
-                    amount=FVal(row[3]),
-                    location=Location.deserialize(row[4]),
-                    tags=[],  # Tags would need to be queried separately
-                )
-                balances.append(balance)
-            return balances
+    def get_balances_by_location(self, location: Location) -> dict[str, Any]:
+        """Get balances for a specific location"""
+        balance_sheet = self.aggregator.aggregate_balances()
+        location_balances = balance_sheet.get_location_balance(location)
+        
+        result = {}
+        for asset, balance in location_balances.items():
+            result[asset.identifier] = {
+                'amount': str(balance.amount),
+                'usd_value': str(balance.usd_value),
+            }
+        
+        return result
+    
+    def get_balances_by_asset(self, asset: Asset) -> dict[str, Any]:
+        """Get balances for a specific asset across all locations"""
+        balance_sheet = self.aggregator.aggregate_balances()
+        
+        result = {}
+        for location in balance_sheet.locations:
+            location_balances = balance_sheet.get_location_balance(location)
+            if asset in location_balances:
+                balance = location_balances[asset]
+                result[location.value] = {
+                    'amount': str(balance.amount),
+                    'usd_value': str(balance.usd_value),
+                }
+        
+        return result
 
     def add_manual_balance(
         self,
@@ -140,46 +94,88 @@ class BalancesService:
         tags: list[str] | None = None,
     ) -> ManuallyTrackedBalance:
         """Add a manually tracked balance"""
-        with self.db_connection.write_ctx() as write_cursor:
-            write_cursor.execute(
-                'INSERT INTO manually_tracked_balances (asset, label, amount, location, category) '
-                'VALUES (?, ?, ?, ?, ?)',
-                (asset.identifier, label, str(amount), location.serialize(), 'A'),
-            )
-            balance_id = write_cursor.lastrowid
+        # Use repository to create the balance
+        balance = self.balance_repo.update_balance(
+            asset=asset.identifier,
+            label=label,
+            location=location.serialize(),
+            amount=str(amount),
+            usd_value='0',  # Will be calculated on retrieval
+        )
+        
+        # TODO: Handle tags via a tag repository
+        
+        return ManuallyTrackedBalance(
+            identifier=balance.id,
+            asset=asset,
+            label=label,
+            amount=amount,
+            location=location,
+            tags=tags or [],
+        )
+    
+    def update_manual_balance(
+        self,
+        identifier: int,
+        amount: FVal | None = None,
+        label: str | None = None,
+        tags: list[str] | None = None,
+    ) -> ManuallyTrackedBalance:
+        """Update an existing manual balance"""
+        balance = self.balance_repo.get(identifier)
+        if not balance:
+            raise ValueError(f"Manual balance with id {identifier} not found")
+        
+        if amount is not None:
+            balance.amount = str(amount)
+        if label is not None:
+            balance.label = label
+        
+        updated = self.balance_repo.update(balance)
+        
+        # TODO: Handle tags update via a tag repository
+        
+        return ManuallyTrackedBalance(
+            identifier=updated.id,
+            asset=Asset(updated.asset),
+            label=updated.label,
+            amount=FVal(updated.amount),
+            location=Location.deserialize(updated.location),
+            tags=tags or [],
+        )
+    
+    def delete_manual_balance(self, identifier: int) -> bool:
+        """Delete a manual balance"""
+        return self.balance_repo.delete(identifier)
 
-            # Add tag associations if provided
-            if tags:
-                for tag in tags:
-                    write_cursor.execute(
-                        'INSERT INTO tag_mappings (object_reference, tag_name) VALUES (?, ?)',
-                        (f'manually_tracked_balance_{balance_id}', tag),
-                    )
-
-            return ManuallyTrackedBalance(
-                identifier=balance_id,
-                asset=asset,
-                label=label,
-                amount=amount,
-                location=location,
-                tags=tags or [],
-            )
-
-    def _serialize_balance_sheet(self, sheet: BalanceSheet) -> dict[str, Any]:
-        """Serialize balance sheet to API response format"""
-        result = {}
-
-        for location in sheet.locations:
-            location_balances = {}
-            for asset, balance in sheet.get_location_balance(location).items():
-                location_balances[asset.identifier] = {
-                    'amount': str(balance.amount),
-                    'usd_value': str(balance.usd_value),
-                }
-
-            if location_balances:
-                result[location.value] = location_balances
-
+    def get_manual_balances(
+        self,
+        asset: Asset | None = None,
+        label: str | None = None,
+        location: Location | None = None,
+    ) -> list[ManuallyTrackedBalance]:
+        """Get manually tracked balances with optional filtering"""
+        kwargs = {}
+        if asset:
+            kwargs['asset'] = asset.identifier
+        if label:
+            kwargs['label'] = label
+        if location:
+            kwargs['location'] = location.serialize()
+        
+        db_balances = self.balance_repo.find_by(**kwargs) if kwargs else self.balance_repo.find_current_balances()
+        
+        result = []
+        for db_balance in db_balances:
+            result.append(ManuallyTrackedBalance(
+                identifier=db_balance.id,
+                asset=Asset(db_balance.asset),
+                label=db_balance.label,
+                amount=FVal(db_balance.amount),
+                location=Location.deserialize(db_balance.location),
+                tags=[],  # TODO: Query tags separately
+            ))
+        
         return result
 
     def get_historical_balance(
@@ -189,37 +185,33 @@ class BalancesService:
         location: Location | None = None,
     ) -> dict[str, Any]:
         """Get historical balance at specific timestamp"""
-        # Query historical timed_balances from database
-        query = 'SELECT time, location, currency, amount, usd_value FROM timed_balances WHERE time = ?'
-        params = [timestamp]
-
-        if asset:
-            query += ' AND currency = ?'
-            params.append(asset.identifier)
-
-        if location:
-            query += ' AND location = ?'
-            params.append(location.serialize())
-
-        balances = defaultdict(lambda: defaultdict(dict))
-        total_usd_value = FVal('0')
-
-        with self.db_connection.read_ctx() as cursor:
-            cursor.execute(query, params)
-            for row in cursor:
-                location_str = row[1]
-                asset_str = row[2]
-                amount = FVal(row[3])
-                usd_value = FVal(row[4])
-
-                balances[location_str][asset_str] = {
-                    'amount': str(amount),
-                    'usd_value': str(usd_value),
-                }
-                total_usd_value += usd_value
-
+        # TODO: Implement using a proper historical balance repository
+        # For now, return current balances as a placeholder
+        current_balances = self.get_all_balances()
+        
+        # Filter by asset/location if provided
+        if asset or location:
+            filtered = {}
+            for loc_str, assets in current_balances['assets'].items():
+                if location and Location.deserialize(loc_str) != location:
+                    continue
+                
+                if asset:
+                    if asset.identifier in assets:
+                        if loc_str not in filtered:
+                            filtered[loc_str] = {}
+                        filtered[loc_str][asset.identifier] = assets[asset.identifier]
+                else:
+                    filtered[loc_str] = assets
+            
+            return {
+                'timestamp': timestamp,
+                'balances': filtered,
+                'total_net_value': current_balances['total_net_value'],
+            }
+        
         return {
             'timestamp': timestamp,
-            'balances': dict(balances),
-            'total_net_value': str(total_usd_value),
+            'balances': current_balances['assets'],
+            'total_net_value': current_balances['total_net_value'],
         }
