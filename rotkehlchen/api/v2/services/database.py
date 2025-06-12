@@ -5,8 +5,8 @@ from sqlmodel import Session, select
 
 from rotkehlchen.db.drivers.gevent import DBConnection
 from rotkehlchen.db.models.user.accounts import BlockchainAccount, UserCredentials
-from rotkehlchen.db.models.user.notes import UserNote
 from rotkehlchen.db.models.user.models import Settings, Tag
+from rotkehlchen.db.models.user.notes import UserNote
 
 
 class DatabaseService:

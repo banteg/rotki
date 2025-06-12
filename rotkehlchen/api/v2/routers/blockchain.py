@@ -10,8 +10,9 @@ from rotkehlchen.api.v2.dependencies import (
 )
 from rotkehlchen.api.v2.services.blockchain import BlockchainService
 from rotkehlchen.api.v2.services.database import DatabaseService
+from rotkehlchen.chain.constants import SUPPORTED_BLOCKCHAIN_TO_CHAINID
 from rotkehlchen.chain.evm.types import string_to_evm_address
-from rotkehlchen.types import SupportedBlockchain
+from rotkehlchen.types import Blockchain, SupportedBlockchain
 
 router = APIRouter()
 
@@ -19,7 +20,7 @@ router = APIRouter()
 class BlockchainResponse(BaseModel):
     """Response model for blockchain operations"""
     result: Any
-    message: str = ""
+    message: str = ''
 
 
 class BlockchainAccountRequest(BaseModel):
@@ -28,12 +29,12 @@ class BlockchainAccountRequest(BaseModel):
     labels: list[str] | None = None
     tags: list[list[str]] | None = None
 
-    @field_validator("accounts")
+    @field_validator('accounts')
     @classmethod
     def validate_accounts(cls, v: list[str], values) -> list[str]:
         """Validate account addresses"""
         if not v:
-            raise ValueError("At least one account must be provided")
+            raise ValueError('At least one account must be provided')
         return v
 
 
@@ -45,7 +46,7 @@ class EVMTransactionRequest(BaseModel):
     limit: int = Field(100, ge=1, le=1000)
     offset: int = Field(0, ge=0)
 
-    @field_validator("address")
+    @field_validator('address')
     @classmethod
     def validate_address(cls, v: str | None) -> str | None:
         """Validate EVM address if provided"""
@@ -53,7 +54,7 @@ class EVMTransactionRequest(BaseModel):
             try:
                 return string_to_evm_address(v)
             except ValueError as e:
-                raise ValueError(f"Invalid EVM address: {e}")
+                raise ValueError(f'Invalid EVM address: {e}') from e
         return v
 
 
@@ -64,24 +65,24 @@ def get_blockchain_service(
     return BlockchainService(db_service)
 
 
-@router.get("/supported")
+@router.get('/supported')
 async def get_supported_chains(
     _: Annotated[str, Depends(require_logged_in_user)],
 ) -> BlockchainResponse:
     """Get list of supported blockchains"""
     chains = [
         {
-            "id": blockchain.value,
-            "name": blockchain.name,
-            "type": "evm" if blockchain in SUPPORTED_BLOCKCHAIN_TO_CHAINID else "bitcoin",
+            'id': blockchain.value,
+            'name': blockchain.name,
+            'type': 'evm' if blockchain in SUPPORTED_BLOCKCHAIN_TO_CHAINID else 'bitcoin',
         }
         for blockchain in Blockchain
     ]
-    
+
     return BlockchainResponse(result=chains)
 
 
-@router.get("/{blockchain}/accounts")
+@router.get('/{blockchain}/accounts')
 async def get_blockchain_accounts(
     blockchain: str,
     _: Annotated[str, Depends(require_logged_in_user)],
@@ -93,26 +94,26 @@ async def get_blockchain_accounts(
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported blockchain: {blockchain}",
-        )
-    
+            detail=f'Unsupported blockchain: {blockchain}',
+        ) from None
+
     accounts = blockchain_service.get_blockchain_accounts(blockchain_enum)
-    
+
     return BlockchainResponse(
         result={
-            "accounts": [
+            'accounts': [
                 {
-                    "address": account.address,
-                    "label": account.label,
-                    "tags": account.tags,
+                    'address': account.address,
+                    'label': account.label,
+                    'tags': account.tags,
                 }
                 for account in accounts
-            ]
-        }
+            ],
+        },
     )
 
 
-@router.post("/{blockchain}/accounts")
+@router.post('/{blockchain}/accounts')
 async def add_blockchain_accounts(
     blockchain: str,
     account_data: BlockchainAccountRequest,
@@ -125,23 +126,23 @@ async def add_blockchain_accounts(
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported blockchain: {blockchain}",
-        )
-    
+            detail=f'Unsupported blockchain: {blockchain}',
+        ) from None
+
     added_accounts = blockchain_service.add_blockchain_accounts(
         blockchain=blockchain_enum,
         accounts=account_data.accounts,
         labels=account_data.labels,
         tags=account_data.tags,
     )
-    
+
     return BlockchainResponse(
-        result={"accounts": added_accounts},
-        message=f"Added {len(added_accounts)} accounts",
+        result={'accounts': added_accounts},
+        message=f'Added {len(added_accounts)} accounts',
     )
 
 
-@router.delete("/{blockchain}/accounts")
+@router.delete('/{blockchain}/accounts')
 async def remove_blockchain_accounts(
     blockchain: str,
     _: Annotated[str, Depends(require_logged_in_user)],
@@ -154,21 +155,21 @@ async def remove_blockchain_accounts(
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported blockchain: {blockchain}",
-        )
-    
+            detail=f'Unsupported blockchain: {blockchain}',
+        ) from None
+
     removed_count = blockchain_service.remove_blockchain_accounts(
         blockchain=blockchain_enum,
         accounts=accounts,
     )
-    
+
     return BlockchainResponse(
-        result={"removed": removed_count},
-        message=f"Removed {removed_count} accounts",
+        result={'removed': removed_count},
+        message=f'Removed {removed_count} accounts',
     )
 
 
-@router.get("/evm/transactions")
+@router.get('/evm/transactions')
 async def get_evm_transactions(
     _: Annotated[str, Depends(require_logged_in_user)],
     blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
@@ -187,9 +188,9 @@ async def get_evm_transactions(
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid EVM address: {e}",
-            )
-    
+                detail=f'Invalid EVM address: {e}',
+            ) from e
+
     transactions = blockchain_service.get_evm_transactions(
         chain_id=chain_id,
         address=validated_address,
@@ -198,16 +199,16 @@ async def get_evm_transactions(
         limit=limit,
         offset=offset,
     )
-    
+
     return BlockchainResponse(
         result={
-            "transactions": transactions,
-            "total": len(transactions),
-        }
+            'transactions': transactions,
+            'total': len(transactions),
+        },
     )
 
 
-@router.post("/evm/transactions/decode")
+@router.post('/evm/transactions/decode')
 async def decode_pending_transactions(
     chain_id: int,
     tx_hashes: list[str],
@@ -219,8 +220,8 @@ async def decode_pending_transactions(
         chain_id=chain_id,
         tx_hashes=tx_hashes,
     )
-    
+
     return BlockchainResponse(
         result=results,
-        message=f"Decoded {len(results)} transactions",
+        message=f'Decoded {len(results)} transactions',
     )

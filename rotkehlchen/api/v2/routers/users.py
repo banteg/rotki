@@ -1,4 +1,6 @@
 """Users router for user management endpoints"""
+import os
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,8 +10,6 @@ from rotkehlchen.api.v2.dependencies import get_auth_service, get_database_servi
 from rotkehlchen.api.v2.services.auth import AuthService
 from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.errors.api import AuthenticationError
-from pathlib import Path
-import os
 
 router = APIRouter()
 
@@ -45,13 +45,13 @@ async def get_users(
     settings = db_service.get_settings()
     data_dir = Path(settings.data_directory)
     users_dir = data_dir / 'users'
-    
+
     users = []
     if users_dir.exists():
         for user_dir in users_dir.iterdir():
             if user_dir.is_dir():
                 users.append(user_dir.name)
-    
+
     return UserResponse(
         result={'users': users},
     )
@@ -69,22 +69,22 @@ async def create_user(
     data_dir = Path(settings.data_directory)
     users_dir = data_dir / 'users'
     user_dir = users_dir / user_data.name
-    
+
     # Check if user already exists
     if user_dir.exists():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f'User {user_data.name} already exists',
         )
-    
+
     # Create user directory
     try:
         user_dir.mkdir(parents=True, exist_ok=False)
-        
+
         # TODO: Initialize user database with password encryption
         # This requires creating a new DBHandler instance with the user's password
         # and running the database creation scripts
-        
+
         # For now, return success
         return UserResponse(
             result={
@@ -99,7 +99,7 @@ async def create_user(
             os.rmdir(user_dir)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to create user: {str(e)}',
+            detail=f'Failed to create user: {e!s}',
         )
 
 
@@ -156,13 +156,13 @@ async def change_password(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Invalid current password',
         )
-    
+
     # TODO: Implement password change
     # This requires:
     # 1. Re-encrypting the SQLCipher database with the new password
     # 2. Using PRAGMA rekey command
     # 3. Ensuring all connections are closed during the process
-    
+
     return UserResponse(
         result={'success': True},
         message='Password changed successfully',

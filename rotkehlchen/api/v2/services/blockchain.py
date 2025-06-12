@@ -3,7 +3,10 @@ from typing import Any
 
 from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.chain.accounts import BlockchainAccountData
+from rotkehlchen.db.utils import deserialize_tags_from_db
+from rotkehlchen.errors.misc import InputError
 from rotkehlchen.types import ChecksumEvmAddress, SupportedBlockchain
+from rotkehlchen.utils.hexbytes import hexstring_to_bytes
 
 
 class BlockchainService:
@@ -13,18 +16,36 @@ class BlockchainService:
         self.db = db_service
 
     def get_blockchain_accounts(self, blockchain: str) -> list[BlockchainAccountData]:
-        """Get accounts for a specific blockchain"""
-        accounts = self.db.get_blockchain_accounts(blockchain=blockchain.value)
+        """Get accounts for a specific blockchain with labels and tags"""
+        try:
+            blockchain_obj = SupportedBlockchain(blockchain)
+        except ValueError as e:
+            raise InputError(f'Unsupported blockchain: {blockchain}') from e
 
-        # Convert to account details
         result = []
-        for account in accounts:
-            result.append(BlockchainAccountData(
-                chain=SupportedBlockchain(blockchain),
-                address=account.account,
-                label=account.label if hasattr(account, 'label') else None,
-                tags=account.tags if hasattr(account, 'tags') else [],
-            ))
+        with self.db.connection.read_ctx() as cursor:
+            # Query blockchain accounts with tags and labels
+            query = cursor.execute(
+                "SELECT A.account, C.name, group_concat(B.tag_name,',') "
+                "FROM blockchain_accounts AS A "
+                "LEFT OUTER JOIN tag_mappings AS B ON B.object_reference = A.account "
+                "LEFT OUTER JOIN address_book AS C ON C.address = A.account "
+                "AND A.blockchain = C.blockchain "
+                "WHERE A.blockchain=? GROUP BY A.account;",
+                (blockchain_obj.value,),
+            )
+
+            for row in query:
+                account = row[0]
+                label = row[1]
+                tags = deserialize_tags_from_db(row[2])
+
+                result.append(BlockchainAccountData(
+                    chain=blockchain_obj,
+                    address=account,
+                    label=label,
+                    tags=tags or None,
+                ))
 
         return result
 
@@ -35,22 +56,57 @@ class BlockchainService:
         labels: list[str] | None = None,
         tags: list[list[str]] | None = None,
     ) -> list[str]:
-        """Add multiple blockchain accounts"""
+        """Add multiple blockchain accounts with labels and tags"""
+        try:
+            blockchain_obj = SupportedBlockchain(blockchain)
+        except ValueError as e:
+            raise InputError(f'Unsupported blockchain: {blockchain}') from e
+
         added = []
 
-        for i, account in enumerate(accounts):
-            label = labels[i] if labels and i < len(labels) else None
-            account_tags = tags[i] if tags and i < len(tags) else []
+        with self.db.connection.write_ctx() as write_cursor:
+            for i, account in enumerate(accounts):
+                # Check if account already exists
+                existing = write_cursor.execute(
+                    'SELECT 1 FROM blockchain_accounts WHERE blockchain=? AND account=?',
+                    (blockchain_obj.value, account),
+                ).fetchone()
 
-            try:
-                self.db.add_blockchain_account(
-                    blockchain=blockchain.value,
-                    account=account,
+                if existing:
+                    continue
+
+                # Add new account
+                write_cursor.execute(
+                    'INSERT INTO blockchain_accounts(blockchain, account) VALUES (?, ?)',
+                    (blockchain_obj.value, account),
                 )
+
+                # Add label if provided
+                if labels and i < len(labels) and labels[i]:
+                    # Insert into address book
+                    write_cursor.execute(
+                        'INSERT OR REPLACE INTO address_book(address, blockchain, name) '
+                        'VALUES (?, ?, ?)',
+                        (account, blockchain_obj.value, labels[i]),
+                    )
+
+                # Add tags if provided
+                if tags and i < len(tags) and tags[i]:
+                    for tag_name in tags[i]:
+                        # Ensure tag exists
+                        write_cursor.execute(
+                            'INSERT OR IGNORE INTO tags(name) VALUES (?)',
+                            (tag_name,),
+                        )
+
+                        # Add tag mapping
+                        write_cursor.execute(
+                            'INSERT OR IGNORE INTO tag_mappings(object_reference, tag_name) '
+                            'VALUES (?, ?)',
+                            (account, tag_name),
+                        )
+
                 added.append(account)
-            except Exception:
-                # Account might already exist
-                continue
 
         return added
 
@@ -60,8 +116,36 @@ class BlockchainService:
         accounts: list[str],
     ) -> int:
         """Remove blockchain accounts"""
-        # In real implementation, would delete from database
-        return len(accounts)
+        try:
+            blockchain_obj = SupportedBlockchain(blockchain)
+        except ValueError as e:
+            raise InputError(f'Unsupported blockchain: {blockchain}') from e
+
+        removed_count = 0
+
+        with self.db.connection.write_ctx() as write_cursor:
+            for account in accounts:
+                # Check if account exists
+                result = write_cursor.execute(
+                    'SELECT 1 FROM blockchain_accounts WHERE blockchain=? AND account=?',
+                    (blockchain_obj.value, account),
+                ).fetchone()
+
+                if result:
+                    # Delete the account
+                    write_cursor.execute(
+                        'DELETE FROM blockchain_accounts WHERE blockchain=? AND account=?',
+                        (blockchain_obj.value, account),
+                    )
+                    removed_count += 1
+
+                    # Also remove tag mappings for this account
+                    write_cursor.execute(
+                        'DELETE FROM tag_mappings WHERE object_reference=?',
+                        (account,),
+                    )
+
+        return removed_count
 
     def get_evm_transactions(
         self,
@@ -73,25 +157,53 @@ class BlockchainService:
         offset: int = 0,
     ) -> list[dict[str, Any]]:
         """Get EVM transactions with filtering"""
-        # Simplified implementation - would query from database
-        transactions = []
+        with self.db.connection.read_ctx() as cursor:
+            # Build query with filters
+            query = 'SELECT identifier, tx_hash, chain_id, timestamp, block_number, '
+            query += 'from_address, to_address, value, gas, gas_price, gas_used, '
+            query += 'input_data, nonce FROM evm_transactions WHERE 1=1'
 
-        # Mock transaction data
-        if address:
-            transactions.append({
-                'tx_hash': '0x123...',
-                'chain_id': chain_id or 1,
-                'timestamp': 1234567890,
-                'from_address': address,
-                'to_address': '0xabc...',
-                'value': '1000000000000000000',
-                'gas_used': '21000',
-                'gas_price': '20000000000',
-                'input_data': '0x',
-                'nonce': 0,
-            })
+            bindings = []
 
-        return transactions[offset:offset + limit]
+            if chain_id is not None:
+                query += ' AND chain_id=?'
+                bindings.append(chain_id)
+
+            if from_timestamp > 0:
+                query += ' AND timestamp>=?'
+                bindings.append(from_timestamp)
+
+            if to_timestamp < 2147483647:
+                query += ' AND timestamp<=?'
+                bindings.append(to_timestamp)
+
+            # Handle address filtering
+            if address:
+                # Use a subquery to include transactions from address mappings
+                query += ' AND (from_address=? OR to_address=? OR identifier IN '
+                query += '(SELECT tx_id FROM evmtx_address_mappings WHERE address=?))'
+                bindings.extend([address, address, address])
+
+            # Order and pagination
+            query += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?'
+            bindings.extend([limit, offset])
+
+            # Execute query and format results
+            return [{
+                'identifier': row[0],
+                'tx_hash': f'0x{row[1].hex()}',
+                'chain_id': row[2],
+                'timestamp': row[3],
+                'block_number': row[4],
+                'from_address': row[5],
+                'to_address': row[6],
+                'value': row[7],
+                'gas': row[8],
+                'gas_price': row[9],
+                'gas_used': row[10],
+                'input_data': f'0x{row[11].hex()}',
+                'nonce': row[12],
+            } for row in cursor.execute(query, bindings)]
 
     def decode_pending_transactions(
         self,
@@ -101,17 +213,50 @@ class BlockchainService:
         """Decode pending EVM transactions"""
         results = {}
 
-        for tx_hash in tx_hashes:
-            # In real implementation, would fetch and decode transaction
-            results[tx_hash] = {
-                'decoded': True,
-                'label': 'Token Transfer',
-                'details': {
-                    'from': '0x123...',
-                    'to': '0xabc...',
-                    'token': 'USDC',
-                    'amount': '100.0',
-                },
-            }
+        with self.db.connection.read_ctx() as cursor:
+            for tx_hash_str in tx_hashes:
+                # Convert hex string to bytes for database lookup
+                try:
+                    if tx_hash_str.startswith('0x'):
+                        tx_hash_hex = tx_hash_str[2:]
+                    else:
+                        tx_hash_hex = tx_hash_str
+                    tx_hash_bytes = hexstring_to_bytes(tx_hash_hex)
+                except Exception:
+                    results[tx_hash_str] = {
+                        'decoded': False,
+                        'error': 'Invalid transaction hash format',
+                    }
+                    continue
+
+                # Find transaction in database
+                query = 'SELECT from_address, to_address, value, gas_used, timestamp '
+                query += 'FROM evm_transactions WHERE tx_hash=? AND chain_id=?'
+
+                row = cursor.execute(query, (tx_hash_bytes, chain_id)).fetchone()
+
+                if not row:
+                    results[tx_hash_str] = {
+                        'decoded': False,
+                        'error': 'Transaction not found',
+                    }
+                    continue
+
+                # In a real implementation, this would:
+                # 1. Fetch the transaction receipt and logs
+                # 2. Use the decoder infrastructure to decode the transaction
+                # 3. Extract meaningful labels and details
+                # For now, return basic transaction info
+                results[tx_hash_str] = {
+                    'decoded': True,
+                    'label': 'EVM Transaction',
+                    'details': {
+                        'from': row[0],
+                        'to': row[1],
+                        'value': row[2],
+                        'gas_used': row[3],
+                        'timestamp': row[4],
+                    },
+                }
 
         return results

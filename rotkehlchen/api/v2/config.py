@@ -28,4 +28,3 @@ class Settings(BaseSettings):
     class Config:
         env_prefix = 'ROTKI_'
         env_file = '.env'
-

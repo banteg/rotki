@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any
 
 from rotkehlchen.assets.asset import (
     Asset,
-    AssetWithNameAndType,
     AssetWithOracles,
     CustomAsset,
     EvmToken,
@@ -152,7 +151,7 @@ class AssetsService:
             custom_asset_type=custom_asset_type,
             notes=notes,
         )
-        
+
         try:
             # Add to global database
             GlobalDBHandler.add_asset(asset)
@@ -164,8 +163,8 @@ class AssetsService:
 
             return {'identifier': identifier}
         except InputError as e:
-            raise InputError(f'Failed to add custom asset: {str(e)}') from e
-    
+            raise InputError(f'Failed to add custom asset: {e!s}') from e
+
     def add_user_asset(
         self,
         asset: AssetWithOracles,
@@ -180,13 +179,13 @@ class AssetsService:
                 identifiers = None
         else:
             identifiers = GlobalDBHandler.check_asset_exists(asset)
-        
+
         if identifiers is not None:
             raise InputError(
                 f"Failed to add {asset.asset_type!s} {asset.name} "
-                f"since it already exists. Existing ids: {','.join(identifiers)}"
+                f"since it already exists. Existing ids: {','.join(identifiers)}",
             )
-        
+
         # Add to global database
         GlobalDBHandler.add_asset(asset)
 
@@ -196,7 +195,7 @@ class AssetsService:
                 self.db.add_asset_identifiers(cursor, [asset.identifier])
 
         return {'identifier': asset.identifier}
-    
+
     def edit_user_asset(self, asset: AssetWithOracles) -> None:
         """Edit an existing user asset"""
         GlobalDBHandler.edit_user_asset(asset)
@@ -224,7 +223,7 @@ class AssetsService:
     ) -> EvmToken | None:
         """Get EVM token information by address and chain"""
         return GlobalDBHandler.get_evm_token(address=address, chain_id=chain_id)
-    
+
     def get_assets_mappings(
         self,
         identifiers: list[str],

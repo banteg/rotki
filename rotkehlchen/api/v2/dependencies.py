@@ -56,7 +56,7 @@ async def require_logged_in_user(
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail='Invalid API key',
-                )
+                ) from None
 
     if not user:
         raise HTTPException(
@@ -65,4 +65,3 @@ async def require_logged_in_user(
         )
 
     return user
-

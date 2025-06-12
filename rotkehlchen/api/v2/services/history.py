@@ -1,17 +1,22 @@
 """History service for managing transaction history and events"""
 from typing import Any
 
-from rotkehlchen.api.v2.services.database import DatabaseService
-from rotkehlchen.db.models.user.history import HistoryEvent
+from rotkehlchen.assets.asset import Asset
+from rotkehlchen.db.drivers.gevent import DBConnection
+from rotkehlchen.db.filtering import HistoryEventFilterQuery
+from rotkehlchen.db.history_events import DBHistoryEvents
+from rotkehlchen.errors.misc import InputError
+from rotkehlchen.fval import FVal
 from rotkehlchen.history.events.structures.base import HistoryEventType
-from rotkehlchen.types import Timestamp
+from rotkehlchen.types import Location, Timestamp
 
 
 class HistoryService:
     """Service for history and event operations"""
 
-    def __init__(self, db_service: DatabaseService):
-        self.db = db_service
+    def __init__(self, db_connection: DBConnection):
+        self.db_connection = db_connection
+        self.history_events_db = DBHistoryEvents(self.db_connection)
 
     def get_history_events(
         self,
@@ -24,30 +29,56 @@ class HistoryService:
         offset: int = 0,
     ) -> list[dict[str, Any]]:
         """Get history events with filtering"""
-        # Simplified implementation - would query from database
+        # Convert input parameters to appropriate types
+        location_objects = None
+        if locations:
+            location_objects = [Location.deserialize(loc) for loc in locations]
+
+        asset_objects = None
+        if assets:
+            asset_objects = [Asset(asset) for asset in assets]
+
+        # Create filter query
+        filter_query = HistoryEventFilterQuery.make(
+            from_ts=from_timestamp,
+            to_ts=to_timestamp,
+            event_types=event_types,
+            location=location_objects[0] if location_objects and len(location_objects) == 1 else None,
+            assets=asset_objects,
+        )
+
+        # Get events from database
+        events_db, _ = self.history_events_db.get_history_events(
+            filter_query=filter_query,
+            has_premium=True,  # For v2 API assume premium features
+            limit=limit,
+            offset=offset,
+        )
+
+        # Convert to API response format
         events = []
+        for event in events_db:
+            event_dict = {
+                'identifier': event.identifier,
+                'event_identifier': event.event_identifier,
+                'sequence_index': event.sequence_index,
+                'timestamp': event.timestamp,
+                'location': event.location.serialize(),
+                'event_type': event.event_type.serialize(),
+                'event_subtype': event.event_subtype,
+                'asset': event.asset.identifier,
+                'balance': {
+                    'amount': str(event.balance.amount),
+                    'usd_value': str(event.balance.usd_value) if event.balance.usd_value else '0',
+                },
+                'location_label': event.location_label,
+                'notes': event.notes,
+                'counterparty': event.counterparty.serialize() if event.counterparty else None,
+                'extra_data': event.extra_data or {},
+            }
+            events.append(event_dict)
 
-        # Mock event data
-        events.append({
-            'identifier': 1,
-            'event_identifier': '0x123...',
-            'sequence_index': 0,
-            'timestamp': 1234567890,
-            'location': 'ethereum',
-            'event_type': 'trade',
-            'event_subtype': 'spend',
-            'asset': 'ETH',
-            'balance': {
-                'amount': '1.5',
-                'usd_value': '3000',
-            },
-            'location_label': '0xabc...',
-            'notes': 'Swap ETH for USDC',
-            'counterparty': 'uniswap',
-            'extra_data': {},
-        })
-
-        return events[offset:offset + limit]
+        return events
 
     def create_history_event(
         self,
@@ -63,27 +94,38 @@ class HistoryService:
         notes: str | None = None,
         counterparty: str | None = None,
         extra_data: dict[str, Any] | None = None,
-    ) -> HistoryEvent:
+    ) -> int:
         """Create a new history event"""
-        # In real implementation, would save to database
+        # Create the event object
+        from rotkehlchen.accounting.structures.balance import Balance
+        from rotkehlchen.history.events.structures.base import HistoryEvent
+
         event = HistoryEvent(
-            identifier=1,  # Would be auto-generated
             event_identifier=event_identifier,
             sequence_index=sequence_index,
             timestamp=timestamp,
-            location=location,
-            event_type=event_type.value,
+            location=Location.deserialize(location),
+            event_type=event_type,
             event_subtype=event_subtype,
-            asset=asset,
-            amount=balance.get('amount', '0'),
-            usd_value=balance.get('usd_value', '0'),
+            asset=Asset(asset),
+            balance=Balance(
+                amount=FVal(balance.get('amount', '0')),
+                usd_value=FVal(balance.get('usd_value', '0')),
+            ),
             location_label=location_label,
             notes=notes,
             counterparty=counterparty,
             extra_data=extra_data,
         )
 
-        return event
+        # Add to database
+        with self.db_connection.write_ctx() as write_cursor:
+            event_id = self.history_events_db.add_history_event(
+                write_cursor=write_cursor,
+                event=event,
+            )
+
+        return event_id or 0
 
     def update_history_event(
         self,
@@ -91,13 +133,69 @@ class HistoryService:
         **kwargs,
     ) -> bool:
         """Update an existing history event"""
-        # In real implementation, would update in database
+        # Get the existing event
+        with self.db_connection.read_ctx() as cursor:
+            cursor.execute(
+                'SELECT * FROM history_events WHERE identifier = ?',
+                (event_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise InputError(f'History event with id {event_id} not found')
+
+        # Build update query
+        updates = []
+        params = []
+
+        if 'timestamp' in kwargs:
+            updates.append('timestamp = ?')
+            params.append(kwargs['timestamp'])
+
+        if 'amount' in kwargs:
+            updates.append('amount = ?')
+            params.append(str(kwargs['amount']))
+
+        if 'notes' in kwargs:
+            updates.append('notes = ?')
+            params.append(kwargs['notes'])
+
+        if not updates:
+            return True  # Nothing to update
+
+        # Execute update
+        params.append(event_id)
+        with self.db_connection.write_ctx() as write_cursor:
+            write_cursor.execute(
+                f'UPDATE history_events SET {", ".join(updates)} WHERE identifier = ?',
+                params,
+            )
+
         return True
 
     def delete_history_event(self, event_id: int) -> bool:
         """Delete a history event"""
-        # In real implementation, would delete from database
-        return True
+        with self.db_connection.write_ctx() as write_cursor:
+            # Delete from related tables first
+            write_cursor.execute(
+                'DELETE FROM evm_events_info WHERE identifier = ?',
+                (event_id,),
+            )
+            write_cursor.execute(
+                'DELETE FROM eth_staking_events_info WHERE identifier = ?',
+                (event_id,),
+            )
+            write_cursor.execute(
+                'DELETE FROM history_events_mappings WHERE parent_identifier = ?',
+                (event_id,),
+            )
+
+            # Delete main event
+            write_cursor.execute(
+                'DELETE FROM history_events WHERE identifier = ?',
+                (event_id,),
+            )
+
+            return write_cursor.rowcount > 0
 
     def process_history(
         self,
@@ -119,5 +217,37 @@ class HistoryService:
 
     def export_history(self, directory_path: str) -> str:
         """Export history to CSV file"""
-        # In real implementation, would write to CSV
-        return f'{directory_path}/history_export.csv'
+        import csv
+        from pathlib import Path
+
+        # Get all history events
+        events_db, _ = self.history_events_db.get_history_events(
+            filter_query=HistoryEventFilterQuery.make(),
+            has_premium=True,
+            limit=None,  # Get all events
+        )
+
+        # Create CSV file
+        csv_path = Path(directory_path) / 'history_export.csv'
+        with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
+            fieldnames = [
+                'timestamp', 'location', 'event_type', 'event_subtype',
+                'asset', 'amount', 'usd_value', 'notes', 'counterparty',
+            ]
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+
+            for event in events_db:
+                writer.writerow({
+                    'timestamp': event.timestamp,
+                    'location': event.location.serialize(),
+                    'event_type': event.event_type.serialize(),
+                    'event_subtype': event.event_subtype or '',
+                    'asset': event.asset.identifier,
+                    'amount': str(event.balance.amount),
+                    'usd_value': str(event.balance.usd_value) if event.balance.usd_value else '0',
+                    'notes': event.notes or '',
+                    'counterparty': event.counterparty.serialize() if event.counterparty else '',
+                })
+
+        return str(csv_path)

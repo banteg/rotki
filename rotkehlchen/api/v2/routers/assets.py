@@ -149,7 +149,7 @@ async def add_custom_asset(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(e),
-        )
+        ) from e
 
 
 @router.get('/evm/erc20/{chain_id}/{address}')

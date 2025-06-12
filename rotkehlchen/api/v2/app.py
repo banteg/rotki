@@ -13,7 +13,6 @@ from rotkehlchen.api.v2.routers import (
     blockchain,
     exchanges,
     history,
-    settings,
     statistics,
     users,
 )
@@ -79,4 +78,3 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         }
 
     return app
-
