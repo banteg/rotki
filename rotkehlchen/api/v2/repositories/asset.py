@@ -7,15 +7,14 @@ from typing import Optional
 from sqlmodel import Session, select
 
 from rotkehlchen.api.v2.repositories.base import BaseRepository
-from rotkehlchen.db.models.user.models import Asset
 from rotkehlchen.assets.types import AssetType
+from rotkehlchen.db.models.user.models import Asset
 
 
 class AssetRepository(BaseRepository[Asset]):
     """Repository for asset-related database operations."""
-    
     def __init__(self, session: Session):
-        super().__init__(session, AssetsTable)
+        super().__init__(session, Asset)
     
     def find_by_symbol(self, symbol: str) -> Optional[Asset]:
         """Find asset by symbol."""

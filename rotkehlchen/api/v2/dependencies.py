@@ -35,7 +35,7 @@ def get_auth_service(
     return AuthService(db_service, session)
 
 
-async def require_logged_in_user(
+async def require_logged_in_user(  # noqa: RUF029
     request: Request,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> str:

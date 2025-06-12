@@ -7,12 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from rotkehlchen.api.v2.config import Settings
 from rotkehlchen.api.v2.routers import (
+    accounting,
     assets,
     auth,
     balances,
     blockchain,
     exchanges,
     history,
+    reports,
     settings as settings_router,
     statistics,
     users,
@@ -21,7 +23,7 @@ from rotkehlchen.utils.version_check import get_current_version
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):  # noqa: RUF029
     """Manage application lifecycle events"""
     yield
 
@@ -61,6 +63,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(exchanges.router, prefix='/api/v2/exchanges', tags=['exchanges'])
     app.include_router(history.router, prefix='/api/v2/history', tags=['history'])
     app.include_router(statistics.router, prefix='/api/v2/statistics', tags=['statistics'])
+    app.include_router(reports.router, prefix='/api/v2/reports', tags=['reports'])
+    app.include_router(accounting.router, prefix='/api/v2/accounting', tags=['accounting'])
 
     @app.get('/api/v2/ping')
     async def ping() -> dict[str, Any]:
