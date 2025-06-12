@@ -1,15 +1,25 @@
 """Users router for user management endpoints"""
 import os
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from rotkehlchen.api.v2.dependencies import get_auth_service, get_database_service
+from rotkehlchen.api.v2.dependencies import (
+    get_auth_service,
+    get_database_service,
+    get_rotkehlchen,
+)
 from rotkehlchen.api.v2.services.auth import AuthService
 from rotkehlchen.api.v2.services.database import DatabaseService
+from rotkehlchen.db.settings import ModifiableDBSettings
 from rotkehlchen.errors.api import AuthenticationError
+from rotkehlchen.errors.misc import DBUpgradeError, SystemPermissionError
+from rotkehlchen.premium.premium import PremiumCredentials
+
+if TYPE_CHECKING:
+    from rotkehlchen.rotkehlchen import Rotkehlchen
 
 router = APIRouter()
 
@@ -38,13 +48,10 @@ class UserResponse(BaseModel):
 
 @router.get('/')
 async def get_users(
-    db_service: Annotated[DatabaseService, Depends(get_database_service)],
+    rotkehlchen: Annotated['Rotkehlchen', Depends(get_rotkehlchen)],
 ) -> UserResponse:
     """Get list of all users"""
-    # Get the data directory from settings
-    settings = db_service.get_settings()
-    data_dir = Path(settings.data_directory)
-    users_dir = data_dir / 'users'
+    users_dir = rotkehlchen.data_dir / 'users'
 
     users = []
     if users_dir.exists():

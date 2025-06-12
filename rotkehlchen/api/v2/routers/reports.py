@@ -1,16 +1,22 @@
 """Reports router for accounting and tax report endpoints"""
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
 from rotkehlchen.api.v2.dependencies import (
+    get_accountant,
     get_database_service,
+    get_rotki_notifier,
     require_logged_in_user,
 )
 from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.api.v2.services.reports import ReportsService
 from rotkehlchen.types import Timestamp
+
+if TYPE_CHECKING:
+    from rotkehlchen.accounting.accountant import Accountant
+    from rotkehlchen.api.websockets.notifier import RotkiNotifier
 
 router = APIRouter()
 
@@ -36,10 +42,15 @@ class ReportDataResponse(BaseModel):
 
 def get_reports_service(
     db_service: Annotated[DatabaseService, Depends(get_database_service)],
+    accountant: Annotated['Accountant', Depends(get_accountant)],
+    notifier: Annotated['RotkiNotifier', Depends(get_rotki_notifier)],
 ) -> ReportsService:
     """Get reports service instance"""
-    # TODO: Inject proper dependencies
-    return ReportsService(db_service)
+    return ReportsService(
+        db_service=db_service,
+        accountant=accountant,
+        notifier=notifier,
+    )
 
 
 @router.post('/')
@@ -97,10 +108,10 @@ async def get_report(
 @router.get('/{report_id}/data')
 async def get_report_data(
     report_id: int,
-    offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=500, gt=0, le=5000),
     _: Annotated[str, Depends(require_logged_in_user)],
     service: Annotated[ReportsService, Depends(get_reports_service)],
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=500, gt=0, le=5000),
 ) -> ReportDataResponse:
     """Get report data (events, trades, etc.)"""
     data = service.get_report_data(

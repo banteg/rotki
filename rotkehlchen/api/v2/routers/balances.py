@@ -1,11 +1,14 @@
 """Balances router for balance management endpoints"""
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from rotkehlchen.api.v2.dependencies import (
+    get_chains_aggregator,
     get_database_service,
+    get_exchange_manager,
+    get_rotki_notifier,
     require_logged_in_user,
 )
 from rotkehlchen.api.v2.services.balances import BalancesService
@@ -13,6 +16,11 @@ from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.assets.asset import Asset
 from rotkehlchen.fval import FVal
 from rotkehlchen.types import Location, Timestamp
+
+if TYPE_CHECKING:
+    from rotkehlchen.api.websockets.notifier import RotkiNotifier
+    from rotkehlchen.chain.aggregator import ChainsAggregator
+    from rotkehlchen.exchanges.manager import ExchangeManager
 
 router = APIRouter()
 
@@ -41,14 +49,16 @@ class HistoricalBalanceRequest(BaseModel):
 
 def get_balances_service(
     db_service: Annotated[DatabaseService, Depends(get_database_service)],
+    chains_aggregator: Annotated['ChainsAggregator', Depends(get_chains_aggregator)],
+    exchange_manager: Annotated['ExchangeManager', Depends(get_exchange_manager)],
+    notifier: Annotated['RotkiNotifier', Depends(get_rotki_notifier)],
 ) -> BalancesService:
     """Get balances service instance"""
-    # TODO: Properly inject chain_manager and exchange_manager
-    # For now, create service with just the database session
     return BalancesService(
         session=db_service.get_session(),
-        chain_manager=None,  # TODO: Inject from app state
-        exchange_manager=None,  # TODO: Inject from app state
+        chain_manager=chains_aggregator,
+        exchange_manager=exchange_manager,
+        notifier=notifier,
     )
 
 

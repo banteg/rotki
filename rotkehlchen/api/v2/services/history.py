@@ -1,5 +1,5 @@
 """History service for managing transaction history and events"""
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rotkehlchen.assets.asset import Asset
 from rotkehlchen.db.drivers.gevent import DBConnection
@@ -10,13 +10,27 @@ from rotkehlchen.fval import FVal
 from rotkehlchen.history.events.structures.base import HistoryEventType
 from rotkehlchen.types import Location, Timestamp
 
+if TYPE_CHECKING:
+    from rotkehlchen.api.websockets.notifier import RotkiNotifier
+    from rotkehlchen.history.manager import HistoryQueryingManager
+    from rotkehlchen.tasks.manager import TaskManager
+
 
 class HistoryService:
     """Service for history and event operations"""
 
-    def __init__(self, db_connection: DBConnection):
+    def __init__(
+        self,
+        db_connection: DBConnection,
+        history_manager: 'HistoryQueryingManager | None' = None,
+        task_manager: 'TaskManager | None' = None,
+        notifier: 'RotkiNotifier | None' = None,
+    ):
         self.db_connection = db_connection
         self.history_events_db = DBHistoryEvents(self.db_connection)
+        self.history_manager = history_manager
+        self.task_manager = task_manager
+        self.notifier = notifier
 
     def get_history_events(
         self,
@@ -203,8 +217,29 @@ class HistoryService:
         to_timestamp: Timestamp,
     ) -> int:
         """Start history processing task"""
-        # In real implementation, would start async task
-        return 12345  # Mock task ID
+        if self.history_manager is None or self.task_manager is None:
+            # Fallback to mock implementation
+            return 12345  # Mock task ID
+        
+        # Send notification that history processing started
+        if self.notifier:
+            self.notifier.broadcast(
+                event_type='history_processing_started',
+                data={
+                    'from_timestamp': from_timestamp,
+                    'to_timestamp': to_timestamp,
+                },
+            )
+        
+        # Start the actual history processing task
+        task_id = self.task_manager.start_task(
+            task_type='history_processing',
+            callable_func=self.history_manager.query_history_async,
+            from_ts=from_timestamp,
+            to_ts=to_timestamp,
+        )
+        
+        return task_id
 
     def get_processing_status(self) -> dict[str, Any]:
         """Get status of history processing"""

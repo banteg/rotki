@@ -1,8 +1,43 @@
 """Balance aggregation service for v2 API."""
-from typing import Any
+from collections import defaultdict
+from typing import TYPE_CHECKING, Any
 
-from rotkehlchen.accounting.structures.balance import BalanceSheet
+from rotkehlchen.accounting.structures.balance import Balance, BalanceSheet
 from rotkehlchen.api.v2.repositories.balance_source import BalanceSource
+
+if TYPE_CHECKING:
+    from rotkehlchen.assets.asset import Asset
+    from rotkehlchen.types import Location
+
+
+class LocationBalanceSheet:
+    """Extended balance sheet that tracks balances by location."""
+    
+    def __init__(self):
+        self._balances: dict['Location', dict['Asset', Balance]] = defaultdict(lambda: defaultdict(Balance))
+        self._sheet = BalanceSheet()
+    
+    def add(self, location: 'Location', asset: 'Asset', balance: Balance) -> None:
+        """Add a balance for a specific location and asset."""
+        self._balances[location][asset] += balance
+        self._sheet.assets[asset] += balance
+    
+    @property
+    def locations(self) -> list['Location']:
+        """Get all locations with balances."""
+        return list(self._balances.keys())
+    
+    def get_location_balance(self, location: 'Location') -> dict['Asset', Balance]:
+        """Get all balances for a specific location."""
+        return dict(self._balances[location])
+    
+    def get_total_net_value(self) -> str:
+        """Calculate total net value across all assets."""
+        total = Balance()
+        for asset_balances in self._balances.values():
+            for balance in asset_balances.values():
+                total += balance
+        return str(total.usd_value)
 
 
 class BalanceAggregator:
@@ -19,9 +54,9 @@ class BalanceAggregator:
         """Remove a balance source by name."""
         self.sources = [s for s in self.sources if s.get_source_name() != source_name]
     
-    def aggregate_balances(self) -> BalanceSheet:
+    def aggregate_balances(self) -> LocationBalanceSheet:
         """Aggregate balances from all sources into a single balance sheet."""
-        balance_sheet = BalanceSheet()
+        balance_sheet = LocationBalanceSheet()
         
         for source in self.sources:
             try:
@@ -35,7 +70,7 @@ class BalanceAggregator:
         
         return balance_sheet
     
-    def serialize_balance_sheet(self, sheet: BalanceSheet) -> dict[str, Any]:
+    def serialize_balance_sheet(self, sheet: LocationBalanceSheet) -> dict[str, Any]:
         """Serialize balance sheet to API response format."""
         result = {}
         

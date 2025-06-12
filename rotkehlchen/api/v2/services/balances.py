@@ -9,7 +9,7 @@ from rotkehlchen.api.v2.repositories.balance_source import (
     ExchangeBalanceSource,
     ManualBalanceSource,
 )
-from rotkehlchen.api.v2.services.balance_aggregator import BalanceAggregator
+from rotkehlchen.api.v2.services.balance_aggregator import BalanceAggregator, LocationBalanceSheet
 from rotkehlchen.assets.asset import Asset
 from rotkehlchen.balances.manual import ManuallyTrackedBalance
 from rotkehlchen.fval import FVal
@@ -17,6 +17,7 @@ from rotkehlchen.types import Location, Timestamp
 
 if TYPE_CHECKING:
     from sqlmodel import Session
+    from rotkehlchen.api.websockets.notifier import RotkiNotifier
     from rotkehlchen.chain.aggregator import ChainsAggregator
     from rotkehlchen.exchanges.manager import ExchangeManager
 
@@ -29,9 +30,11 @@ class BalancesService:
         session: 'Session',
         chain_manager: 'ChainsAggregator | None' = None,
         exchange_manager: 'ExchangeManager | None' = None,
+        notifier: 'RotkiNotifier | None' = None,
     ):
         self.balance_repo = BalanceRepository(session)
         self.aggregator = BalanceAggregator()
+        self.notifier = notifier
         
         # Set up balance sources
         if chain_manager:
@@ -44,16 +47,35 @@ class BalancesService:
 
     def get_all_balances(self, save_data: bool = False) -> dict[str, Any]:
         """Get all balances across all locations"""
+        # Send notification that balance query started
+        if self.notifier:
+            self.notifier.broadcast(
+                event_type='balance_query_started',
+                data={'query_type': 'all_balances'},
+            )
+        
         # Aggregate balances from all sources
         balance_sheet = self.aggregator.aggregate_balances()
         
         # TODO: Implement save_data functionality if needed
         
-        return {
+        result = {
             'assets': self.aggregator.serialize_balance_sheet(balance_sheet),
             'liabilities': {},
             'total_net_value': str(balance_sheet.get_total_net_value()),
         }
+        
+        # Send notification that balance query completed
+        if self.notifier:
+            self.notifier.broadcast(
+                event_type='balance_query_completed',
+                data={
+                    'query_type': 'all_balances',
+                    'total_net_value': result['total_net_value'],
+                },
+            )
+        
+        return result
 
     def get_balances_by_location(self, location: Location) -> dict[str, Any]:
         """Get balances for a specific location"""
@@ -215,3 +237,48 @@ class BalancesService:
             'balances': current_balances['assets'],
             'total_net_value': current_balances['total_net_value'],
         }
+    
+    def _get_blockchain_balances(self) -> dict[Location, dict[Asset, Balance]]:
+        """Get blockchain balances only"""
+        balance_sheet = self.aggregator.aggregate_balances()
+        result = {}
+        
+        # Filter for blockchain locations only
+        blockchain_locations = [
+            Location.BITCOIN,
+            Location.ETHEREUM,
+            Location.ETHEREUM_BEACONCHAIN,
+            Location.POLYGON_POS,
+            Location.ARBITRUM_ONE,
+            Location.OPTIMISM,
+            Location.AVALANCHE,
+            Location.GNOSIS,
+            Location.KUSAMA,
+            Location.POLKADOT,
+        ]
+        
+        for location in blockchain_locations:
+            location_balances = balance_sheet.get_location_balance(location)
+            if location_balances:
+                result[location] = location_balances
+        
+        return result
+    
+    def _get_exchange_balances(self) -> dict[Location, dict[Asset, Balance]]:
+        """Get exchange balances only"""
+        balance_sheet = self.aggregator.aggregate_balances()
+        result = {}
+        
+        # Get all locations and filter for exchanges
+        for location in balance_sheet.locations:
+            # Check if location is an exchange (not blockchain, bank, or manual)
+            if location.is_exchange():
+                location_balances = balance_sheet.get_location_balance(location)
+                if location_balances:
+                    result[location] = location_balances
+        
+        return result
+    
+    def _get_manual_balances(self) -> list[ManuallyTrackedBalance]:
+        """Get manually tracked balances"""
+        return self.get_manual_balances()

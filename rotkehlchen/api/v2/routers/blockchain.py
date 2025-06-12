@@ -76,7 +76,7 @@ async def get_supported_chains(
             'name': blockchain.name,
             'type': 'evm' if blockchain in SUPPORTED_BLOCKCHAIN_TO_CHAINID else 'bitcoin',
         }
-        for blockchain in Blockchain
+        for blockchain in SupportedBlockchain
     ]
 
     return BlockchainResponse(result=chains)
@@ -97,7 +97,7 @@ async def get_blockchain_accounts(
             detail=f'Unsupported blockchain: {blockchain}',
         ) from None
 
-    accounts = blockchain_service.get_blockchain_accounts(blockchain_enum)
+    accounts = blockchain_service.get_blockchain_accounts(blockchain)
 
     return BlockchainResponse(
         result={
@@ -130,7 +130,7 @@ async def add_blockchain_accounts(
         ) from None
 
     added_accounts = blockchain_service.add_blockchain_accounts(
-        blockchain=blockchain_enum,
+        blockchain=blockchain,
         accounts=account_data.accounts,
         labels=account_data.labels,
         tags=account_data.tags,
@@ -159,7 +159,7 @@ async def remove_blockchain_accounts(
         ) from None
 
     removed_count = blockchain_service.remove_blockchain_accounts(
-        blockchain=blockchain_enum,
+        blockchain=blockchain,
         accounts=accounts,
     )
 

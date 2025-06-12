@@ -23,7 +23,7 @@ class BlockchainService:
             raise InputError(f'Unsupported blockchain: {blockchain}') from e
 
         result = []
-        with self.db.connection.read_ctx() as cursor:
+        with self.db.conn.read_ctx() as cursor:
             # Query blockchain accounts with tags and labels
             query = cursor.execute(
                 "SELECT A.account, C.name, group_concat(B.tag_name,',') "
@@ -64,7 +64,7 @@ class BlockchainService:
 
         added = []
 
-        with self.db.connection.write_ctx() as write_cursor:
+        with self.db.conn.write_ctx() as write_cursor:
             for i, account in enumerate(accounts):
                 # Check if account already exists
                 existing = write_cursor.execute(
@@ -123,7 +123,7 @@ class BlockchainService:
 
         removed_count = 0
 
-        with self.db.connection.write_ctx() as write_cursor:
+        with self.db.conn.write_ctx() as write_cursor:
             for account in accounts:
                 # Check if account exists
                 result = write_cursor.execute(
@@ -157,7 +157,7 @@ class BlockchainService:
         offset: int = 0,
     ) -> list[dict[str, Any]]:
         """Get EVM transactions with filtering"""
-        with self.db.connection.read_ctx() as cursor:
+        with self.db.conn.read_ctx() as cursor:
             # Build query with filters
             query = 'SELECT identifier, tx_hash, chain_id, timestamp, block_number, '
             query += 'from_address, to_address, value, gas, gas_price, gas_used, '
@@ -213,7 +213,7 @@ class BlockchainService:
         """Decode pending EVM transactions"""
         results = {}
 
-        with self.db.connection.read_ctx() as cursor:
+        with self.db.conn.read_ctx() as cursor:
             for tx_hash_str in tx_hashes:
                 # Convert hex string to bytes for database lookup
                 try:

@@ -1,5 +1,5 @@
 """FastAPI dependency injection"""
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, HTTPException, Request, status
 from sqlmodel import Session
@@ -9,15 +9,42 @@ from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.db.drivers.gevent import DBConnection
 from rotkehlchen.errors.api import AuthenticationError
 
+if TYPE_CHECKING:
+    from rotkehlchen.accounting.accountant import Accountant
+    from rotkehlchen.api.websockets.notifier import RotkiNotifier
+    from rotkehlchen.chain.aggregator import ChainsAggregator
+    from rotkehlchen.data_handler import DataHandler
+    from rotkehlchen.exchanges.manager import ExchangeManager
+    from rotkehlchen.history.manager import HistoryQueryingManager
+    from rotkehlchen.rotkehlchen import Rotkehlchen
+    from rotkehlchen.tasks.manager import TaskManager
+
+
+def get_rotkehlchen(request: Request) -> 'Rotkehlchen':
+    """Get Rotkehlchen instance from request state"""
+    if not hasattr(request.app.state, 'rotkehlchen'):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail='Rotkehlchen instance not initialized',
+        )
+    return request.app.state.rotkehlchen
+
 
 def get_db_connection(request: Request) -> DBConnection:
     """Get database connection from request state"""
-    return request.app.state.db_connection
+    rotkehlchen = get_rotkehlchen(request)
+    if not rotkehlchen.user_is_logged_in:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='No user is logged in',
+        )
+    return rotkehlchen.data.db
 
 
 def get_db_session(request: Request) -> Session:
     """Get SQLModel session from request state"""
-    return request.app.state.db_session
+    db_connection = get_db_connection(request)
+    return db_connection.session_manager.user_session
 
 
 def get_database_service(
@@ -35,34 +62,94 @@ def get_auth_service(
     return AuthService(db_service, session)
 
 
-async def require_logged_in_user(  # noqa: RUF029
-    request: Request,
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> str:
-    """Dependency to ensure user is logged in"""
-    # Check for session or API key authentication
-    user = None
+def get_data_handler(request: Request) -> 'DataHandler':
+    """Get DataHandler instance"""
+    rotkehlchen = get_rotkehlchen(request)
+    return rotkehlchen.data
 
-    # Try session authentication first
-    if hasattr(request.app.state, 'current_user'):
-        user = request.app.state.current_user
 
-    # Try API key authentication
-    if not user:
-        api_key = request.headers.get('X-API-Key')
-        if api_key:
-            try:
-                user = auth_service.authenticate_api_key(api_key)
-            except AuthenticationError:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail='Invalid API key',
-                ) from None
-
-    if not user:
+def get_chains_aggregator(request: Request) -> 'ChainsAggregator':
+    """Get ChainsAggregator instance"""
+    rotkehlchen = get_rotkehlchen(request)
+    if not rotkehlchen.user_is_logged_in:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail='Not authenticated',
+            detail='No user is logged in',
         )
+    return rotkehlchen.chains_aggregator
 
-    return user
+
+def get_exchange_manager(request: Request) -> 'ExchangeManager':
+    """Get ExchangeManager instance"""
+    rotkehlchen = get_rotkehlchen(request)
+    return rotkehlchen.exchange_manager
+
+
+def get_history_querying_manager(request: Request) -> 'HistoryQueryingManager':
+    """Get HistoryQueryingManager instance"""
+    rotkehlchen = get_rotkehlchen(request)
+    if not rotkehlchen.user_is_logged_in:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='No user is logged in',
+        )
+    return rotkehlchen.history_querying_manager
+
+
+def get_accountant(request: Request) -> 'Accountant':
+    """Get Accountant instance"""
+    rotkehlchen = get_rotkehlchen(request)
+    if not rotkehlchen.user_is_logged_in:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='No user is logged in',
+        )
+    return rotkehlchen.accountant
+
+
+def get_task_manager(request: Request) -> 'TaskManager':
+    """Get TaskManager instance"""
+    rotkehlchen = get_rotkehlchen(request)
+    if not rotkehlchen.user_is_logged_in:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='No user is logged in',
+        )
+    if rotkehlchen.task_manager is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail='Task manager not initialized',
+        )
+    return rotkehlchen.task_manager
+
+
+def get_rotki_notifier(request: Request) -> 'RotkiNotifier':
+    """Get RotkiNotifier instance for WebSocket notifications"""
+    if not hasattr(request.app.state, 'rotki_notifier'):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail='Notifier not initialized',
+        )
+    return request.app.state.rotki_notifier
+
+
+async def require_logged_in_user(  # noqa: RUF029
+    request: Request,
+    rotkehlchen: Annotated['Rotkehlchen', Depends(get_rotkehlchen)],
+) -> str:
+    """Dependency to ensure user is logged in"""
+    if not rotkehlchen.user_is_logged_in:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='No user is logged in',
+        )
+    
+    # Check for API key authentication
+    api_key = request.headers.get('X-API-Key')
+    if api_key:
+        # TODO: Implement API key authentication
+        # This would involve checking the API key against the database
+        pass
+    
+    # Return the current username
+    return rotkehlchen.data.username

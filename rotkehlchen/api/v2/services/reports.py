@@ -1,15 +1,26 @@
 """Reports service for accounting and tax report generation"""
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.types import Timestamp
+
+if TYPE_CHECKING:
+    from rotkehlchen.accounting.accountant import Accountant
+    from rotkehlchen.api.websockets.notifier import RotkiNotifier
 
 
 class ReportsService:
     """Service for handling accounting reports and tax calculations"""
     
-    def __init__(self, db_service: DatabaseService):
+    def __init__(
+        self,
+        db_service: DatabaseService,
+        accountant: 'Accountant | None' = None,
+        notifier: 'RotkiNotifier | None' = None,
+    ):
         self.db = db_service
+        self.accountant = accountant
+        self.notifier = notifier
     
     def generate_report(
         self,
@@ -22,32 +33,41 @@ class ReportsService:
         Returns:
             The report ID
         """
-        # TODO: Implement actual report generation
-        # This would involve:
-        # 1. Creating report entry in database
-        # 2. Starting background task to process events
-        # 3. Calculating gains/losses
-        # 4. Generating tax forms
+        if self.accountant is None:
+            # Fallback to placeholder if accountant not available
+            with self.db.conn.write_ctx() as cursor:
+                cursor.execute(
+                    '''INSERT INTO reports 
+                       (name, start_ts, end_ts, first_processed_timestamp, last_processed_timestamp, 
+                        processed_actions, total_actions, identifier)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                    (
+                        report_name or f'Report {from_timestamp}-{to_timestamp}',
+                        from_timestamp,
+                        to_timestamp,
+                        from_timestamp,
+                        to_timestamp,
+                        0,  # processed_actions
+                        0,  # total_actions
+                        1,  # identifier (placeholder)
+                    ),
+                )
+                return cursor.lastrowid
         
-        # For now, create a placeholder report
-        with self.db.conn.write_ctx() as cursor:
-            cursor.execute(
-                '''INSERT INTO reports 
-                   (name, start_ts, end_ts, first_processed_timestamp, last_processed_timestamp, 
-                    processed_actions, total_actions, identifier)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-                (
-                    report_name or f'Report {from_timestamp}-{to_timestamp}',
-                    from_timestamp,
-                    to_timestamp,
-                    from_timestamp,
-                    to_timestamp,
-                    0,  # processed_actions
-                    0,  # total_actions
-                    1,  # identifier (placeholder)
-                ),
+        # Use the actual accountant to process history
+        report_id = self.accountant.process_history(
+            start_ts=from_timestamp,
+            end_ts=to_timestamp,
+        )
+        
+        # If we have a notifier, send update
+        if self.notifier:
+            self.notifier.broadcast(
+                event_type='report_started',
+                data={'report_id': report_id},
             )
-            return cursor.lastrowid
+        
+        return report_id
     
     def list_reports(self) -> list[dict[str, Any]]:
         """List all available reports"""

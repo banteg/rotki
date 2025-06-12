@@ -4,6 +4,7 @@ from typing import Protocol
 
 from rotkehlchen.accounting.structures.balance import Balance
 from rotkehlchen.assets.asset import Asset
+from rotkehlchen.fval import FVal
 from rotkehlchen.types import Location
 
 

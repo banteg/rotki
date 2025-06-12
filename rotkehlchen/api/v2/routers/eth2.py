@@ -100,10 +100,10 @@ async def remove_validator(
 
 @router.get('/stake/performance')
 async def get_stake_performance(
-    from_timestamp: Timestamp = Query(default=0),
-    to_timestamp: Timestamp | None = Query(default=None),
     _: Annotated[str, Depends(require_logged_in_user)],
     service: Annotated[ETH2Service, Depends(get_eth2_service)],
+    from_timestamp: Timestamp = Query(default=0),
+    to_timestamp: Timestamp | None = Query(default=None),
 ) -> ETH2Response:
     """Get ETH2 staking performance metrics"""
     performance = service.get_stake_performance(
@@ -115,10 +115,10 @@ async def get_stake_performance(
 
 @router.get('/stake/daily-stats')
 async def get_daily_stats(
-    from_timestamp: Timestamp = Query(default=0),
-    to_timestamp: Timestamp | None = Query(default=None),
     _: Annotated[str, Depends(require_logged_in_user)],
     service: Annotated[ETH2Service, Depends(get_eth2_service)],
+    from_timestamp: Timestamp = Query(default=0),
+    to_timestamp: Timestamp | None = Query(default=None),
 ) -> ETH2Response:
     """Get daily ETH2 staking statistics"""
     stats = service.get_daily_stats(
@@ -130,9 +130,9 @@ async def get_daily_stats(
 
 @router.get('/stake/deposits')
 async def get_stake_deposits(
-    address: ChecksumEvmAddress | None = Query(default=None),
     _: Annotated[str, Depends(require_logged_in_user)],
     service: Annotated[ETH2Service, Depends(get_eth2_service)],
+    address: ChecksumEvmAddress | None = Query(default=None),
 ) -> ETH2Response:
     """Get ETH2 stake deposits"""
     deposits = service.get_stake_deposits(address=address)

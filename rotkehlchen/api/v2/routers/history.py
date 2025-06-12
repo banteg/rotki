@@ -54,7 +54,7 @@ def get_history_service(
     db_service: Annotated[DatabaseService, Depends(get_database_service)],
 ) -> HistoryService:
     """Get history service instance"""
-    return HistoryService(db_service)
+    return HistoryService(db_service.conn)
 
 
 @router.get('/events')
@@ -95,7 +95,7 @@ async def create_history_event(
     history_service: Annotated[HistoryService, Depends(get_history_service)],
 ) -> HistoryResponse:
     """Create a new history event"""
-    event = history_service.create_history_event(
+    event_id = history_service.create_history_event(
         event_identifier=event_data.event_identifier,
         sequence_index=event_data.sequence_index,
         timestamp=event_data.timestamp,
@@ -111,7 +111,7 @@ async def create_history_event(
     )
 
     return HistoryResponse(
-        result={'event_id': event.identifier},
+        result={'event_id': event_id},
         message='History event created successfully',
     )
 
