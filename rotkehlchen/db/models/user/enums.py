@@ -11,7 +11,7 @@ class Location(Base, table=True):
     __tablename__ = 'location'
 
     location: str = Field(sa_column=Column(CHAR(1), primary_key=True, nullable=False))
-    seq: int | None = Field(default=None, sa_column=Column(INTEGER, nullable=True))
+    seq: int | None = Field(default=None, sa_column=Column(INTEGER, nullable=True, unique=True))
 
     def __repr__(self) -> str:
         return f"<Location(location='{self.location}', seq={self.seq})>"
@@ -22,7 +22,7 @@ class BalanceCategory(Base, table=True):
     __tablename__ = 'balance_category'
 
     category: str = Field(sa_column=Column(CHAR(1), primary_key=True, nullable=False))
-    seq: int | None = Field(default=None, sa_column=Column(INTEGER, nullable=True))
+    seq: int | None = Field(default=None, sa_column=Column(INTEGER, nullable=True, unique=True))
 
     def __repr__(self) -> str:
         return f"<BalanceCategory(category='{self.category}', seq={self.seq})>"
@@ -33,7 +33,7 @@ class ZkSyncLiteTxType(Base, table=True):
     __tablename__ = 'zksynclite_tx_type'
 
     type: str = Field(sa_column=Column(CHAR(1), primary_key=True, nullable=False))
-    seq: int | None = Field(default=None, sa_column=Column(INTEGER, nullable=True))
+    seq: int | None = Field(default=None, sa_column=Column(INTEGER, nullable=True, unique=True))
 
     def __repr__(self) -> str:
         return f"<ZkSyncLiteTxType(type='{self.type}', seq={self.seq})>"

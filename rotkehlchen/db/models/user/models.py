@@ -20,7 +20,9 @@ if TYPE_CHECKING:
 
     from rotkehlchen.db.models.user.accounts import BlockchainAccount
     from rotkehlchen.db.models.user.enums import BalanceCategory, Location
+    from rotkehlchen.db.models.user.history import HistoryEvent
     from rotkehlchen.db.models.user.nfts import NFT
+    from rotkehlchen.db.models.user.zksynclite import ZkSyncLiteTransaction
 
 
 class Asset(Base, table=True):
@@ -48,6 +50,14 @@ class Asset(Base, table=True):
     )
     nft_price_assets: list['NFT'] = Relationship(
         sa_relationship_kwargs={'foreign_keys': '[NFT.last_price_asset]'},
+        cascade_delete=True,
+    )
+    history_events: list['HistoryEvent'] = Relationship(
+        back_populates='asset_obj',
+        cascade_delete=True,
+    )
+    zksynclite_transactions: list['ZkSyncLiteTransaction'] = Relationship(
+        back_populates='asset_obj',
         cascade_delete=True,
     )
 

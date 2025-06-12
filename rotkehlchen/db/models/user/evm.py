@@ -191,7 +191,7 @@ class OptimismTransaction(Base, table=True):
     tx_id: int = Field(
         sa_column=Column(
             INTEGER,
-            ForeignKey('evm_transactions.identifier', ondelete='CASCADE'),
+            ForeignKey('evm_transactions.identifier', onupdate='CASCADE', ondelete='CASCADE'),
             primary_key=True,
             nullable=False,
         ),

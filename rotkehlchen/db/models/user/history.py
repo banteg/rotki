@@ -60,7 +60,7 @@ class HistoryEventMapping(Base, table=True):
     parent_identifier: int = Field(
         sa_column=Column(
             INTEGER,
-            ForeignKey('history_events.identifier', ondelete='CASCADE'),
+            ForeignKey('history_events.identifier', onupdate='CASCADE', ondelete='CASCADE'),
             primary_key=True,
             nullable=False,
         ),
@@ -82,7 +82,7 @@ class EvmEventInfo(Base, table=True):
     identifier: int = Field(
         sa_column=Column(
             INTEGER,
-            ForeignKey('history_events.identifier', ondelete='CASCADE'),
+            ForeignKey('history_events.identifier', onupdate='CASCADE', ondelete='CASCADE'),
             primary_key=True,
             nullable=False,
         ),
@@ -102,6 +102,9 @@ class EvmEventInfo(Base, table=True):
 class SkippedExternalEvent(Base, table=True):
     """Model for skipped_external_events table"""
     __tablename__ = 'skipped_external_events'
+    __table_args__ = (
+        UniqueConstraint('data', 'location'),
+    )
 
     identifier: int = Field(sa_column=Column(INTEGER, primary_key=True, nullable=False))
     data: str = Field(sa_column=Column(TEXT, nullable=False))
