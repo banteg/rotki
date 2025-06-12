@@ -16,6 +16,7 @@ from rotkehlchen.db.filtering import AssetsFilterQuery, LevenshteinFilterQuery
 from rotkehlchen.db.search_assets import search_assets_levenshtein
 from rotkehlchen.errors.asset import UnknownAsset
 from rotkehlchen.errors.misc import InputError
+from rotkehlchen.api.v2.repositories.globaldb_asset import GlobalAssetRepository
 from rotkehlchen.globaldb.handler import GlobalDBHandler
 from rotkehlchen.history.price import PriceHistorian
 from rotkehlchen.inquirer import Inquirer
@@ -30,7 +31,8 @@ class AssetsService:
 
     def __init__(self, db_handler: 'DBHandler | None' = None):
         self.resolver = AssetResolver()
-        self.globaldb = GlobalDBHandler()
+        self._globaldb = GlobalDBHandler()
+        self.asset_repo = GlobalAssetRepository(self._globaldb)
         self.db = db_handler
 
     def get_all_assets(
@@ -57,10 +59,16 @@ class AssetsService:
             ignored_assets_handling=ignored_assets_handling,
         )
 
-        # Use the GlobalDBHandler's retrieve_assets method
-        assets, total_count = GlobalDBHandler.retrieve_assets(
-            userdb=self.db,
+        # Get ignored assets from user preferences
+        ignored_assets = None
+        if ignored_assets_handling == 'exclude' and self.db:
+            with self.db.conn.read_ctx() as cursor:
+                ignored_assets = self.db.get_ignored_asset_ids(cursor)
+        
+        # Use repository to get assets
+        assets, total_count = self.asset_repo.get_all_assets(
             filter_query=filter_query,
+            ignored_assets=ignored_assets,
         )
 
         return assets, total_count
@@ -111,10 +119,16 @@ class AssetsService:
             ignored_assets_handling=ignored_assets_handling,
         )
 
-        # Use the GlobalDBHandler's search_assets method
-        results = GlobalDBHandler.search_assets(
+        # Get ignored assets from user preferences
+        ignored_assets = None
+        if ignored_assets_handling == 'exclude' and self.db:
+            with self.db.conn.read_ctx() as cursor:
+                ignored_assets = self.db.get_ignored_asset_ids(cursor)
+        
+        # Use repository to search assets
+        results = self.asset_repo.search_assets(
             filter_query=filter_query,
-            db=self.db,
+            ignored_assets=ignored_assets,
         )
 
         return results
@@ -153,15 +167,21 @@ class AssetsService:
         )
 
         try:
-            # Add to global database
-            GlobalDBHandler.add_asset(asset)
+            # Add custom asset using repository
+            asset_id = self.asset_repo.add_asset(
+                asset_type=AssetType.CUSTOM_ASSET,
+                identifier=identifier,
+                name=name,
+                custom_asset_type=custom_asset_type,
+                notes=notes,
+            )
 
             # Add to user's owned assets if db handler is available
             if self.db is not None:
                 with self.db.user_write() as cursor:
-                    self.db.add_asset_identifiers(cursor, [identifier])
+                    self.db.add_asset_identifiers(cursor, [asset_id])
 
-            return {'identifier': identifier}
+            return {'identifier': asset_id}
         except InputError as e:
             raise InputError(f'Failed to add custom asset: {e!s}') from e
 
@@ -178,7 +198,7 @@ class AssetsService:
             except UnknownAsset:
                 identifiers = None
         else:
-            identifiers = GlobalDBHandler.check_asset_exists(asset)
+            identifiers = [asset.identifier] if self.asset_repo.check_asset_exists(asset.identifier) else None
 
         if identifiers is not None:
             raise InputError(
@@ -186,19 +206,67 @@ class AssetsService:
                 f"since it already exists. Existing ids: {','.join(identifiers)}",
             )
 
-        # Add to global database
-        GlobalDBHandler.add_asset(asset)
+        # Add asset using repository based on type
+        if isinstance(asset, EvmToken):
+            identifier = self.asset_repo.add_evm_token(
+                address=asset.address,
+                chain_id=asset.chain_id,
+                token_kind=asset.token_kind,
+                decimals=asset.decimals,
+                name=asset.name,
+                symbol=asset.symbol,
+                protocol=asset.protocol,
+                swapped_for=asset.swapped_for,
+                coingecko=asset.coingecko,
+                cryptocompare=asset.cryptocompare,
+            )
+        else:
+            identifier = self.asset_repo.add_asset(
+                asset_type=asset.asset_type,
+                identifier=asset.identifier,
+                name=asset.name,
+                symbol=asset.symbol,
+                started=asset.started,
+                forked=asset.forked,
+                swapped_for=asset.swapped_for,
+                coingecko=asset.coingecko,
+                cryptocompare=asset.cryptocompare,
+            )
 
         # Add to user's owned assets if db handler is available
         if self.db is not None:
             with self.db.user_write() as cursor:
                 self.db.add_asset_identifiers(cursor, [asset.identifier])
 
-        return {'identifier': asset.identifier}
+        return {'identifier': identifier}
 
     def edit_user_asset(self, asset: AssetWithOracles) -> None:
         """Edit an existing user asset"""
-        GlobalDBHandler.edit_user_asset(asset)
+        # Edit asset using repository based on type
+        if isinstance(asset, EvmToken):
+            self.asset_repo.edit_evm_token(
+                identifier=asset.identifier,
+                chain_id=asset.chain_id,
+                address=asset.address,
+                decimals=asset.decimals,
+                name=asset.name,
+                symbol=asset.symbol,
+                protocol=asset.protocol,
+                swapped_for=asset.swapped_for,
+                coingecko=asset.coingecko,
+                cryptocompare=asset.cryptocompare,
+            )
+        else:
+            self.asset_repo.edit_asset(
+                identifier=asset.identifier,
+                name=asset.name,
+                symbol=asset.symbol,
+                started=asset.started,
+                forked=asset.forked,
+                swapped_for=asset.swapped_for,
+                coingecko=asset.coingecko,
+                cryptocompare=asset.cryptocompare,
+            )
 
         # Clear the asset resolver cache
         AssetResolver().assets_cache.remove(asset.identifier)
@@ -210,8 +278,8 @@ class AssetsService:
             with self.db.conn.read_ctx() as cursor:
                 self.db.update_owned_assets_in_globaldb(cursor)
 
-        # Delete from global database
-        GlobalDBHandler.delete_asset_by_identifier(identifier)
+        # Delete asset using repository
+        self.asset_repo.delete_asset(identifier)
 
         # Clear from asset resolver cache
         AssetResolver().assets_cache.remove(identifier)
@@ -222,22 +290,22 @@ class AssetsService:
         chain_id: ChainID,
     ) -> EvmToken | None:
         """Get EVM token information by address and chain"""
-        return GlobalDBHandler.get_evm_token(address=address, chain_id=chain_id)
+        return self._globaldb.get_evm_token(address=address, chain_id=chain_id)
 
     def get_assets_mappings(
         self,
         identifiers: list[str],
     ) -> tuple[dict[str, dict], dict[str, dict[str, str]]]:
         """Get asset mappings for given identifiers"""
-        return GlobalDBHandler.get_assets_mappings(identifiers)
+        return self._globaldb.get_assets_mappings(identifiers)
 
     def get_user_added_assets(self, only_owned: bool = False) -> set[str]:
         """Get list of assets added by the user"""
         if self.db is None:
             raise ValueError('Database handler not initialized')
 
-        with self.db.user_write() as write_cursor, self.globaldb.conn.read_ctx() as read_cursor:
-            return GlobalDBHandler.get_user_added_assets(
+        with self.db.user_write() as write_cursor, self._globaldb.conn.read_ctx() as read_cursor:
+            return self._globaldb.get_user_added_assets(
                 cursor=read_cursor,
                 user_db_write_cursor=write_cursor,
                 user_db=self.db,
@@ -252,7 +320,7 @@ class AssetsService:
         ignore_spam: bool = True,
     ) -> list[EvmToken]:
         """Get all EVM tokens for a given chain"""
-        return GlobalDBHandler.get_evm_tokens(
+        return self._globaldb.get_evm_tokens(
             chain_id=chain_id,
             exceptions=exceptions,
             protocol=protocol,
@@ -266,7 +334,7 @@ class AssetsService:
         chain_id: ChainID | None = None,
     ) -> list[AssetWithOracles]:
         """Find all assets with the given symbol"""
-        return GlobalDBHandler.get_assets_with_symbol(
+        return self._globaldb.get_assets_with_symbol(
             symbol=symbol,
             asset_type=asset_type,
             chain_id=chain_id,
