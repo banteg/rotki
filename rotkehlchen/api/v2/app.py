@@ -12,6 +12,8 @@ from rotkehlchen.api.v2.routers import (
     auth,
     balances,
     blockchain,
+    data,
+    eth2,
     exchanges,
     history,
     reports,
@@ -66,6 +68,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(statistics.router, prefix='/api/v2/statistics', tags=['statistics'])
     app.include_router(reports.router, prefix='/api/v2/reports', tags=['reports'])
     app.include_router(accounting.router, prefix='/api/v2/accounting', tags=['accounting'])
+    app.include_router(eth2.router, prefix='/api/v2/blockchains/eth2', tags=['eth2'])
+    app.include_router(data.router, prefix='/api/v2/data', tags=['data'])
 
     @app.get('/api/v2/ping')
     async def ping() -> dict[str, Any]:
