@@ -48,10 +48,10 @@ def get_accounting_service(
 
 @router.get('/rules')
 async def get_accounting_rules(
-    event_type: str | None = None,
-    event_subtype: str | None = None,
     _: Annotated[str, Depends(require_logged_in_user)],
     service: Annotated[AccountingService, Depends(get_accounting_service)],
+    event_type: str | None = None,
+    event_subtype: str | None = None,
 ) -> AccountingResponse:
     """Get accounting rules with optional filtering"""
     rules = service.get_accounting_rules(

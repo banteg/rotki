@@ -2,7 +2,7 @@
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 
 from rotkehlchen.api.v2.config import Settings
@@ -19,6 +19,7 @@ from rotkehlchen.api.v2.routers import (
     statistics,
     users,
 )
+from rotkehlchen.api.v2.websocket import websocket_endpoint
 from rotkehlchen.utils.version_check import get_current_version
 
 
@@ -82,4 +83,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             },
         }
 
+    # WebSocket endpoint
+    @app.websocket('/api/v2/ws')
+    async def websocket(websocket: WebSocket):
+        """WebSocket endpoint for real-time updates"""
+        await websocket_endpoint(websocket)
+    
     return app
