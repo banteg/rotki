@@ -111,6 +111,7 @@ from rotkehlchen.fval import FVal
 from rotkehlchen.globaldb.handler import GlobalDBHandler
 from rotkehlchen.logging import RotkehlchenLogsAdapter
 from rotkehlchen.premium.premium import PremiumCredentials
+from rotkehlchen.utils.deprecation import deprecated
 from rotkehlchen.serialization.deserialize import deserialize_hex_color_code, deserialize_timestamp
 from rotkehlchen.types import (
     ANY_BLOCKCHAIN_ADDRESSBOOK_VALUE,
@@ -962,6 +963,7 @@ class DBHandler:
             # There can only be 1 result, since name is the primary key of the table
             return ExternalServiceApiCredentials(service=service_name, api_key=result[0], api_secret=result[1])  # noqa: E501
 
+    @deprecated(reason="Use AssetRepository methods instead", version="2.0.0")
     def add_to_ignored_assets(self, write_cursor: 'DBCursor', asset: Asset) -> None:
         """Add a new asset to the set of ignored assets. If the asset was already marked as
         ignored then we don't do anything. Also ignore history events with this asset.
@@ -975,6 +977,7 @@ class DBHandler:
             (1, asset.identifier),
         )
 
+    @deprecated(reason="Use AssetRepository methods instead", version="2.0.0")
     def ignore_multiple_assets(self, write_cursor: 'DBCursor', assets: list[str]) -> None:
         """Add the provided identifiers to the list of ignored assets. If any asset was already
         marked as ignored then we don't do anything. Also ignore history events with these assets.
@@ -990,6 +993,7 @@ class DBHandler:
                 chunk,
             )
 
+    @deprecated(reason="Use AssetRepository methods instead", version="2.0.0")
     def remove_from_ignored_assets(self, write_cursor: 'DBCursor', asset: Asset) -> None:
         """Remove an asset from the ignored assets and un-ignore history events with this asset."""
         write_cursor.execute(
@@ -1156,6 +1160,7 @@ class DBHandler:
             (names_to_delete, '\\'),
         )
 
+    @deprecated(reason=\"Use HistoryRepository.delete_events_by_location instead\", version=\"2.0.0\")
     def purge_exchange_data(self, write_cursor: 'DBCursor', location: Location) -> None:
         self.delete_used_query_range_for_exchange(write_cursor=write_cursor, location=location)
         serialized_location = location.serialize_for_db()
@@ -1762,6 +1767,7 @@ class DBHandler:
             if location in (Location.BINANCE, Location.BINANCEUS) and binance_selected_trade_pairs is not None:  # noqa: E501
                 self.set_binance_pairs(cursor, name=name, pairs=binance_selected_trade_pairs, location=location)  # noqa: E501
 
+    @deprecated(reason=\"Direct history_events updates should use HistoryRepository\", version=\"2.0.0\")
     def edit_exchange(
             self,
             write_cursor: 'DBCursor',
@@ -2226,6 +2232,7 @@ class DBHandler:
                 (f'{BRIDGE_QUERIED_ADDRESS_PREFIX}{address}',),
             )
 
+    @deprecated(reason=\"Direct history_events deletion should use HistoryRepository\", version=\"2.0.0\")
     def delete_data_for_evmlike_address(
             self,
             write_cursor: 'DBCursor',
