@@ -17,10 +17,12 @@ from rotkehlchen.db.search_assets import search_assets_levenshtein
 from rotkehlchen.errors.asset import UnknownAsset
 from rotkehlchen.errors.misc import InputError
 from rotkehlchen.api.v2.repositories.globaldb_asset import GlobalAssetRepository
+from rotkehlchen.api.v2.repositories.asset_ignore import AssetIgnoreRepository
 from rotkehlchen.globaldb.handler import GlobalDBHandler
 from rotkehlchen.history.price import PriceHistorian
 from rotkehlchen.inquirer import Inquirer
 from rotkehlchen.types import ChecksumEvmAddress, Price, Timestamp
+from sqlmodel import Session
 
 if TYPE_CHECKING:
     from rotkehlchen.db.dbhandler import DBHandler
@@ -29,11 +31,13 @@ if TYPE_CHECKING:
 class AssetsService:
     """Service for handling asset-related operations"""
 
-    def __init__(self, db_handler: 'DBHandler | None' = None):
+    def __init__(self, db_handler: 'DBHandler | None' = None, session: Session | None = None):
         self.resolver = AssetResolver()
         self._globaldb = GlobalDBHandler()
         self.asset_repo = GlobalAssetRepository(self._globaldb)
         self.db = db_handler
+        self.session = session
+        self.asset_ignore_repo = AssetIgnoreRepository(session) if session else None
 
     def get_all_assets(
         self,
@@ -61,9 +65,8 @@ class AssetsService:
 
         # Get ignored assets from user preferences
         ignored_assets = None
-        if ignored_assets_handling == 'exclude' and self.db:
-            with self.db.conn.read_ctx() as cursor:
-                ignored_assets = self.db.get_ignored_asset_ids(cursor)
+        if ignored_assets_handling == 'exclude' and self.asset_ignore_repo:
+            ignored_assets = self.asset_ignore_repo.get_ignored_assets()
         
         # Use repository to get assets
         assets, total_count = self.asset_repo.get_all_assets(
@@ -121,9 +124,8 @@ class AssetsService:
 
         # Get ignored assets from user preferences
         ignored_assets = None
-        if ignored_assets_handling == 'exclude' and self.db:
-            with self.db.conn.read_ctx() as cursor:
-                ignored_assets = self.db.get_ignored_asset_ids(cursor)
+        if ignored_assets_handling == 'exclude' and self.asset_ignore_repo:
+            ignored_assets = self.asset_ignore_repo.get_ignored_assets()
         
         # Use repository to search assets
         results = self.asset_repo.search_assets(

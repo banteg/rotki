@@ -9,6 +9,8 @@ from rotkehlchen.errors.misc import InputError
 from rotkehlchen.fval import FVal
 from rotkehlchen.history.events.structures.base import HistoryEventType
 from rotkehlchen.types import Location, Timestamp
+from sqlmodel import Session
+from rotkehlchen.api.v2.repositories.history import HistoryRepository, HistoryEventFilter
 
 if TYPE_CHECKING:
     from rotkehlchen.api.websockets.notifier import RotkiNotifier
@@ -22,15 +24,18 @@ class HistoryService:
     def __init__(
         self,
         db_connection: DBConnection,
+        session: Session | None = None,
         history_manager: 'HistoryQueryingManager | None' = None,
         task_manager: 'TaskManager | None' = None,
         notifier: 'RotkiNotifier | None' = None,
     ):
         self.db_connection = db_connection
-        self.history_events_db = DBHistoryEvents(self.db_connection)
+        self.history_events_db = DBHistoryEvents(self.db_connection)  # Keep for complex operations
+        self.history_repo = HistoryRepository(session) if session else None
         self.history_manager = history_manager
         self.task_manager = task_manager
         self.notifier = notifier
+        self.session = session
 
     def get_history_events(
         self,
@@ -43,31 +48,54 @@ class HistoryService:
         offset: int = 0,
     ) -> list[dict[str, Any]]:
         """Get history events with filtering"""
-        # Convert input parameters to appropriate types
-        location_objects = None
-        if locations:
-            location_objects = [Location.deserialize(loc) for loc in locations]
+        if self.history_repo:
+            # Use repository pattern
+            location_objects = None
+            if locations:
+                location_objects = [Location.deserialize(loc) for loc in locations]
+            
+            # Create filter for repository
+            filters = HistoryEventFilter(
+                from_ts=from_timestamp,
+                to_ts=to_timestamp,
+                event_types=[str(et) for et in event_types] if event_types else None,
+                locations=location_objects,
+                assets=assets,
+            )
+            
+            # Get events from repository
+            events_db = self.history_repo.get_history_events(
+                filters=filters,
+                limit=limit,
+                offset=offset,
+                has_premium=True,  # For v2 API assume premium features
+            )
+        else:
+            # Fallback to old method
+            location_objects = None
+            if locations:
+                location_objects = [Location.deserialize(loc) for loc in locations]
 
-        asset_objects = None
-        if assets:
-            asset_objects = [Asset(asset) for asset in assets]
+            asset_objects = None
+            if assets:
+                asset_objects = [Asset(asset) for asset in assets]
 
-        # Create filter query
-        filter_query = HistoryEventFilterQuery.make(
-            from_ts=from_timestamp,
-            to_ts=to_timestamp,
-            event_types=event_types,
-            location=location_objects[0] if location_objects and len(location_objects) == 1 else None,
-            assets=asset_objects,
-        )
+            # Create filter query
+            filter_query = HistoryEventFilterQuery.make(
+                from_ts=from_timestamp,
+                to_ts=to_timestamp,
+                event_types=event_types,
+                location=location_objects[0] if location_objects and len(location_objects) == 1 else None,
+                assets=asset_objects,
+            )
 
-        # Get events from database
-        events_db, _ = self.history_events_db.get_history_events(
-            filter_query=filter_query,
-            has_premium=True,  # For v2 API assume premium features
-            limit=limit,
-            offset=offset,
-        )
+            # Get events from database
+            events_db, _ = self.history_events_db.get_history_events(
+                filter_query=filter_query,
+                has_premium=True,  # For v2 API assume premium features
+                limit=limit,
+                offset=offset,
+            )
 
         # Convert to API response format
         events = []

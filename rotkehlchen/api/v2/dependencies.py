@@ -133,6 +133,24 @@ def get_rotki_notifier(request: Request) -> 'RotkiNotifier':
     return request.app.state.rotki_notifier
 
 
+def get_history_service(
+    db_connection: Annotated[DBConnection, Depends(get_db_connection)],
+    session: Annotated[Session, Depends(get_db_session)],
+    history_manager: Annotated['HistoryQueryingManager', Depends(get_history_querying_manager)],
+    task_manager: Annotated['TaskManager', Depends(get_task_manager)],
+    notifier: Annotated['RotkiNotifier', Depends(get_rotki_notifier)],
+) -> 'HistoryService':
+    """Get history service instance with repositories"""
+    from rotkehlchen.api.v2.services.history import HistoryService
+    return HistoryService(
+        db_connection=db_connection,
+        session=session,
+        history_manager=history_manager,
+        task_manager=task_manager,
+        notifier=notifier,
+    )
+
+
 async def require_logged_in_user(  # noqa: RUF029
     request: Request,
     rotkehlchen: Annotated['Rotkehlchen', Depends(get_rotkehlchen)],
