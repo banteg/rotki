@@ -157,7 +157,7 @@ class AlembicManager:
             29: "028_v28_to_v29",
             28: "027_v27_to_v28",
             27: "026_v26_to_v27",
-            26: "001_initial_v48",  # Base migration
+            26: "001_initial_v26",  # Base migration
         }
         
         return version_mapping.get(db_version, "head")

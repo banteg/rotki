@@ -7,7 +7,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from sqlalchemy import create_engine, engine_from_config, pool
 from alembic import context
-from pysqlcipher3 import dbapi2 as sqlcipher
+try:
+    from pysqlcipher3 import dbapi2 as sqlcipher
+    HAS_SQLCIPHER = True
+except ImportError:
+    HAS_SQLCIPHER = False
 
 # Only import what we need for user database migrations
 from rotkehlchen.db.models.user.base import Base as UserBase
@@ -113,20 +117,20 @@ def run_migrations_online() -> None:
     db_path = os.environ.get('ROTKEHLCHEN_DB_PATH')
     password = os.environ.get('ROTKEHLCHEN_DB_PASSWORD')
     
-    if db_path and password:
+    if db_path and password and HAS_SQLCIPHER:
         # Use pysqlcipher3 for encrypted databases
+        # Create a custom connection creator that handles sqlcipher setup
+        def creator():
+            conn = sqlcipher.connect(db_path)
+            conn.execute(f"PRAGMA key = '{password}'")
+            return conn
+        
         connectable = create_engine(
-            f'sqlite:///{db_path}',
-            connect_args={
-                'check_same_thread': False,
-                'isolation_level': None,
-            },
-            module=sqlcipher,
+            'sqlite://',
+            creator=creator,
             poolclass=pool.NullPool,
         )
-        # Set the password after connection
         with connectable.connect() as connection:
-            connection.execute(f"PRAGMA key = '{password}'")
             context.configure(
                 connection=connection,
                 target_metadata=target_metadata,

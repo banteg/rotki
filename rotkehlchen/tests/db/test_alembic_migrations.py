@@ -72,7 +72,7 @@ class TestAlembicMigrations:
     def test_migration_sequence(self, alembic_config, temp_db_dir):
         """Test running migrations in sequence"""
         # Start with initial migration
-        command.upgrade(alembic_config, "001_initial_v48")
+        command.upgrade(alembic_config, "001_initial_v26")
         
         # Check we're at the right revision
         db_path = Path(temp_db_dir) / 'test.db'
@@ -81,7 +81,7 @@ class TestAlembicMigrations:
         from alembic.runtime.migration import MigrationContext
         with engine.connect() as conn:
             context = MigrationContext.configure(conn)
-            assert context.get_current_revision() == "001_initial_v48"
+            assert context.get_current_revision() == "001_initial_v26"
         
         # Upgrade to next version
         command.upgrade(alembic_config, "026_v26_to_v27")
@@ -132,7 +132,7 @@ class TestAlembicMigrations:
         
         # Test known versions
         assert manager.get_revision_for_db_version(48) == "047_v47_to_v48"
-        assert manager.get_revision_for_db_version(26) == "001_initial_v48"
+        assert manager.get_revision_for_db_version(26) == "001_initial_v26"
         
         # Test unknown version defaults to head
         assert manager.get_revision_for_db_version(99) == "head"

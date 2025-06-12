@@ -8,7 +8,7 @@ Original upgrade function from rotkehlchen v29_v30.py
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy import CHAR, INTEGER, TEXT, VARCHAR, BLOB
+# No longer needed since we're using op.execute
 
 # revision identifiers, used by Alembic.
 revision = '029_v29_to_v30'
@@ -19,10 +19,27 @@ depends_on = None
 
 def upgrade() -> None:
     """Upgrade from v29 to v30"""
-    # Operations ported from the original upgrade script
-    op.execute('\'ALTER TABLE manually_tracked_balances ADD category \'\n            "CHAR(1')
-    op.execute('"INSERT OR IGNORE INTO location(location, seq')
-    op.execute('ALTER TABLE manually_tracked_balances ADD category \'\n            "CHAR(1) NOT NULL DEFAULT(\'A\') REFERENCES balance_category(category);')
+    # Add balance_category table if not exists
+    op.create_table('balance_category',
+        sa.Column('category', sa.CHAR(1), primary_key=True, nullable=False),
+        sa.Column('seq', sa.INTEGER, unique=True)
+    )
+    
+    # Insert balance category values
+    op.execute("INSERT OR IGNORE INTO balance_category(category, seq) VALUES ('A', 1)")  # Asset
+    op.execute("INSERT OR IGNORE INTO balance_category(category, seq) VALUES ('B', 2)")  # Liability
+    
+    # We need to disable foreign_keys to add the column due to the constraint:
+    # Cannot add a REFERENCES column with non-NULL default value
+    op.execute('PRAGMA foreign_keys=OFF')
+    op.execute(
+        'ALTER TABLE manually_tracked_balances ADD category '
+        "CHAR(1) NOT NULL DEFAULT('A') REFERENCES balance_category(category)"
+    )
+    op.execute('PRAGMA foreign_keys=ON')
+    
+    # Insert the new bitpanda location
+    op.execute("INSERT OR IGNORE INTO location(location, seq) VALUES ('b', 34)")
 
 
 

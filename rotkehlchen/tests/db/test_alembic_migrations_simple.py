@@ -37,7 +37,7 @@ def alembic_config(temp_db_dir):
 def test_initial_migration_only(alembic_config, temp_db_dir):
     """Test that just the initial migration creates all expected tables"""
     # Run only the initial migration
-    command.upgrade(alembic_config, "001_initial_v48")
+    command.upgrade(alembic_config, "001_initial_v26")
     
     # Connect to the database and check tables
     db_path = Path(temp_db_dir) / 'test.db'
@@ -146,5 +146,5 @@ def test_alembic_manager_basic(temp_db_dir):
     
     # Test version mapping
     assert manager.get_revision_for_db_version(48) == "047_v47_to_v48"
-    assert manager.get_revision_for_db_version(26) == "001_initial_v48"
+    assert manager.get_revision_for_db_version(26) == "001_initial_v26"
     assert manager.get_revision_for_db_version(99) == "head"

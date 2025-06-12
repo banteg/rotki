@@ -39,7 +39,7 @@ class TestAlembicIntegration:
         
         # Test known versions
         assert manager.get_revision_for_db_version(48) == "047_v47_to_v48"
-        assert manager.get_revision_for_db_version(26) == "001_initial_v48"
+        assert manager.get_revision_for_db_version(26) == "001_initial_v26"
         
         # Test unknown version defaults to head
         assert manager.get_revision_for_db_version(99) == "head"
