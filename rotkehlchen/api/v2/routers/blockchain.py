@@ -11,7 +11,7 @@ from rotkehlchen.api.v2.dependencies import (
 from rotkehlchen.api.v2.services.blockchain import BlockchainService
 from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.chain.evm.types import string_to_evm_address
-from rotkehlchen.types import SUPPORTED_BLOCKCHAIN_TO_CHAINID, Blockchain
+from rotkehlchen.types import SupportedBlockchain
 
 router = APIRouter()
 
@@ -89,7 +89,7 @@ async def get_blockchain_accounts(
 ) -> BlockchainResponse:
     """Get accounts for a specific blockchain"""
     try:
-        blockchain_enum = Blockchain(blockchain.upper())
+        blockchain_enum = SupportedBlockchain(blockchain.upper())
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -121,7 +121,7 @@ async def add_blockchain_accounts(
 ) -> BlockchainResponse:
     """Add accounts for a specific blockchain"""
     try:
-        blockchain_enum = Blockchain(blockchain.upper())
+        blockchain_enum = SupportedBlockchain(blockchain.upper())
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -144,13 +144,13 @@ async def add_blockchain_accounts(
 @router.delete("/{blockchain}/accounts")
 async def remove_blockchain_accounts(
     blockchain: str,
-    accounts: list[str] = Query(...),
     _: Annotated[str, Depends(require_logged_in_user)],
     blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    accounts: list[str] = Query(...),
 ) -> BlockchainResponse:
     """Remove accounts for a specific blockchain"""
     try:
-        blockchain_enum = Blockchain(blockchain.upper())
+        blockchain_enum = SupportedBlockchain(blockchain.upper())
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

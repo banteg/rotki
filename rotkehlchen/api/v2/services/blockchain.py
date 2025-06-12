@@ -2,7 +2,8 @@
 from typing import Any
 
 from rotkehlchen.api.v2.services.database import DatabaseService
-from rotkehlchen.types import BlockchainAccountDetails, ChecksumEvmAddress
+from rotkehlchen.chain.accounts import BlockchainAccountData
+from rotkehlchen.types import ChecksumEvmAddress, SupportedBlockchain
 
 
 class BlockchainService:
@@ -11,14 +12,15 @@ class BlockchainService:
     def __init__(self, db_service: DatabaseService):
         self.db = db_service
 
-    def get_blockchain_accounts(self, blockchain: str) -> list[BlockchainAccountDetails]:
+    def get_blockchain_accounts(self, blockchain: str) -> list[BlockchainAccountData]:
         """Get accounts for a specific blockchain"""
         accounts = self.db.get_blockchain_accounts(blockchain=blockchain.value)
 
         # Convert to account details
         result = []
         for account in accounts:
-            result.append(BlockchainAccountDetails(
+            result.append(BlockchainAccountData(
+                chain=SupportedBlockchain(blockchain),
                 address=account.account,
                 label=account.label if hasattr(account, 'label') else None,
                 tags=account.tags if hasattr(account, 'tags') else [],

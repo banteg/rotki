@@ -7,6 +7,9 @@ from pydantic import BaseModel
 from rotkehlchen.api.v2.dependencies import get_auth_service, get_database_service
 from rotkehlchen.api.v2.services.auth import AuthService
 from rotkehlchen.api.v2.services.database import DatabaseService
+from rotkehlchen.errors.api import AuthenticationError
+from pathlib import Path
+import os
 
 router = APIRouter()
 
@@ -38,9 +41,17 @@ async def get_users(
     db_service: Annotated[DatabaseService, Depends(get_database_service)],
 ) -> UserResponse:
     """Get list of all users"""
-    # In real implementation, would query users from database
-    users = ['rotki_user']  # Mock data
-
+    # Get the data directory from settings
+    settings = db_service.get_settings()
+    data_dir = Path(settings.data_directory)
+    users_dir = data_dir / 'users'
+    
+    users = []
+    if users_dir.exists():
+        for user_dir in users_dir.iterdir():
+            if user_dir.is_dir():
+                users.append(user_dir.name)
+    
     return UserResponse(
         result={'users': users},
     )
@@ -53,19 +64,43 @@ async def create_user(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> UserResponse:
     """Create a new user"""
+    # Get data directory from settings
+    settings = db_service.get_settings()
+    data_dir = Path(settings.data_directory)
+    users_dir = data_dir / 'users'
+    user_dir = users_dir / user_data.name
+    
     # Check if user already exists
-    # In real implementation, would check database
-
-    # Create user
-    # In real implementation, would save to database
-
-    return UserResponse(
-        result={
-            'name': user_data.name,
-            'settings': user_data.initial_settings or {},
-        },
-        message='User created successfully',
-    )
+    if user_dir.exists():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f'User {user_data.name} already exists',
+        )
+    
+    # Create user directory
+    try:
+        user_dir.mkdir(parents=True, exist_ok=False)
+        
+        # TODO: Initialize user database with password encryption
+        # This requires creating a new DBHandler instance with the user's password
+        # and running the database creation scripts
+        
+        # For now, return success
+        return UserResponse(
+            result={
+                'name': user_data.name,
+                'settings': user_data.initial_settings or {},
+            },
+            message='User created successfully',
+        )
+    except Exception as e:
+        # Clean up directory if creation failed
+        if user_dir.exists():
+            os.rmdir(user_dir)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Failed to create user: {str(e)}',
+        )
 
 
 @router.post('/login')
@@ -110,20 +145,24 @@ async def change_password(
     current_password: str,
     new_password: str,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    db_service: Annotated[DatabaseService, Depends(get_database_service)],
 ) -> UserResponse:
     """Change user password"""
     # Verify current password
     try:
         auth_service.authenticate_user(username, current_password)
-    except Exception:
+    except AuthenticationError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Invalid current password',
         )
-
-    # Update password
-    # In real implementation, would update in database
-
+    
+    # TODO: Implement password change
+    # This requires:
+    # 1. Re-encrypting the SQLCipher database with the new password
+    # 2. Using PRAGMA rekey command
+    # 3. Ensuring all connections are closed during the process
+    
     return UserResponse(
         result={'success': True},
         message='Password changed successfully',

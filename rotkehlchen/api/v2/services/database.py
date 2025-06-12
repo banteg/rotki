@@ -6,8 +6,7 @@ from sqlmodel import Session, select
 from rotkehlchen.db.drivers.gevent import DBConnection
 from rotkehlchen.db.models.user.accounts import BlockchainAccount, UserCredentials
 from rotkehlchen.db.models.user.notes import UserNote
-from rotkehlchen.db.models.user.services import Tag
-from rotkehlchen.db.models.user.settings import UserSettings
+from rotkehlchen.db.models.user.models import Settings, Tag
 
 
 class DatabaseService:
@@ -16,18 +15,18 @@ class DatabaseService:
     def __init__(self, connection: DBConnection):
         self.connection = connection
 
-    def get_settings(self) -> UserSettings | None:
+    def get_settings(self) -> Settings | None:
         """Get user settings"""
         with Session(self.connection) as session:
-            statement = select(UserSettings)
+            statement = select(Settings)
             return session.exec(statement).first()
 
-    def update_settings(self, settings: dict[str, Any]) -> UserSettings:
+    def update_settings(self, settings: dict[str, Any]) -> Settings:
         """Update user settings"""
         with Session(self.connection) as session:
-            db_settings = session.exec(select(UserSettings)).first()
+            db_settings = session.exec(select(Settings)).first()
             if not db_settings:
-                db_settings = UserSettings()
+                db_settings = Settings()
                 session.add(db_settings)
 
             for key, value in settings.items():

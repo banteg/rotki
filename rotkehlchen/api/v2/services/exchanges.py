@@ -68,7 +68,7 @@ class ExchangeService:
 
         credential = self.db.add_user_credential(
             name=name,
-            location=location.serialize_for_db(),
+            location=location.serialize(),
             api_key=api_key,
             api_secret=api_secret,
             passphrase=passphrase,
@@ -94,7 +94,7 @@ class ExchangeService:
         all_balances = {}
 
         for cred in credentials:
-            location = Location.deserialize_from_db(cred.location)
+            location = Location.deserialize(cred.location)
             balances = self.get_exchange_balances(location, ignore_cache)
             if balances:
                 all_balances[location.value] = balances

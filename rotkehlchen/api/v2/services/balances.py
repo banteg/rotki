@@ -6,7 +6,7 @@ from rotkehlchen.accounting.structures.balance import Balance, BalanceSheet
 from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.assets.asset import Asset
 from rotkehlchen.balances.manual import ManuallyTrackedBalance
-from rotkehlchen.chain.manager import ChainManager
+from rotkehlchen.chain.aggregator import ChainsAggregator
 from rotkehlchen.exchanges.manager import ExchangeManager
 from rotkehlchen.fval import FVal
 from rotkehlchen.types import Location, Timestamp
@@ -18,7 +18,7 @@ class BalancesService:
     def __init__(
         self,
         db_service: DatabaseService,
-        chain_manager: ChainManager | None = None,
+        chain_manager: ChainsAggregator | None = None,
         exchange_manager: ExchangeManager | None = None,
     ):
         self.db = db_service
