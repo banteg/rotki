@@ -40,6 +40,7 @@ from rotkehlchen.accounting.pot import AccountingPot
 from rotkehlchen.accounting.structures.balance import Balance, BalanceSheet, BalanceType
 from rotkehlchen.accounting.structures.processed_event import AccountingEventExportType
 from rotkehlchen.accounting.types import EventAccountingRuleStatus
+from rotkehlchen.api.rest_helpers.history_events import edit_grouped_events_with_optional_fee
 from rotkehlchen.api.rest_helpers.wrap import calculate_wrap_score
 from rotkehlchen.api.v1.types import IncludeExcludeFilterData
 from rotkehlchen.api.websockets.typedefs import ProgressUpdateSubType, WSMessageType
@@ -124,6 +125,7 @@ from rotkehlchen.constants.prices import ZERO_PRICE
 from rotkehlchen.constants.timing import ENS_AVATARS_REFRESH
 from rotkehlchen.data_import.manager import DataImportSource
 from rotkehlchen.db.accounting_rules import DBAccountingRules, query_missing_accounting_rules
+from rotkehlchen.db.addressbook import DBAddressbook
 from rotkehlchen.db.cache import DBCacheDynamic
 from rotkehlchen.db.calendar import CalendarEntry, CalendarFilterQuery, DBCalendar, ReminderEntry
 from rotkehlchen.db.constants import (
@@ -157,6 +159,7 @@ from rotkehlchen.db.queried_addresses import QueriedAddresses
 from rotkehlchen.db.reports import DBAccountingReports
 from rotkehlchen.db.search_assets import search_assets_levenshtein
 from rotkehlchen.db.settings import ModifiableDBSettings
+from rotkehlchen.db.snapshots import DBSnapshot
 from rotkehlchen.db.unresolved_conflicts import DBRemoteConflicts
 from rotkehlchen.db.utils import DBAssetBalance, LocationData
 from rotkehlchen.errors.api import (
@@ -290,6 +293,7 @@ if TYPE_CHECKING:
     from rotkehlchen.chain.evm.node_inquirer import EvmNodeInquirer
     from rotkehlchen.chain.gnosis.modules.gnosis_pay.decoder import GnosisPayDecoder
     from rotkehlchen.db.dbhandler import DBHandler
+    from rotkehlchen.db.drivers.gevent import DBCursor
     from rotkehlchen.exchanges.kraken import KrakenAccountType
     from rotkehlchen.history.events.structures.base import HistoryBaseEntry
 
@@ -320,9 +324,9 @@ def wrap_in_fail_result(message: str, status_code: HTTPStatus | None = None) -> 
 
 
 def api_response(
-    result: dict[str, Any],
-    status_code: HTTPStatus = HTTPStatus.OK,
-    log_result: bool = True,
+        result: dict[str, Any],
+        status_code: HTTPStatus = HTTPStatus.OK,
+        log_result: bool = True,
 ) -> Response:
     if status_code == HTTPStatus.NO_CONTENT:
         assert not result, 'Provided 204 response with non-zero length response'
@@ -338,8 +342,7 @@ def api_response(
                 'mimetype': 'application/json',
                 'Content-Type': 'application/json',
                 'rotki-log-result': log_result,  # popped by after request callback
-            },
-        ),
+            }),
     )
 
 
@@ -363,7 +366,6 @@ def async_api_call() -> Callable:
     status code.
     This decorator reads the dictionary and transforms it to a Response object.
     """
-
     def wrapper(func: Callable[..., dict[str, Any]]) -> Callable[..., Response]:
         def inner(rest_api: 'RestAPI', async_query: bool = False, **kwargs: Any) -> Response:
             response: dict[str, Any]
@@ -379,7 +381,6 @@ def async_api_call() -> Callable:
             return make_response_from_dict(response)
 
         return inner
-
     return wrapper
 
 
@@ -388,14 +389,11 @@ def login_lock() -> Callable:
     This is a decorator that uses the login lock at RestAPI to avoid a race condition between
     async tasks using the user unlock logic.
     """
-
     def wrapper(func: Callable[..., Response]) -> Callable[..., Response]:
         def inner(rest_api: 'RestAPI', **kwargs: Any) -> Response:
             with rest_api.login_lock:
                 return func(rest_api, **kwargs)
-
         return inner
-
     return wrapper
 
 
@@ -411,8 +409,7 @@ def register_post_download_cleanup(temp_file: Path) -> None:
 
 
 class RestAPI:
-    """The Object holding the logic that runs inside all the API calls"""
-
+    """ The Object holding the logic that runs inside all the API calls"""
     def __init__(self, rotkehlchen: Rotkehlchen) -> None:
         self.rotkehlchen = rotkehlchen
         self.stop_event = Event()
@@ -458,10 +455,10 @@ class RestAPI:
             return
 
         log.error(
-            f"{task_str} dies with exception: {greenlet.exception}.\n"
-            f"Exception Name: {greenlet.exc_info[0]}\n"
-            f"Exception Info: {greenlet.exc_info[1]}\n"
-            f"Traceback:\n {''.join(traceback.format_tb(greenlet.exc_info[2]))}",
+            f'{task_str} dies with exception: {greenlet.exception}.\n'
+            f'Exception Name: {greenlet.exc_info[0]}\n'
+            f'Exception Info: {greenlet.exc_info[1]}\n'
+            f'Traceback:\n {"".join(traceback.format_tb(greenlet.exc_info[2]))}',
         )
         # also write an error for the task result if it's not the main greenlet
         if task_id is not None:
@@ -509,16 +506,16 @@ class RestAPI:
         if not success:
             return api_response(wrap_in_fail_result(message), status_code=HTTPStatus.CONFLICT)
 
-        # Get settings and cache using ORM
-        new_settings = process_result(self.rotkehlchen.get_settings())
-        cache = self.rotkehlchen.data.db.repos.cache.get_cache_for_api()
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            new_settings = process_result(self.rotkehlchen.get_settings(cursor))
+            cache = self.rotkehlchen.data.db.get_cache_for_api(cursor)
         result_dict = {'result': new_settings | cache, 'message': ''}
         return api_response(result=result_dict, status_code=HTTPStatus.OK)
 
     def get_settings(self) -> Response:
-        # Get settings and cache using ORM
-        settings = process_result(self.rotkehlchen.get_settings())
-        cache = self.rotkehlchen.data.db.repos.cache.get_cache_for_api()
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            settings = process_result(self.rotkehlchen.get_settings(cursor))
+            cache = self.rotkehlchen.data.db.get_cache_for_api(cursor)
         result_dict = _wrap_in_ok_result(settings | cache)
         return api_response(result=result_dict, status_code=HTTPStatus.OK)
 
@@ -581,17 +578,15 @@ class RestAPI:
         """Tries to find and cancel the async task with the given task id"""
         with self.task_lock:
             for idx, greenlet in enumerate(self.rotkehlchen.api_task_greenlets):  # noqa: B007 # var used right after loop
-                if greenlet.dead is False and getattr(greenlet, 'task_id', None) == task_id:
+                if (
+                        greenlet.dead is False and
+                        getattr(greenlet, 'task_id', None) == task_id
+                ):
                     log.debug(f'Killing api task greenlet with {task_id=}')
                     greenlet.kill(exception=GreenletKilledError('Killed due to api request'))
                     break
             else:  # greenlet not found
-                return api_response(
-                    wrap_in_fail_result(
-                        f'Did not cancel task with id {task_id} because it could not be found',
-                    ),
-                    status_code=HTTPStatus.NOT_FOUND,
-                )
+                return api_response(wrap_in_fail_result(f'Did not cancel task with id {task_id} because it could not be found'), status_code=HTTPStatus.NOT_FOUND)  # noqa: E501
 
         self.rotkehlchen.api_task_greenlets.pop(idx)  # also pop from greenlets
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
@@ -617,10 +612,10 @@ class RestAPI:
 
     @async_api_call()
     def query_all_balances(
-        self,
-        save_data: bool,
-        ignore_errors: bool,
-        ignore_cache: bool,
+            self,
+            save_data: bool,
+            ignore_errors: bool,
+            ignore_cache: bool,
     ) -> dict[str, Any]:
         result = self.rotkehlchen.query_balances(
             requested_save_data=save_data,
@@ -630,12 +625,9 @@ class RestAPI:
         return {'result': result, 'message': ''}
 
     def _return_external_services_response(self) -> Response:
-        # Get external service credentials using ORM
-        credentials_list = self.rotkehlchen.data.db.repos.external_services.get_all_credentials()
+        credentials_list = self.rotkehlchen.data.db.get_all_external_service_credentials()
         response_dict: dict[str, Any] = {}
-        response_dict['blockscout'] = {
-            chain_id.to_name(): None for _, chain_id in BLOCKSCOUT_TO_CHAINID.items()
-        }
+        response_dict['blockscout'] = {chain_id.to_name(): None for _, chain_id in BLOCKSCOUT_TO_CHAINID.items()}  # noqa: E501
         for credential in credentials_list:
             name, key_info = credential.serialize_for_api()
             if (chain := credential.service.get_chain_for_blockscout()) is not None:
@@ -655,39 +647,29 @@ class RestAPI:
                 return api_response(
                     wrap_in_fail_result(f'You can only use {x.service} with rotki premium'),
                     status_code=HTTPStatus.FORBIDDEN,
-                )
+            )
             if x.service == ExternalService.GNOSIS_PAY:
                 updates_gnosispay = True
 
-        # Add external service credentials using ORM
-        with self.rotkehlchen.data.db.repos.unit_of_work():
-            for credential in services:
-                self.rotkehlchen.data.db.repos.external_services.add_credential(
-                    service=credential.service,
-                    api_key=credential.api_key,
-                )
+        with self.rotkehlchen.data.db.user_write() as write_cursor:
+            self.rotkehlchen.data.db.add_external_service_credentials(
+                write_cursor=write_cursor,
+                credentials=services,
+            )
 
         if (
-            updates_gnosispay
-            and (
-                gnosispay_decoder := cast(
+                updates_gnosispay and
+                (gnosispay_decoder := cast(
                     'GnosisPayDecoder',
-                    self.rotkehlchen.chains_aggregator.get_evm_manager(
-                        ChainID.GNOSIS,
-                    ).transactions_decoder.decoders.get('GnosisPay'),
-                )
-            )
-            is not None
+                    self.rotkehlchen.chains_aggregator.get_evm_manager(ChainID.GNOSIS).transactions_decoder.decoders.get('GnosisPay'),
+                )) is not None
         ):
             gnosispay_decoder.reload_data()
 
         return self._return_external_services_response()
 
     def delete_external_services(self, services: list[ExternalService]) -> Response:
-        # Delete external service credentials using ORM
-        with self.rotkehlchen.data.db.repos.unit_of_work():
-            for service in services:
-                self.rotkehlchen.data.db.repos.external_services.delete_credential(service)
+        self.rotkehlchen.data.db.delete_external_service_credentials(services)
         return self._return_external_services_response()
 
     def get_exchanges(self) -> Response:
@@ -697,14 +679,14 @@ class RestAPI:
         )
 
     def setup_exchange(
-        self,
-        name: str,
-        location: Location,
-        api_key: ApiKey,
-        api_secret: ApiSecret | None,
-        passphrase: str | None,
-        kraken_account_type: Optional['KrakenAccountType'],
-        binance_markets: list[str] | None,
+            self,
+            name: str,
+            location: Location,
+            api_key: ApiKey,
+            api_secret: ApiSecret | None,
+            passphrase: str | None,
+            kraken_account_type: Optional['KrakenAccountType'],
+            binance_markets: list[str] | None,
     ) -> Response:
         result = None
         status_code = HTTPStatus.OK
@@ -725,15 +707,15 @@ class RestAPI:
         return api_response(_wrap_in_result(result, msg), status_code=status_code)
 
     def edit_exchange(
-        self,
-        name: str,
-        location: Location,
-        new_name: str | None,
-        api_key: ApiKey | None,
-        api_secret: ApiSecret | None,
-        passphrase: str | None,
-        kraken_account_type: Optional['KrakenAccountType'],
-        binance_markets: list[str] | None,
+            self,
+            name: str,
+            location: Location,
+            new_name: str | None,
+            api_key: ApiKey | None,
+            api_secret: ApiSecret | None,
+            passphrase: str | None,
+            kraken_account_type: Optional['KrakenAccountType'],
+            binance_markets: list[str] | None,
     ) -> Response:
         edited, msg = self.rotkehlchen.exchange_manager.edit_exchange(
             name=name,
@@ -766,9 +748,9 @@ class RestAPI:
         return api_response(_wrap_in_result(result, message), status_code=status_code)
 
     def _query_all_exchange_balances(
-        self,
-        ignore_cache: bool,
-        usd_value_threshold: FVal | None = None,
+            self,
+            ignore_cache: bool,
+            usd_value_threshold: FVal | None = None,
     ) -> dict[str, Any]:
         final_balances = {}
         error_msg = ''
@@ -794,8 +776,7 @@ class RestAPI:
                 filtered_balances = {}
                 for location, balances in final_balances.items():
                     filtered_balances[location] = {
-                        asset: balance
-                        for asset, balance in balances.items()
+                        asset: balance for asset, balance in balances.items()
                         if balance.usd_value > usd_value_threshold
                     }
                 result = filtered_balances
@@ -807,9 +788,9 @@ class RestAPI:
 
     @async_api_call()
     def query_exchange_history_events(
-        self,
-        location: Location,
-        name: str | None,
+            self,
+            location: Location,
+            name: str | None,
     ) -> dict[str, Any]:
         """Queries new history events for the specified exchange and saves them in the database."""
         try:
@@ -827,10 +808,10 @@ class RestAPI:
 
     @async_api_call()
     def query_exchange_balances(
-        self,
-        location: Location | None,
-        ignore_cache: bool,
-        usd_value_threshold: FVal | None = None,
+            self,
+            location: Location | None,
+            ignore_cache: bool,
+            usd_value_threshold: FVal | None = None,
     ) -> dict[str, Any]:
         if location is None:
             # Query all exchanges
@@ -862,8 +843,7 @@ class RestAPI:
         # Filter balances by threshold for a single exchange
         if usd_value_threshold is not None:
             balances = {
-                asset: balance
-                for asset, balance in balances.items()
+                asset: balance for asset, balance in balances.items()
                 if balance.usd_value > usd_value_threshold
             }
 
@@ -891,10 +871,10 @@ class RestAPI:
 
     @async_api_call()
     def query_blockchain_balances(
-        self,
-        blockchain: SupportedBlockchain | None,
-        ignore_cache: bool,
-        usd_value_threshold: FVal | None = None,
+            self,
+            blockchain: SupportedBlockchain | None,
+            ignore_cache: bool,
+            usd_value_threshold: FVal | None = None,
     ) -> dict[str, Any]:
         msg = ''
         status_code = HTTPStatus.OK
@@ -912,13 +892,11 @@ class RestAPI:
                     for account, account_data in chain_balances.items():
                         if isinstance(account_data, BalanceSheet):
                             filtered_assets = {
-                                asset: balance
-                                for asset, balance in account_data.assets.items()
+                                asset: balance for asset, balance in account_data.assets.items()
                                 if balance.usd_value > usd_value_threshold
                             }
                             filtered_liabilities = {
-                                asset: balance
-                                for asset, balance in account_data.liabilities.items()
+                                asset: balance for asset, balance in account_data.liabilities.items()  # noqa: E501
                                 if balance.usd_value > usd_value_threshold
                             }
                             if len(filtered_assets) != 0 or len(filtered_liabilities) != 0:
@@ -951,12 +929,13 @@ class RestAPI:
         """Add list of history events to DB. Returns identifier of first event.
         The first event is the main event, subsequent events are related (e.g. fees).
         """
+        db = DBHistoryEvents(self.rotkehlchen.data.db)
         main_identifier = None
         try:
-            # Add history events using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
+            with self.rotkehlchen.data.db.user_write() as cursor:
                 for idx, event in enumerate(events):
-                    identifier = self.rotkehlchen.data.db.repos.history_events.add_event(
+                    identifier = db.add_history_event(
+                        write_cursor=cursor,
                         event=event,
                         mapping_values={
                             HISTORY_MAPPING_KEY_STATE: HISTORY_MAPPING_STATE_CUSTOMIZED,
@@ -977,19 +956,21 @@ class RestAPI:
         return api_response(result_dict, status_code=HTTPStatus.OK)
 
     def edit_history_events(
-        self,
-        events: list['HistoryBaseEntry'],
-        identifiers: list[int] | None,
+            self,
+            events: list['HistoryBaseEntry'],
+            identifiers: list[int] | None,
     ) -> Response:
+        events_db = DBHistoryEvents(self.rotkehlchen.data.db)
         if (events_type := events[0].entry_type) in {
             HistoryBaseEntryType.ASSET_MOVEMENT_EVENT,
             HistoryBaseEntryType.SWAP_EVENT,
             HistoryBaseEntryType.EVM_SWAP_EVENT,
         }:
             try:
-                # Edit grouped events using ORM
-                with self.rotkehlchen.data.db.repos.unit_of_work():
-                    self.rotkehlchen.data.db.repos.history_events.edit_grouped_events_with_fee(
+                with events_db.db.conn.write_ctx() as write_cursor:
+                    edit_grouped_events_with_optional_fee(
+                        events_db=events_db,
+                        write_cursor=write_cursor,
                         events=events,
                         events_type=events_type,
                         identifiers=identifiers,
@@ -1000,71 +981,71 @@ class RestAPI:
                 return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
         try:  # case where we just edit the events
-            # Edit events using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
+            with self.rotkehlchen.data.db.user_write() as write_cursor:
                 for event in events:
-                    self.rotkehlchen.data.db.repos.history_events.edit_event(event)
+                    events_db.edit_history_event(
+                        event=event,
+                        write_cursor=write_cursor,
+                    )
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
     def delete_history_events(self, identifiers: list[int], force_delete: bool) -> Response:
-        # Delete history events using ORM
-        try:
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                for identifier in identifiers:
-                    self.rotkehlchen.data.db.repos.history_events.delete_event(
-                        identifier=identifier,
-                        force_delete=force_delete,
-                    )
-        except InputError as e:
-            return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
+        db = DBHistoryEvents(self.rotkehlchen.data.db)
+        error_msg = db.delete_history_events_by_identifier(
+            identifiers=identifiers,
+            force_delete=force_delete,
+        )
+        if error_msg is not None:
+            return api_response(wrap_in_fail_result(error_msg), status_code=HTTPStatus.CONFLICT)
 
         # Success
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
-    def _get_tags(self) -> Response:
-        # Get tags using ORM
-        tags = self.rotkehlchen.data.db.repos.tags.get_all_tags()
-        response = {tag.name: tag.serialize() for tag in tags}
+    def _get_tags(self, cursor: 'DBCursor') -> Response:
+        result = self.rotkehlchen.data.db.get_tags(cursor)
+        response = {name: data.serialize() for name, data in result.items()}
         return api_response(_wrap_in_ok_result(response), status_code=HTTPStatus.OK)
 
     def get_tags(self) -> Response:
-        return self._get_tags()
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            return self._get_tags(cursor)
 
     def add_tag(
-        self,
-        name: str,
-        description: str | None,
-        background_color: HexColorCode,
-        foreground_color: HexColorCode,
+            self,
+            name: str,
+            description: str | None,
+            background_color: HexColorCode,
+            foreground_color: HexColorCode,
     ) -> Response:
-        try:
-            # Add tag using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.tags.add_tag(
+
+        with self.rotkehlchen.data.db.user_write() as cursor:
+            try:
+                self.rotkehlchen.data.db.add_tag(
+                    write_cursor=cursor,
                     name=name,
                     description=description,
                     background_color=background_color,
                     foreground_color=foreground_color,
                 )
-        except TagConstraintError as e:
-            return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
+            except TagConstraintError as e:
+                return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
-        return self._get_tags()
+            return self._get_tags(cursor)
 
     def edit_tag(
-        self,
-        name: str,
-        description: str | None,
-        background_color: HexColorCode | None,
-        foreground_color: HexColorCode | None,
+            self,
+            name: str,
+            description: str | None,
+            background_color: HexColorCode | None,
+            foreground_color: HexColorCode | None,
     ) -> Response:
         try:
-            # Edit tag using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.tags.update_tag(
+            with self.rotkehlchen.data.db.user_write() as cursor:
+                self.rotkehlchen.data.db.edit_tag(
+                    write_cursor=cursor,
                     name=name,
                     description=description,
                     background_color=background_color,
@@ -1075,17 +1056,18 @@ class RestAPI:
         except TagConstraintError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
-        return self._get_tags()
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            return self._get_tags(cursor)
 
     def delete_tag(self, name: str) -> Response:
         try:
-            # Delete tag using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.tags.delete_tag(name)
+            with self.rotkehlchen.data.db.user_write() as cursor:
+                self.rotkehlchen.data.db.delete_tag(cursor, name=name)
         except TagConstraintError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
-        return self._get_tags()
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            return self._get_tags(cursor)
 
     def get_users(self) -> Response:
         result = self.rotkehlchen.data.get_users()
@@ -1095,13 +1077,13 @@ class RestAPI:
     @login_lock()
     @async_api_call()
     def create_new_user(
-        self,
-        name: str,
-        password: str,
-        premium_api_key: str,
-        premium_api_secret: str,
-        sync_database: bool,
-        initial_settings: ModifiableDBSettings | None,
+            self,
+            name: str,
+            password: str,
+            premium_api_key: str,
+            premium_api_secret: str,
+            sync_database: bool,
+            initial_settings: ModifiableDBSettings | None,
     ) -> dict[str, Any]:
         if self.rotkehlchen.user_is_logged_in:
             message = (
@@ -1115,8 +1097,9 @@ class RestAPI:
                 'status_code': HTTPStatus.CONFLICT,
             }
 
-        if (premium_api_key != '' and premium_api_secret == '') or (
-            premium_api_secret != '' and premium_api_key == ''
+        if (
+                (premium_api_key != '' and premium_api_secret == '') or
+                (premium_api_secret != '' and premium_api_key == '')
         ):
             return {
                 'result': None,
@@ -1163,12 +1146,12 @@ class RestAPI:
             return {'result': None, 'message': str(e), 'status_code': HTTPStatus.CONFLICT}
 
         # Success!
-        # Get settings and cache using ORM
-        result = {
-            'exchanges': self.rotkehlchen.exchange_manager.get_connected_exchanges_info(),
-            'settings': process_result(self.rotkehlchen.get_settings())
-            | self.rotkehlchen.data.db.repos.cache.get_cache_for_api(),
-        }
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            result = {
+                'exchanges': self.rotkehlchen.exchange_manager.get_connected_exchanges_info(),
+                'settings': process_result(self.rotkehlchen.get_settings(cursor)) |
+                self.rotkehlchen.data.db.get_cache_for_api(cursor),
+            }
         return {
             'result': result,
             'message': '',
@@ -1178,11 +1161,11 @@ class RestAPI:
     @login_lock()
     @async_api_call()
     def user_login(
-        self,
-        name: str,
-        password: str,
-        sync_approval: Literal['yes', 'no', 'unknown'],
-        resume_from_backup: bool,
+            self,
+            name: str,
+            password: str,
+            sync_approval: Literal['yes', 'no', 'unknown'],
+            resume_from_backup: bool,
     ) -> dict[str, Any]:
         if self.rotkehlchen.user_is_logged_in:
             return wrap_in_fail_result(
@@ -1233,16 +1216,14 @@ class RestAPI:
 
         # Success!
         exchanges = self.rotkehlchen.exchange_manager.get_connected_exchanges_info()
-        # Get settings and cache using ORM
-        settings = process_result(self.rotkehlchen.get_settings())
-        settings |= self.rotkehlchen.data.db.repos.cache.get_cache_for_api()
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            settings = process_result(self.rotkehlchen.get_settings(cursor))
+            settings |= self.rotkehlchen.data.db.get_cache_for_api(cursor)
 
-        return _wrap_in_ok_result(
-            {
-                'exchanges': exchanges,
-                'settings': settings,
-            },
-        )
+        return _wrap_in_ok_result({
+            'exchanges': exchanges,
+            'settings': settings,
+        })
 
     def user_logout(self, name: str) -> Response:
         result_dict: dict[str, Any] = {'result': None, 'message': ''}
@@ -1266,10 +1247,10 @@ class RestAPI:
         return api_response(result_dict, status_code=HTTPStatus.OK)
 
     def user_set_premium_credentials(
-        self,
-        name: str,
-        api_key: str,
-        api_secret: str,
+            self,
+            name: str,
+            api_key: str,
+            api_secret: str,
     ) -> Response:
         result_dict: dict[str, Any] = {'result': None, 'message': ''}
 
@@ -1296,10 +1277,10 @@ class RestAPI:
         return api_response(result_dict, status_code=HTTPStatus.OK)
 
     def user_change_password(
-        self,
-        name: str,
-        current_password: str,
-        new_password: str,
+            self,
+            name: str,
+            current_password: str,
+            new_password: str,
     ) -> Response:
         result_dict: dict[str, Any] = {'result': None, 'message': ''}
 
@@ -1307,19 +1288,13 @@ class RestAPI:
             result_dict['message'] = f'Provided user "{name}" is not the logged in user'
             return api_response(result_dict, status_code=HTTPStatus.BAD_REQUEST)
 
-        # Check password using ORM
-        with self.rotkehlchen.data.db.repos.unit_of_work():
-            if not self.rotkehlchen.data.db.repos.settings.check_password(current_password):
-                result_dict['message'] = 'Provided current password is not correct'
-                return api_response(result_dict, status_code=HTTPStatus.UNAUTHORIZED)
+        if current_password != self.rotkehlchen.data.db.password:
+            result_dict['message'] = 'Provided current password is not correct'
+            return api_response(result_dict, status_code=HTTPStatus.UNAUTHORIZED)
 
         success: bool
         try:
-            # Change password using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                success = self.rotkehlchen.data.db.repos.settings.change_password(
-                    new_password=new_password,
-                )
+            success = self.rotkehlchen.data.db.change_password(new_password=new_password)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.BAD_REQUEST)
 
@@ -1345,11 +1320,12 @@ class RestAPI:
 
     def query_list_of_all_assets(self, filter_query: AssetsFilterQuery) -> Response:
         """Query assets using the provided filter_query and return them in a paginated format"""
-        assets, assets_found = GlobalDBHandler.retrieve_assets(
-            userdb=self.rotkehlchen.data.db, filter_query=filter_query,
-        )
-        # Get entries count using ORM
-        assets_total = self.rotkehlchen.data.db.repos.assets.get_total_count()
+        assets, assets_found = GlobalDBHandler.retrieve_assets(userdb=self.rotkehlchen.data.db, filter_query=filter_query)  # noqa: E501
+        with GlobalDBHandler().conn.read_ctx() as cursor:
+            assets_total = self.rotkehlchen.data.db.get_entries_count(
+                cursor=cursor,
+                entries_table='assets',
+            )
 
         result = {
             'entries': assets,
@@ -1362,8 +1338,7 @@ class RestAPI:
     def get_assets_mappings(self, identifiers: list[str]) -> Response:
         try:
             asset_mappings, asset_collections = GlobalDBHandler.get_assets_mappings(identifiers)
-            # Get NFT mappings using ORM
-            nft_mappings = self.rotkehlchen.data.db.repos.nfts.get_nft_mappings(identifiers)
+            nft_mappings = self.rotkehlchen.data.db.get_nft_mappings(identifiers)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.BAD_REQUEST)
         data_dict = {
@@ -1384,10 +1359,10 @@ class RestAPI:
         return api_response(_wrap_in_ok_result(result), status_code=HTTPStatus.OK)
 
     def search_assets_levenshtein(
-        self,
-        filter_query: LevenshteinFilterQuery,
-        limit: int | None,
-        search_nfts: bool,
+            self,
+            filter_query: LevenshteinFilterQuery,
+            limit: int | None,
+            search_nfts: bool,
     ) -> Response:
         result = search_assets_levenshtein(
             db=self.rotkehlchen.data.db,
@@ -1408,9 +1383,8 @@ class RestAPI:
         )
 
     def query_owned_assets(self) -> Response:
-        # Query owned assets using ORM
-        owned_assets = self.rotkehlchen.data.db.repos.owned_assets.get_all_owned_assets()
-        result = process_result_list(owned_assets)
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            result = process_result_list(self.rotkehlchen.data.db.query_owned_assets(cursor))
         return api_response(
             _wrap_in_ok_result(result),
             status_code=HTTPStatus.OK,
@@ -1436,9 +1410,8 @@ class RestAPI:
         if identifiers is not None:
             return api_response(
                 result=wrap_in_fail_result(
-                    f"Failed to add {asset.asset_type!s} {asset.name} "
-                    f"since it already exists. Existing ids: {','.join(identifiers)}",
-                ),
+                    f'Failed to add {asset.asset_type!s} {asset.name} '
+                    f'since it already exists. Existing ids: {",".join(identifiers)}'),
                 status_code=HTTPStatus.CONFLICT,
             )
         try:
@@ -1446,9 +1419,8 @@ class RestAPI:
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
-        # Add asset using ORM
-        with self.rotkehlchen.data.db.repos.unit_of_work():
-            self.rotkehlchen.data.db.repos.owned_assets.add_asset_identifiers([asset.identifier])
+        with self.rotkehlchen.data.db.user_write() as cursor:
+            self.rotkehlchen.data.db.add_asset_identifiers(cursor, [asset.identifier])
         return api_response(
             _wrap_in_ok_result({'identifier': asset.identifier}),
             status_code=HTTPStatus.OK,
@@ -1468,11 +1440,12 @@ class RestAPI:
 
     def delete_asset(self, identifier: str) -> Response:
         try:
-            # Update owned assets and delete using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
+
+            with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
                 # Before deleting, also make sure we have up to date global DB owned data
-                self.rotkehlchen.data.db.repos.owned_assets.update_owned_assets_in_globaldb()
-                self.rotkehlchen.data.db.repos.owned_assets.delete_asset_identifier(identifier)
+                self.rotkehlchen.data.db.update_owned_assets_in_globaldb(cursor)
+            with self.rotkehlchen.data.db.user_write() as write_cursor:
+                self.rotkehlchen.data.db.delete_asset_identifier(write_cursor, identifier)
 
             GlobalDBHandler.delete_asset_by_identifier(identifier)
         except InputError as e:
@@ -1486,12 +1459,7 @@ class RestAPI:
 
     def replace_asset(self, source_identifier: str, target_asset: Asset) -> Response:
         try:
-            # Replace asset using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.owned_assets.replace_asset_identifier(
-                    source_identifier,
-                    target_asset,
-                )
+            self.rotkehlchen.data.db.replace_asset_identifier(source_identifier, target_asset)
         except (UnknownAsset, InputError) as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
@@ -1501,9 +1469,9 @@ class RestAPI:
 
     @async_api_call()
     def rebuild_assets_information(
-        self,
-        reset: Literal['soft', 'hard'],
-        ignore_warnings: bool,
+            self,
+            reset: Literal['soft', 'hard'],
+            ignore_warnings: bool,
     ) -> dict[str, Any]:
         msg = 'Invalid value for reset'
         if reset == 'soft':
@@ -1525,17 +1493,10 @@ class RestAPI:
 
         if premium is None or not premium.is_active():
             today = datetime.datetime.now(tz=datetime.UTC)
-            start_of_day_today = datetime.datetime(
-                today.year, today.month, today.day, tzinfo=datetime.UTC,
-            )
-            from_ts = Timestamp(
-                int((start_of_day_today - datetime.timedelta(days=14)).timestamp()),
-            )
+            start_of_day_today = datetime.datetime(today.year, today.month, today.day, tzinfo=datetime.UTC)  # noqa: E501
+            from_ts = Timestamp(int((start_of_day_today - datetime.timedelta(days=14)).timestamp()))  # noqa: E501
 
-        # Get net value data using ORM
-        data = self.rotkehlchen.data.db.repos.timed_balances.get_netvalue_data(
-            from_ts, include_nfts,
-        )
+        data = self.rotkehlchen.data.db.get_netvalue_data(from_ts, include_nfts)
         result = process_result({'times': data[0], 'data': data[1]})
         return api_response(
             result=_wrap_in_ok_result(result),
@@ -1544,29 +1505,30 @@ class RestAPI:
         )
 
     def query_timed_balances_data(
-        self,
-        asset: Asset | None,
-        collection_id: int | None,
-        from_timestamp: Timestamp,
-        to_timestamp: Timestamp,
+            self,
+            asset: Asset | None,
+            collection_id: int | None,
+            from_timestamp: Timestamp,
+            to_timestamp: Timestamp,
     ) -> Response:
-        # Query timed balances using ORM
-        if asset is not None:
-            # TODO: Think about this, but for now this is only balances, not liabilities
-            data = self.rotkehlchen.data.db.repos.timed_balances.query_timed_balances(
-                from_ts=from_timestamp,
-                to_ts=to_timestamp,
-                asset=asset,
-                balance_type=BalanceType.ASSET,
-            )
-        else:  # marshmallow check guarantees collection_id exists
-            data = (
-                self.rotkehlchen.data.db.repos.asset_collections.query_collection_timed_balances(
+
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            if asset is not None:
+                # TODO: Think about this, but for now this is only balances, not liabilities
+                data = self.rotkehlchen.data.db.query_timed_balances(
+                    cursor=cursor,
+                    from_ts=from_timestamp,
+                    to_ts=to_timestamp,
+                    asset=asset,
+                    balance_type=BalanceType.ASSET,
+                )
+            else:  # marshmallow check guarantees collection_id exists
+                data = self.rotkehlchen.data.db.query_collection_timed_balances(
+                    cursor=cursor,
                     collection_id=collection_id,  # type: ignore  # collection_id exists here
                     from_ts=from_timestamp,
                     to_ts=to_timestamp,
                 )
-            )
 
         result = process_result_list(data)
         return api_response(
@@ -1578,16 +1540,10 @@ class RestAPI:
     def query_value_distribution_data(self, distribution_by: str) -> Response:
         data: list[DBAssetBalance] | list[LocationData]
         if distribution_by == 'location':
-            # Get location value distribution using ORM
-            data = (
-                self.rotkehlchen.data.db.repos.timed_balances.get_latest_location_value_distribution()
-            )
+            data = self.rotkehlchen.data.db.get_latest_location_value_distribution()
         else:
             # Can only be 'asset'. Checked by the marshmallow encoding
-            # Get asset value distribution using ORM
-            data = (
-                self.rotkehlchen.data.db.repos.timed_balances.get_latest_asset_value_distribution()
-            )
+            data = self.rotkehlchen.data.db.get_latest_asset_value_distribution()
 
         result = process_result_list(data)
         return api_response(
@@ -1621,9 +1577,9 @@ class RestAPI:
 
     @async_api_call()
     def process_history(
-        self,
-        from_timestamp: Timestamp,
-        to_timestamp: Timestamp,
+            self,
+            from_timestamp: Timestamp,
+            to_timestamp: Timestamp,
     ) -> dict[str, Any]:
         try:
             report_id, error_or_empty = self.rotkehlchen.process_history(
@@ -1641,10 +1597,10 @@ class RestAPI:
 
     @async_api_call()
     def get_history_debug(
-        self,
-        from_timestamp: Timestamp,
-        to_timestamp: Timestamp,
-        directory_path: Path | None,
+            self,
+            from_timestamp: Timestamp,
+            to_timestamp: Timestamp,
+            directory_path: Path | None,
     ) -> dict[str, Any]:
         """This method exports all history events for a timestamp range.
         It also exports the user settings & ignored action identifiers for PnL debugging.
@@ -1657,10 +1613,10 @@ class RestAPI:
         if error_or_empty != '':
             return wrap_in_fail_result(error_or_empty, status_code=HTTPStatus.CONFLICT)
 
-        # Get settings, cache and ignored IDs using ORM
-        settings = self.rotkehlchen.get_settings()
-        cache = self.rotkehlchen.data.db.repos.cache.get_cache_for_api()
-        ignored_ids = self.rotkehlchen.data.db.repos.history_events.get_ignored_action_ids()
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            settings = self.rotkehlchen.get_settings(cursor)
+            cache = self.rotkehlchen.data.db.get_cache_for_api(cursor)
+            ignored_ids = self.rotkehlchen.data.db.get_ignored_action_ids(cursor)
         debug_info = {
             'events': [entry.serialize_for_debug_import() for entry in events],
             'settings': settings.serialize() | cache,
@@ -1677,7 +1633,6 @@ class RestAPI:
         return _wrap_in_ok_result(debug_info)
 
     if getattr(sys, 'frozen', False) is False:
-
         @async_api_call()
         def import_history_debug(self, filepath: Path) -> dict[str, Any]:
             """Imports the PnL debug data for processing and report generation"""
@@ -1689,7 +1644,7 @@ class RestAPI:
                     message=msg,
                     status_code=HTTPStatus.CONFLICT,
                 )
-            log.debug(f"extracted {len(data['events'])} events from {filepath}")
+            log.debug(f'extracted {len(data["events"])} events from {filepath}')
             self.rotkehlchen.accountant.process_history(
                 start_ts=Timestamp(data['pnl_settings']['from_timestamp']),
                 end_ts=Timestamp(data['pnl_settings']['to_timestamp']),
@@ -1709,9 +1664,7 @@ class RestAPI:
 
         directory_path.mkdir(parents=True, exist_ok=True)
         try:
-            with open(
-                directory_path / 'accounting_rules.json', mode='w', encoding='utf-8',
-            ) as file:
+            with open(directory_path / 'accounting_rules.json', mode='w', encoding='utf-8') as file:  # noqa: E501
                 json.dump(rules_and_properties, file)
         except (PermissionError, json.JSONDecodeError) as e:
             return wrap_in_fail_result(
@@ -1789,10 +1742,7 @@ class RestAPI:
     def download_processed_history_csv(self) -> Response:
         success, zipfile = self.rotkehlchen.accountant.export(directory_path=None)
         if success is False:
-            return api_response(
-                wrap_in_fail_result('Could not create a zip archive'),
-                status_code=HTTPStatus.CONFLICT,
-            )
+            return api_response(wrap_in_fail_result('Could not create a zip archive'), status_code=HTTPStatus.CONFLICT)  # noqa: E501
 
         try:
             register_post_download_cleanup(Path(zipfile))
@@ -1819,8 +1769,8 @@ class RestAPI:
 
     @async_api_call()
     def add_xpub(
-        self,
-        xpub_data: 'XpubData',
+            self,
+            xpub_data: 'XpubData',
     ) -> dict[str, Any]:
         try:
             XpubManager(self.rotkehlchen.chains_aggregator).add_bitcoin_xpub(xpub_data=xpub_data)
@@ -1836,13 +1786,15 @@ class RestAPI:
 
     @async_api_call()
     def delete_xpub(
-        self,
-        xpub_data: 'XpubData',
+            self,
+            xpub_data: 'XpubData',
     ) -> dict[str, Any]:
         try:
-            # Delete xpub using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.xpubs.delete_xpub(xpub_data)
+            with self.rotkehlchen.data.db.user_write() as cursor:
+                XpubManager(self.rotkehlchen.chains_aggregator).delete_bitcoin_xpub(
+                    write_cursor=cursor,
+                    xpub_data=xpub_data,
+                )
         except InputError as e:
             return {'result': None, 'message': str(e), 'status_code': HTTPStatus.BAD_REQUEST}
 
@@ -1850,23 +1802,25 @@ class RestAPI:
         return OK_RESULT
 
     def edit_xpub(
-        self,
-        xpub_data: 'XpubData',
+            self,
+            xpub_data: 'XpubData',
     ) -> Response:
         try:
-            # Edit xpub using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.xpubs.edit_xpub(xpub_data)
-            # Get blockchain account data using ORM
-            data = self.rotkehlchen.get_blockchain_account_data(xpub_data.blockchain)
+            with self.rotkehlchen.data.db.user_write() as write_cursor:
+                XpubManager(self.rotkehlchen.chains_aggregator).edit_bitcoin_xpub(
+                    write_cursor=write_cursor,
+                    xpub_data=xpub_data,
+                )
+            with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+                data = self.rotkehlchen.get_blockchain_account_data(cursor, xpub_data.blockchain)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.BAD_REQUEST)
 
         return api_response(process_result(_wrap_in_result(data, '')), status_code=HTTPStatus.OK)
 
     def add_evm_accounts(
-        self,
-        account_data: list[SingleBlockchainAccountData[ChecksumEvmAddress]],
+            self,
+            account_data: list[SingleBlockchainAccountData[ChecksumEvmAddress]],
     ) -> dict[str, Any]:
         try:
             (
@@ -1881,9 +1835,7 @@ class RestAPI:
         except RemoteError as e:
             return {'result': None, 'message': str(e), 'status_code': HTTPStatus.BAD_GATEWAY}
 
-        result_dicts: dict[str, dict[ChecksumEvmAddress, list[str]]] = defaultdict(
-            lambda: defaultdict(list),
-        )
+        result_dicts: dict[str, dict[ChecksumEvmAddress, list[str]]] = defaultdict(lambda: defaultdict(list))  # noqa: E501
 
         all_key = 'all'  # key used when all the evm chains are returned
         for response_key, list_of_accounts in (
@@ -1902,8 +1854,7 @@ class RestAPI:
 
     @async_api_call()
     def refresh_evm_accounts(self) -> dict[str, Any]:
-        # Get chains to detect EVM accounts using ORM
-        chains = self.rotkehlchen.data.db.repos.accounts.get_chains_to_detect_evm_accounts()
+        chains = self.rotkehlchen.data.db.get_chains_to_detect_evm_accounts()
         try:
             self.rotkehlchen.chains_aggregator.detect_evm_accounts(chains=chains)
         except EthSyncError as e:
@@ -1914,42 +1865,46 @@ class RestAPI:
         return OK_RESULT
 
     def get_blockchain_accounts(self, blockchain: SupportedBlockchain) -> Response:
-        # Get blockchain account data using ORM
-        data = self.rotkehlchen.get_blockchain_account_data(blockchain)
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            data = self.rotkehlchen.get_blockchain_account_data(cursor, blockchain)
         return api_response(process_result(_wrap_in_result(data, '')), status_code=HTTPStatus.OK)
 
     @overload
     def add_single_blockchain_accounts(
-        self,
-        chain: SUPPORTED_EVM_CHAINS_TYPE,
-        account_data: list[SingleBlockchainAccountData[ChecksumEvmAddress]],
-    ) -> dict[str, Any]: ...
+            self,
+            chain: SUPPORTED_EVM_CHAINS_TYPE,
+            account_data: list[SingleBlockchainAccountData[ChecksumEvmAddress]],
+    ) -> dict[str, Any]:
+        ...
 
     @overload
     def add_single_blockchain_accounts(
-        self,
-        chain: SUPPORTED_SUBSTRATE_CHAINS,
-        account_data: list[SingleBlockchainAccountData[SubstrateAddress]],
-    ) -> dict[str, Any]: ...
+            self,
+            chain: SUPPORTED_SUBSTRATE_CHAINS,
+            account_data: list[SingleBlockchainAccountData[SubstrateAddress]],
+    ) -> dict[str, Any]:
+        ...
 
     @overload
     def add_single_blockchain_accounts(
-        self,
-        chain: SUPPORTED_BITCOIN_CHAINS,
-        account_data: list[SingleBlockchainAccountData[BTCAddress]],
-    ) -> dict[str, Any]: ...
+            self,
+            chain: SUPPORTED_BITCOIN_CHAINS,
+            account_data: list[SingleBlockchainAccountData[BTCAddress]],
+    ) -> dict[str, Any]:
+        ...
 
     @overload
     def add_single_blockchain_accounts(
-        self,
-        chain: SupportedBlockchain,
-        account_data: list[SingleBlockchainAccountData],
-    ) -> dict[str, Any]: ...
+            self,
+            chain: SupportedBlockchain,
+            account_data: list[SingleBlockchainAccountData],
+    ) -> dict[str, Any]:
+        ...
 
     def add_single_blockchain_accounts(
-        self,
-        chain: SupportedBlockchain,
-        account_data: list[SingleBlockchainAccountData],
+            self,
+            chain: SupportedBlockchain,
+            account_data: list[SingleBlockchainAccountData],
     ) -> dict[str, Any]:
         """
         This returns the typical async response dict but with the
@@ -1970,18 +1925,20 @@ class RestAPI:
         return _wrap_in_ok_result(added_addresses)
 
     def edit_single_blockchain_accounts(
-        self,
-        blockchain: SupportedBlockchain,
-        account_data: list[SingleBlockchainAccountData],
+            self,
+            blockchain: SupportedBlockchain,
+            account_data: list[SingleBlockchainAccountData],
     ) -> dict[str, Any]:
         try:
-            with self.rotkehlchen.data.db.repos.unit_of_work():
+            with self.rotkehlchen.data.db.user_write() as write_cursor:
                 self.rotkehlchen.edit_single_blockchain_accounts(
+                    write_cursor=write_cursor,
                     blockchain=blockchain,
                     account_data=account_data,
                 )
-            # success
-            data = self.rotkehlchen.get_blockchain_account_data(blockchain)
+            with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+                # success
+                data = self.rotkehlchen.get_blockchain_account_data(cursor, blockchain)
         except TagConstraintError as e:
             return wrap_in_fail_result(str(e), status_code=HTTPStatus.CONFLICT)
         except InputError as e:
@@ -1991,18 +1948,19 @@ class RestAPI:
 
     @async_api_call()
     def edit_chain_type_accounts_labels(
-        self,
-        accounts: list[SingleBlockchainAccountData],
+            self,
+            accounts: list[SingleBlockchainAccountData],
     ) -> dict[str, Any]:
         """Edit the provided accounts in all the chains where they are present.
         The names in the address book are replaced with the one provided and the tags
         are also replaced in all the supported chains where the address is present.
         """
         try:
-            # Edit account labels using ORM
-            self.rotkehlchen.edit_chain_type_accounts_labels(
-                account_data=accounts,
-            )
+            with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+                self.rotkehlchen.edit_chain_type_accounts_labels(
+                    cursor=cursor,
+                    account_data=accounts,
+                )
         except TagConstraintError as e:
             return wrap_in_fail_result(str(e), status_code=HTTPStatus.CONFLICT)
         except InputError as e:
@@ -2011,9 +1969,9 @@ class RestAPI:
         return OK_RESULT
 
     def remove_single_blockchain_accounts(
-        self,
-        blockchain: SupportedBlockchain,
-        accounts: ListOfBlockchainAddresses,
+            self,
+            blockchain: SupportedBlockchain,
+            accounts: ListOfBlockchainAddresses,
     ) -> dict[str, Any]:
         """
         This returns the typical async response dict but with the
@@ -2024,9 +1982,7 @@ class RestAPI:
                 blockchain=blockchain,
                 accounts=accounts,
             )
-            balances_update = self.rotkehlchen.chains_aggregator.get_balances_update(
-                chain=None,
-            )  # return full update of balances
+            balances_update = self.rotkehlchen.chains_aggregator.get_balances_update(chain=None)  # return full update of balances  # noqa: E501
         except EthSyncError as e:
             return {'result': None, 'message': str(e), 'status_code': HTTPStatus.CONFLICT}
         except InputError as e:
@@ -2038,9 +1994,9 @@ class RestAPI:
 
     @async_api_call()
     def remove_chain_type_accounts(
-        self,
-        chain_type: ChainType,
-        accounts: ListOfBlockchainAddresses,
+            self,
+            chain_type: ChainType,
+            accounts: ListOfBlockchainAddresses,
     ) -> dict[str, Any]:
         """Remove an address from multiple chains of the same type"""
         try:
@@ -2062,7 +2018,8 @@ class RestAPI:
         # Filter balances if threshold is set
         if usd_value_threshold is not None:
             db_entries = [
-                entry for entry in db_entries if entry.value.usd_value > usd_value_threshold
+                entry for entry in db_entries
+                if entry.value.usd_value > usd_value_threshold
             ]
 
         balances = process_result({'balances': db_entries})
@@ -2074,25 +2031,27 @@ class RestAPI:
 
     @overload
     def _modify_manually_tracked_balances(  # pylint: disable=unused-argument
-        self,
-        function: Callable[['DBHandler', list[ManuallyTrackedBalance]], None],
-        data_or_ids: list[ManuallyTrackedBalance],
-    ) -> dict[str, Any]: ...
+            self,
+            function: Callable[['DBHandler', list[ManuallyTrackedBalance]], None],
+            data_or_ids: list[ManuallyTrackedBalance],
+    ) -> dict[str, Any]:
+        ...
 
     @overload
     def _modify_manually_tracked_balances(  # pylint: disable=unused-argument
-        self,
-        function: Callable[['DBHandler', list[int]], None],
-        data_or_ids: list[int],
-    ) -> dict[str, Any]: ...
+            self,
+            function: Callable[['DBHandler', list[int]], None],
+            data_or_ids: list[int],
+    ) -> dict[str, Any]:
+        ...
 
     def _modify_manually_tracked_balances(
-        self,
-        function: (
-            Callable[['DBHandler', list[ManuallyTrackedBalance]], None]
-            | Callable[['DBHandler', list[int]], None]
-        ),
-        data_or_ids: list[ManuallyTrackedBalance] | list[int],
+            self,
+            function: (
+                Callable[['DBHandler', list[ManuallyTrackedBalance]], None] |
+                Callable[['DBHandler', list[int]], None]
+            ),
+            data_or_ids: list[ManuallyTrackedBalance] | list[int],
     ) -> dict[str, Any]:
         try:
             function(self.rotkehlchen.data.db, data_or_ids)  # type: ignore
@@ -2105,8 +2064,8 @@ class RestAPI:
 
     @async_api_call()
     def add_manually_tracked_balances(
-        self,
-        data: list[ManuallyTrackedBalance],
+            self,
+            data: list[ManuallyTrackedBalance],
     ) -> dict[str, Any]:
         return self._modify_manually_tracked_balances(
             function=add_manually_tracked_balances,
@@ -2115,8 +2074,8 @@ class RestAPI:
 
     @async_api_call()
     def edit_manually_tracked_balances(
-        self,
-        data: list[ManuallyTrackedBalance],
+            self,
+            data: list[ManuallyTrackedBalance],
     ) -> dict[str, Any]:
         return self._modify_manually_tracked_balances(
             function=edit_manually_tracked_balances,
@@ -2125,8 +2084,8 @@ class RestAPI:
 
     @async_api_call()
     def remove_manually_tracked_balances(
-        self,
-        ids: list[int],
+            self,
+            ids: list[int],
     ) -> dict[str, Any]:
         return self._modify_manually_tracked_balances(
             function=remove_manually_tracked_balances,
@@ -2134,15 +2093,13 @@ class RestAPI:
         )
 
     def get_ignored_assets(self) -> Response:
-        # Get ignored assets using ORM
-        result = self.rotkehlchen.data.db.repos.ignored_assets.get_ignored_asset_ids()
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            result = self.rotkehlchen.data.db.get_ignored_asset_ids(cursor)
         return api_response(_wrap_in_ok_result(list(result)), status_code=HTTPStatus.OK)
 
     def add_ignored_assets(self, assets_to_ignore: list[Asset]) -> Response:
         """Add the provided assets to the list of ignored assets"""
-        newly_ignored, already_ignored = self.rotkehlchen.data.add_ignored_assets(
-            assets=assets_to_ignore,
-        )
+        newly_ignored, already_ignored = self.rotkehlchen.data.add_ignored_assets(assets=assets_to_ignore)  # noqa: E501
         result = {'successful': list(newly_ignored), 'no_action': list(already_ignored)}
         return api_response(_wrap_in_ok_result(process_result(result)), status_code=HTTPStatus.OK)
 
@@ -2153,9 +2110,9 @@ class RestAPI:
 
     def add_ignored_action_ids(self, action_ids: list[str]) -> Response:
         try:
-            # Add ignored action IDs using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.history_events.add_to_ignored_action_ids(
+            with self.rotkehlchen.data.db.user_write() as cursor:
+                self.rotkehlchen.data.db.add_to_ignored_action_ids(
+                    write_cursor=cursor,
                     identifiers=action_ids,
                 )
         except InputError as e:
@@ -2164,13 +2121,13 @@ class RestAPI:
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
     def remove_ignored_action_ids(
-        self,
-        action_ids: list[str],
+            self,
+            action_ids: list[str],
     ) -> Response:
         try:
-            # Remove ignored action IDs using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.history_events.remove_from_ignored_action_ids(
+            with self.rotkehlchen.data.db.user_write() as cursor:
+                self.rotkehlchen.data.db.remove_from_ignored_action_ids(
+                    write_cursor=cursor,
                     identifiers=action_ids,
                 )
         except InputError as e:
@@ -2183,28 +2140,24 @@ class RestAPI:
         return api_response(_wrap_in_ok_result(result), status_code=HTTPStatus.OK)
 
     def add_queried_address_per_module(
-        self,
-        module: ModuleName,
-        address: ChecksumEvmAddress,
+            self,
+            module: ModuleName,
+            address: ChecksumEvmAddress,
     ) -> Response:
         try:
-            QueriedAddresses(self.rotkehlchen.data.db).add_queried_address_for_module(
-                module, address,
-            )
+            QueriedAddresses(self.rotkehlchen.data.db).add_queried_address_for_module(module, address)  # noqa: E501
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
         return self.get_queried_addresses_per_module()
 
     def remove_queried_address_per_module(
-        self,
-        module: ModuleName,
-        address: ChecksumEvmAddress,
+            self,
+            module: ModuleName,
+            address: ChecksumEvmAddress,
     ) -> Response:
         try:
-            QueriedAddresses(self.rotkehlchen.data.db).remove_queried_address_for_module(
-                module, address,
-            )
+            QueriedAddresses(self.rotkehlchen.data.db).remove_queried_address_for_module(module, address)  # noqa: E501
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
@@ -2234,10 +2187,10 @@ class RestAPI:
 
     @async_api_call()
     def _import_data(
-        self,
-        source: DataImportSource,
-        filepath: Path,
-        **kwargs: Any,
+            self,
+            source: DataImportSource,
+            filepath: Path,
+            **kwargs: Any,
     ) -> dict[str, Any]:
         success, msg = self.rotkehlchen.data_importer.import_csv(
             source=source,
@@ -2253,11 +2206,11 @@ class RestAPI:
         return OK_RESULT
 
     def import_data(
-        self,
-        async_query: bool,
-        source: DataImportSource,
-        filepath: FileStorage | Path,
-        **kwargs: Any,
+            self,
+            async_query: bool,
+            source: DataImportSource,
+            filepath: FileStorage | Path,
+            **kwargs: Any,
     ) -> Response:
         if isinstance(filepath, FileStorage):
             _, tmpfilepath = tempfile.mkstemp()
@@ -2273,23 +2226,19 @@ class RestAPI:
 
     @async_api_call()
     def get_eth2_staking_performance(
-        self,
-        from_ts: Timestamp,
-        to_ts: Timestamp,
-        limit: int,
-        offset: int,
-        ignore_cache: bool,
-        addresses: list[ChecksumEvmAddress] | None,
-        validator_indices: list[int] | None,
-        status: PerformanceStatusFilter,
+            self,
+            from_ts: Timestamp,
+            to_ts: Timestamp,
+            limit: int,
+            offset: int,
+            ignore_cache: bool,
+            addresses: list[ChecksumEvmAddress] | None,
+            validator_indices: list[int] | None,
+            status: PerformanceStatusFilter,
     ) -> dict[str, Any]:
         eth2 = self.rotkehlchen.chains_aggregator.get_module('eth2')
         if eth2 is None:
-            return {
-                'result': None,
-                'message': 'Cant query eth2 staking performance since eth2 module is not active',
-                'status_code': HTTPStatus.CONFLICT,
-            }
+            return {'result': None, 'message': 'Cant query eth2 staking performance since eth2 module is not active', 'status_code': HTTPStatus.CONFLICT}  # noqa: E501
 
         try:
             result = eth2.get_performance(
@@ -2309,36 +2258,34 @@ class RestAPI:
 
     @async_api_call()
     def get_eth2_daily_stats(
-        self,
-        filter_query: Eth2DailyStatsFilterQuery,
-        only_cache: bool,
+            self,
+            filter_query: Eth2DailyStatsFilterQuery,
+            only_cache: bool,
     ) -> dict[str, Any]:
         try:
-            stats, filter_total_found, sum_pnl = (
-                self.rotkehlchen.chains_aggregator.get_eth2_daily_stats(
-                    filter_query=filter_query,
-                    only_cache=only_cache,
-                )
+            stats, filter_total_found, sum_pnl = self.rotkehlchen.chains_aggregator.get_eth2_daily_stats(  # noqa: E501
+                filter_query=filter_query,
+                only_cache=only_cache,
             )
         except RemoteError as e:
             return {'result': None, 'message': str(e), 'status_code': HTTPStatus.BAD_GATEWAY}
         except ModuleInactive as e:
             return {'result': None, 'message': str(e), 'status_code': HTTPStatus.CONFLICT}
 
-        # Get ETH2 staking details count using ORM
-        result = {
-            'entries': [x.serialize() for x in stats],
-            'sum_pnl': str(sum_pnl),
-            'entries_found': filter_total_found,
-            'entries_total': self.rotkehlchen.data.db.repos.eth2_staking.count_daily_staking_details(),  # noqa: E501
-        }
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            result = {
+                'entries': [x.serialize() for x in stats],
+                'sum_pnl': str(sum_pnl),
+                'entries_found': filter_total_found,
+                'entries_total': self.rotkehlchen.data.db.get_entries_count(cursor, 'eth2_daily_staking_details'),  # noqa: E501
+            }
         return {'result': result, 'message': '', 'status_code': HTTPStatus.OK}
 
     @async_api_call()
     def get_eth2_validators(
-        self,
-        ignore_cache: bool,
-        validator_indices: set[int] | None,
+            self,
+            ignore_cache: bool,
+            validator_indices: set[int] | None,
     ) -> dict[str, Any]:
         try:
             validators = self.rotkehlchen.chains_aggregator.get_eth2_validators(
@@ -2356,21 +2303,18 @@ class RestAPI:
             limit = FREE_VALIDATORS_LIMIT
             validators = validators[:4]
 
-        return _wrap_in_ok_result(
-            result={
-                'entries': [x.serialize() for x in validators],
-                'entries_found': entries_found,
-                'entries_limit': limit,
-            },
-            status_code=HTTPStatus.OK,
-        )
+        return _wrap_in_ok_result(result={
+            'entries': [x.serialize() for x in validators],
+            'entries_found': entries_found,
+            'entries_limit': limit,
+        }, status_code=HTTPStatus.OK)
 
     @async_api_call()
     def add_eth2_validator(
-        self,
-        validator_index: int | None,
-        public_key: Eth2PubKey | None,
-        ownership_proportion: FVal,
+            self,
+            validator_index: int | None,
+            public_key: Eth2PubKey | None,
+            ownership_proportion: FVal,
     ) -> dict[str, Any]:
         try:
             self.rotkehlchen.chains_aggregator.add_eth2_validator(
@@ -2399,8 +2343,8 @@ class RestAPI:
             return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
     def delete_eth2_validator(
-        self,
-        validators: list[int],
+            self,
+            validators: list[int],
     ) -> Response:
         try:
             self.rotkehlchen.chains_aggregator.delete_eth2_validators(validators)
@@ -2417,8 +2361,8 @@ class RestAPI:
 
     @async_api_call()
     def redecode_eth2_block_events(
-        self,
-        block_numbers: list[int] | None,
+            self,
+            block_numbers: list[int] | None,
     ) -> dict[str, Any]:
         DBEth2(self.rotkehlchen.data.db).redecode_block_production_events(block_numbers)
         return OK_RESULT
@@ -2426,12 +2370,12 @@ class RestAPI:
     @async_api_call()
     def get_airdrops(self) -> dict[str, Any]:
         try:
-            # Get EVM accounts and check airdrops using ORM
-            data = check_airdrops(
-                addresses=self.rotkehlchen.data.db.repos.accounts.get_evm_accounts(),
-                database=self.rotkehlchen.data.db,
-                tolerance_for_amount_check=AIRDROPS_TOLERANCE,
-            )
+            with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+                data = check_airdrops(
+                    addresses=self.rotkehlchen.data.db.get_evm_accounts(cursor),
+                    database=self.rotkehlchen.data.db,
+                    tolerance_for_amount_check=AIRDROPS_TOLERANCE,
+                )
         except RemoteError as e:
             return wrap_in_fail_result(str(e), status_code=HTTPStatus.BAD_GATEWAY)
         except OSError as e:
@@ -2440,22 +2384,18 @@ class RestAPI:
         return _wrap_in_ok_result(process_result(data))
 
     def get_rpc_nodes(self, blockchain: SupportedBlockchain) -> Response:
-        # Get RPC nodes using ORM
-        nodes = self.rotkehlchen.data.db.repos.rpc_nodes.get_nodes(blockchain=blockchain)
+        nodes = self.rotkehlchen.data.db.get_rpc_nodes(blockchain=blockchain)
         result_dict = _wrap_in_ok_result(process_result_list(list(nodes)))
         return api_response(result_dict, status_code=HTTPStatus.OK)
 
     def add_rpc_node(self, node: WeightedNode) -> Response:
         try:
-            # Add RPC node using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.rpc_nodes.add_node(node)
+            self.rotkehlchen.data.db.add_rpc_node(node)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
         # Update the connected nodes
-        # Get active RPC nodes using ORM
-        nodes_to_connect = self.rotkehlchen.data.db.repos.rpc_nodes.get_nodes(
+        nodes_to_connect = self.rotkehlchen.data.db.get_rpc_nodes(
             blockchain=node.node_info.blockchain,
             only_active=True,
         )
@@ -2469,28 +2409,24 @@ class RestAPI:
         forces a reconnection by clearing the cached Web3 object and re-establishing
         connections to all nodes.
         """
-        # Get the current RPC endpoint using ORM
-        existing_node = self.rotkehlchen.data.db.repos.rpc_nodes.get_node_by_identifier(
-            node.identifier,
-        )
-        if existing_node is None:
-            return api_response(
-                wrap_in_fail_result(
-                    message=f"Node with identifier {node.identifier} doesn't exist",
-                ),
-                status_code=HTTPStatus.CONFLICT,
-            )
-        old_endpoint = existing_node.endpoint
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            # get the current rpc endpoint so we can identify the node and remove it
+            # from node_inquirer.web3_mapping
+            if (old_endpoint := cursor.execute(
+                'SELECT endpoint FROM rpc_nodes WHERE identifier=?',
+                (node.identifier,),
+            ).fetchone()) is None:
+                return api_response(
+                    wrap_in_fail_result(message=f"Node with identifier {node.identifier} doesn't exist"),  # noqa: E501
+                    status_code=HTTPStatus.CONFLICT,
+                )
 
         try:
-            # Update RPC node using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.rpc_nodes.update_node(node)
+            self.rotkehlchen.data.db.update_rpc_node(node)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
-        # Get active RPC nodes using ORM
-        nodes_to_connect = self.rotkehlchen.data.db.repos.rpc_nodes.get_nodes(
+        nodes_to_connect = self.rotkehlchen.data.db.get_rpc_nodes(
             blockchain=node.node_info.blockchain,
             only_active=True,
         )
@@ -2512,18 +2448,12 @@ class RestAPI:
 
     def delete_rpc_node(self, identifier: int, blockchain: SupportedBlockchain) -> Response:
         try:
-            # Delete RPC node using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.rpc_nodes.delete_node(
-                    identifier=identifier,
-                    blockchain=blockchain,
-                )
+            self.rotkehlchen.data.db.delete_rpc_node(identifier=identifier, blockchain=blockchain)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
 
         # Update the connected nodes
-        # Get active nodes after deletion using ORM
-        nodes_to_connect = self.rotkehlchen.data.db.repos.rpc_nodes.get_nodes(
+        nodes_to_connect = self.rotkehlchen.data.db.get_rpc_nodes(
             blockchain=blockchain,
             only_active=True,
         )
@@ -2533,9 +2463,9 @@ class RestAPI:
 
     @async_api_call()
     def connect_rpc_node(
-        self,
-        identifier: int | None,
-        blockchain: SupportedBlockchain,
+            self,
+            identifier: int | None,
+            blockchain: SupportedBlockchain,
     ) -> dict[str, Any]:
         """Attempt a connection to a node and return status"""
         if blockchain not in SUPPORTED_EVM_CHAINS:
@@ -2545,62 +2475,44 @@ class RestAPI:
                 'status_code': HTTPStatus.BAD_REQUEST,
             }
 
-        # Get RPC nodes using ORM
-        # The query/bindings variables were for legacy DB access, no longer needed
-
-        # Get RPC nodes using ORM
+        bindings: tuple[Any]
         if identifier is not None:
-            node = self.rotkehlchen.data.db.repos.rpc_nodes.get_node_by_identifier(identifier)
-            db_entries = [(node.name, node.endpoint, node.owned, node.blockchain)] if node else []
+            query, bindings = 'SELECT name, endpoint, owned, blockchain FROM rpc_nodes WHERE identifier=?', (identifier,)  # noqa: E501
         else:
-            nodes = self.rotkehlchen.data.db.repos.rpc_nodes.get_nodes(blockchain=blockchain)
-            db_entries = [
-                (
-                    n.node_info.name,
-                    n.node_info.endpoint,
-                    n.node_info.owned,
-                    n.node_info.blockchain.value,
-                )
-                for n in nodes
-            ]
+            query, bindings = 'SELECT name, endpoint, owned, blockchain FROM rpc_nodes WHERE blockchain=?', (blockchain.value,)  # noqa: E501
 
-        if len(db_entries) == 0:
-            return {
-                'result': None,
-                'message': 'RPC node not found',
-                'status_code': HTTPStatus.BAD_REQUEST,
-            }
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            if len(db_entries := cursor.execute(query, bindings).fetchall()) == 0:
+                return {
+                    'result': None,
+                    'message': 'RPC node not found',
+                    'status_code': HTTPStatus.BAD_REQUEST,
+                }
 
         manager: EvmManager = self.rotkehlchen.chains_aggregator.get_chain_manager(blockchain)  # type: ignore
         errors = []
         for row in db_entries:
-            success, msg = manager.node_inquirer.attempt_connect(
-                node=(
-                    node := NodeName(
-                        name=row[0],
-                        endpoint=row[1],
-                        owned=bool(row[2]),
-                        blockchain=blockchain,  # type: ignore  # we have already limited the set of blockchains
-                    )
-                ),
-            )
+            success, msg = manager.node_inquirer.attempt_connect(node=(node := NodeName(
+                name=row[0],
+                endpoint=row[1],
+                owned=bool(row[2]),
+                blockchain=blockchain,  # type: ignore  # we have already limited the set of blockchains
+            )))
             if success is False:
                 errors.append({'name': node.name, 'error': msg})
 
         return {'result': {'errors': errors}, 'status_code': HTTPStatus.OK}
 
     def purge_module_data(self, module_name: PurgeableModuleName | None) -> Response:
-        # Purge module data using ORM
-        with self.rotkehlchen.data.db.repos.unit_of_work():
-            self.rotkehlchen.data.db.repos.modules.purge_module_data(module_name)
+        self.rotkehlchen.data.db.purge_module_data(module_name)
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
     def _eth_module_query(
-        self,
-        module_name: ModuleName,
-        method: str,
-        query_specific_balances_before: list[str] | None,
-        **kwargs: Any,
+            self,
+            module_name: ModuleName,
+            method: str,
+            query_specific_balances_before: list[str] | None,
+            **kwargs: Any,
     ) -> dict[str, Any]:
         """A function abstracting away calls to ethereum modules
 
@@ -2612,6 +2524,7 @@ class RestAPI:
         status_code = HTTPStatus.OK
 
         if query_specific_balances_before and 'defi' in query_specific_balances_before:
+
             # Make sure ethereum balances are queried (this is protected by lock and by time cache)
             # so most of the times it should have already ran
             try:
@@ -2642,9 +2555,9 @@ class RestAPI:
 
     @async_api_call()
     def get_amm_platform_balances(
-        self,
-        module: Literal['uniswap', 'sushiswap'],
-        method: str = 'get_balances',
+            self,
+            module: Literal['uniswap', 'sushiswap'],
+            method: str = 'get_balances',
     ) -> dict[str, Any]:
         return self._eth_module_query(
             module_name=module,
@@ -2664,9 +2577,7 @@ class RestAPI:
 
     @async_api_call()
     def get_dill_balance(self) -> dict[str, Any]:
-        addresses = self.rotkehlchen.chains_aggregator.queried_addresses_for_module(
-            'pickle_finance',
-        )
+        addresses = self.rotkehlchen.chains_aggregator.queried_addresses_for_module('pickle_finance')  # noqa: E501
         return self._eth_module_query(
             module_name='pickle_finance',
             method='get_dill_balances',
@@ -2680,9 +2591,7 @@ class RestAPI:
             module_name='liquity',
             method='get_positions',
             query_specific_balances_before=None,
-            given_addresses=self.rotkehlchen.chains_aggregator.queried_addresses_for_module(
-                'liquity',
-            ),
+            given_addresses=self.rotkehlchen.chains_aggregator.queried_addresses_for_module('liquity'),
         )
 
     @async_api_call()
@@ -2705,9 +2614,7 @@ class RestAPI:
 
     @async_api_call()
     def get_liquity_stats(self) -> dict[str, Any]:
-        liquity_addresses = self.rotkehlchen.chains_aggregator.queried_addresses_for_module(
-            'liquity',
-        )
+        liquity_addresses = self.rotkehlchen.chains_aggregator.queried_addresses_for_module('liquity')  # noqa: E501
         # make sure that all the entries that need it have the usd value queried
         stats = get_liquity_stats(
             database=self.rotkehlchen.data.db,
@@ -2716,9 +2623,9 @@ class RestAPI:
         return _wrap_in_ok_result(stats)
 
     def _watcher_query(
-        self,
-        method: Literal['GET', 'PUT', 'PATCH', 'DELETE'],
-        data: dict[str, Any] | None,
+            self,
+            method: Literal['GET', 'PUT', 'PATCH', 'DELETE'],
+            data: dict[str, Any] | None,
     ) -> Response:
         try:
             # we know that premium exists here due to require_premium_user
@@ -2746,29 +2653,26 @@ class RestAPI:
         return self._watcher_query(method='DELETE', data={'watchers': watchers})
 
     def purge_exchange_data(self, location: Location | None) -> Response:
-        # Purge exchange data using ORM
-        with self.rotkehlchen.data.db.repos.unit_of_work():
+        with self.rotkehlchen.data.db.user_write() as cursor:
             if location:
-                self.rotkehlchen.data.db.repos.exchanges.purge_exchange_data(location)
+                self.rotkehlchen.data.db.purge_exchange_data(cursor, location)
             else:
                 for exchange_location in ALL_SUPPORTED_EXCHANGES:
-                    self.rotkehlchen.data.db.repos.exchanges.purge_exchange_data(exchange_location)
+                    self.rotkehlchen.data.db.purge_exchange_data(cursor, exchange_location)
 
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
     def reset_eth_staking_data(
-        self,
-        entry_type: Literal[
-            HistoryBaseEntryType.ETH_BLOCK_EVENT, HistoryBaseEntryType.ETH_WITHDRAWAL_EVENT,
-        ],
+            self,
+            entry_type: Literal[HistoryBaseEntryType.ETH_BLOCK_EVENT, HistoryBaseEntryType.ETH_WITHDRAWAL_EVENT],  # noqa: E501
     ) -> Response:
         DBHistoryEvents(self.rotkehlchen.data.db).reset_eth_staking_data(entry_type=entry_type)
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
     def delete_blockchain_transaction_data(
-        self,
-        chain: SUPPORTED_EVM_EVMLIKE_CHAINS_TYPE | None,
-        tx_hash: EVMTxHash | None,
+            self,
+            chain: SUPPORTED_EVM_EVMLIKE_CHAINS_TYPE | None,
+            tx_hash: EVMTxHash | None,
     ) -> Response:
         # First delete transaction data
         if not chain or chain != SupportedBlockchain.ZKSYNC_LITE:
@@ -2778,28 +2682,29 @@ class RestAPI:
             )
 
         if not chain or chain == SupportedBlockchain.ZKSYNC_LITE:
-            # Legacy query construction - no longer needed with ORM
+            querystr, bindings = 'DELETE FROM zksynclite_transactions', ()
+            if tx_hash is not None:
+                querystr += ' WHERE tx_hash=?'
+                bindings = (tx_hash,)  # type: ignore
 
-            # Delete ZkSync Lite transactions using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                if tx_hash is not None:
-                    self.rotkehlchen.data.db.repos.zksync_transactions.delete_by_tx_hash(tx_hash)
-                else:
-                    self.rotkehlchen.data.db.repos.zksync_transactions.delete_all()
+            with self.rotkehlchen.data.db.user_write() as write_cursor:
+                write_cursor.execute(querystr, bindings)
 
         # Then delete events related to the deleted transaction data
-        # Delete related events using ORM
-        with self.rotkehlchen.data.db.repos.unit_of_work():
+        dbevents = DBHistoryEvents(self.rotkehlchen.data.db)
+        with self.rotkehlchen.data.db.user_write() as write_cursor:
             if tx_hash is not None:
                 assert chain is not None, 'api should not let this be none if tx_hash is not'
-                self.rotkehlchen.data.db.repos.history_events.delete_events_by_tx_hash(
+                dbevents.delete_events_by_tx_hash(
+                    write_cursor=write_cursor,
                     tx_hashes=[tx_hash],
                     location=Location.from_chain(chain),
                 )
             else:
                 chain_locations = [Location.from_chain(chain)] if chain else EVM_EVMLIKE_LOCATIONS
                 for chain_location in chain_locations:
-                    self.rotkehlchen.data.db.repos.history_events.reset_evm_events_for_redecode(
+                    dbevents.reset_evm_events_for_redecode(
+                        write_cursor=write_cursor,
                         location=chain_location,
                     )
 
@@ -2807,45 +2712,36 @@ class RestAPI:
 
     @async_api_call()
     def refresh_transactions(
-        self,
-        from_timestamp: Timestamp,
-        to_timestamp: Timestamp,
-        accounts: list[OptionalBlockchainAccount] | None,
+            self,
+            from_timestamp: Timestamp,
+            to_timestamp: Timestamp,
+            accounts: list[OptionalBlockchainAccount] | None,
     ) -> dict[str, Any]:
         blockchain_addresses: dict[SupportedBlockchain, ListOfBlockchainAddresses]
-        # Get blockchain addresses using ORM
-        if (
-            accounts is None or len(accounts) == 0
-        ):  # No accounts specified. Get all accounts from DB.
-            blockchain_addresses = {
-                chain: addr_list
-                for chain in CHAINS_WITH_TRANSACTIONS
-                if len(
-                    addr_list
-                    := self.rotkehlchen.data.db.repos.accounts.get_single_blockchain_addresses(
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            if accounts is None or len(accounts) == 0:  # No accounts specified. Get all accounts from DB.  # noqa: E501
+                blockchain_addresses = {
+                    chain: addr_list for chain in CHAINS_WITH_TRANSACTIONS
+                    if len(addr_list := self.rotkehlchen.data.db.get_single_blockchain_addresses(
+                        cursor=cursor,
                         blockchain=chain,
-                    ),
-                )
-                != 0
-            }
-        else:  # Use specified accounts, getting all chains in which an account is tracked if the chain is not specified.  # noqa: E501
-            blockchain_addresses = defaultdict(list)
-            unspecified_chain_addresses: list[BlockchainAddress] = []
-            for account in accounts:
-                if account.chain is not None:
-                    blockchain_addresses[account.chain].append(account.address)  # type: ignore[arg-type]  # accounts with the same chain will have the same type of address
-                else:
-                    unspecified_chain_addresses.append(account.address)
+                    )) != 0
+                }
+            else:  # Use specified accounts, getting all chains in which an account is tracked if the chain is not specified.  # noqa: E501
+                blockchain_addresses = defaultdict(list)
+                unspecified_chain_addresses: list[BlockchainAddress] = []
+                for account in accounts:
+                    if account.chain is not None:
+                        blockchain_addresses[account.chain].append(account.address)  # type: ignore[arg-type]  # accounts with the same chain will have the same type of address
+                    else:
+                        unspecified_chain_addresses.append(account.address)
 
-            if len(unspecified_chain_addresses) > 0:
-                # Get blockchains for accounts using ORM
-                for (
-                    address,
-                    chain,
-                ) in self.rotkehlchen.data.db.repos.accounts.get_blockchains_for_accounts(
-                    accounts=unspecified_chain_addresses,
-                ):
-                    blockchain_addresses[chain].append(address)  # type: ignore[arg-type]  # same as above
+                if len(unspecified_chain_addresses) > 0:
+                    for address, chain in self.rotkehlchen.data.db.get_blockchains_for_accounts(
+                        cursor=cursor,
+                        accounts=unspecified_chain_addresses,
+                    ):
+                        blockchain_addresses[chain].append(address)  # type: ignore[arg-type]  # same as above
 
         result, message, status_code = True, '', HTTPStatus.OK
         for blockchain, addresses in blockchain_addresses.items():
@@ -2878,9 +2774,9 @@ class RestAPI:
 
     @async_api_call()
     def decode_given_evm_transactions(
-        self,
-        transactions: list[tuple[SUPPORTED_CHAIN_IDS, EVMTxHash]],
-        delete_custom: bool,
+            self,
+            transactions: list[tuple[SUPPORTED_CHAIN_IDS, EVMTxHash]],
+            delete_custom: bool,
     ) -> dict[str, Any]:
         """
         Repull data for the given transactions and redecode all events. Also prices for
@@ -2891,12 +2787,10 @@ class RestAPI:
         success, message, status_code, events = True, '', HTTPStatus.OK, []
         for evm_chain, tx_hash in transactions:
             chain_manager = self.rotkehlchen.chains_aggregator.get_evm_manager(evm_chain)
-            # Delete EVM transaction using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.evm_transactions.delete_transaction(
-                    tx_hash=tx_hash,
-                    chain_id=evm_chain,
-                )
+            with self.rotkehlchen.data.db.user_write() as write_cursor:
+                write_cursor.execute(
+                    'DELETE FROM evm_transactions WHERE tx_hash=? AND chain_id=?',
+                    (tx_hash, evm_chain.serialize_for_db()))
             try:
                 chain_manager.transactions.get_or_query_transaction_receipt(tx_hash=tx_hash)
             except RemoteError as e:
@@ -2913,14 +2807,12 @@ class RestAPI:
                 }
 
             try:
-                events.extend(
-                    chain_manager.transactions_decoder.decode_and_get_transaction_hashes(
-                        tx_hashes=[tx_hash],
-                        send_ws_notifications=True,
-                        ignore_cache=True,  # always redecode from here
-                        delete_customized=delete_custom,
-                    ),
-                )
+                events.extend(chain_manager.transactions_decoder.decode_and_get_transaction_hashes(
+                    tx_hashes=[tx_hash],
+                    send_ws_notifications=True,
+                    ignore_cache=True,  # always redecode from here
+                    delete_customized=delete_custom,
+                ))
             except (RemoteError, DeserializationError) as e:
                 return {
                     'result': False,
@@ -2944,24 +2836,15 @@ class RestAPI:
             tx_hashes.add(event.tx_hash)
 
         try:
-            if (
-                len(monerium_hashes) != 0
-                and (monerium := init_monerium(self.rotkehlchen.data.db)) is not None
-            ):
+            if len(monerium_hashes) != 0 and (monerium := init_monerium(self.rotkehlchen.data.db)) is not None:  # noqa: E501
                 for monerium_tx_hash in monerium_hashes:
                     monerium.get_and_process_orders(tx_hash=monerium_tx_hash)
 
-            if (
-                len(gnosispay_timestamps) != 0
-                and (gnosis_pay := init_gnosis_pay(self.rotkehlchen.data.db)) is not None
-            ):
+            if len(gnosispay_timestamps) != 0 and (gnosis_pay := init_gnosis_pay(self.rotkehlchen.data.db)) is not None:  # noqa: E501
                 gnosispay_timestamps.sort()
                 last_queried_ts: Timestamp | None = None
                 for tx_timestamp in gnosispay_timestamps:
-                    if (
-                        last_queried_ts is not None
-                        and abs(tx_timestamp - last_queried_ts) <= GNOSIS_PAY_TX_TIMESTAMP_RANGE
-                    ):
+                    if last_queried_ts is not None and abs(tx_timestamp - last_queried_ts) <= GNOSIS_PAY_TX_TIMESTAMP_RANGE:  # noqa: E501
                         continue  # skip if too close to last query
 
                     gnosis_pay.query_remote_for_tx_and_update_events(
@@ -2980,8 +2863,8 @@ class RestAPI:
 
     @async_api_call()
     def decode_evmlike_transactions(
-        self,
-        transactions: list[tuple[EvmlikeChain, EVMTxHash]],
+            self,
+            transactions: list[tuple[EvmlikeChain, EVMTxHash]],
     ) -> dict[str, Any]:
         """
         Repull all data and redecode events for a single emvlike transaction hash.
@@ -2993,13 +2876,14 @@ class RestAPI:
 
         for _, tx_hash in transactions:
             # first delete tranasaction data and all decoded events and related data
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                concerning_address = (
-                    self.rotkehlchen.data.db.repos.zksync.delete_transaction_and_get_address(
-                        tx_hash=tx_hash,
-                        event_identifier=ZKL_IDENTIFIER.format(tx_hash=tx_hash.hex()),
-                    )
-                )
+            with self.rotkehlchen.data.db.user_write() as write_cursor:
+                concerning_address = write_cursor.execute('DELETE FROM zksynclite_transactions WHERE tx_hash=? RETURNING from_address', (tx_hash,)).fetchone()  # noqa: E501
+                deleted_event_data = write_cursor.execute(
+                    'DELETE FROM history_events WHERE event_identifier=? RETURNING location_label',
+                    (ZKL_IDENTIFIER.format(tx_hash=tx_hash.hex()),),
+                ).fetchone()
+                if deleted_event_data is not None:
+                    concerning_address = deleted_event_data[0]
 
             transaction = self.rotkehlchen.chains_aggregator.zksync_lite.query_single_transaction(
                 tx_hash=tx_hash,
@@ -3011,19 +2895,15 @@ class RestAPI:
                     tracked_addresses=tracked_addresses,
                 )
             else:
-                return {
-                    'result': False,
-                    'message': f'Failed to fetch transaction {tx_hash.hex()} from zksync lite API',
-                    'status_code': HTTPStatus.BAD_GATEWAY,
-                }
+                return {'result': False, 'message': f'Failed to fetch transaction {tx_hash.hex()} from zksync lite API', 'status_code': HTTPStatus.BAD_GATEWAY}  # noqa: E501
 
         return {'result': True, 'message': '', 'status_code': HTTPStatus.OK}
 
     @async_api_call()
     def decode_evm_transactions(
-        self,
-        evm_chains: list[EVM_CHAIN_IDS_WITH_TRANSACTIONS_TYPE],
-        force_redecode: bool,
+            self,
+            evm_chains: list[EVM_CHAIN_IDS_WITH_TRANSACTIONS_TYPE],
+            force_redecode: bool,
     ) -> dict[str, Any]:
         """
         This method should be called after querying evm transactions and does the following:
@@ -3043,11 +2923,13 @@ class RestAPI:
         """
 
         dbevmtx = DBEvmTx(self.rotkehlchen.data.db)
+        dbevents = DBHistoryEvents(self.rotkehlchen.data.db)
         result = {}
         for evm_chain in evm_chains:
             if force_redecode:
-                with self.rotkehlchen.data.db.repos.unit_of_work():
-                    self.rotkehlchen.data.db.repos.history_events.reset_evm_events_for_redecode(
+                with self.rotkehlchen.data.db.user_write() as write_cursor:
+                    dbevents.reset_evm_events_for_redecode(
+                        write_cursor=write_cursor,
                         location=Location.from_chain_id(evm_chain),
                     )
 
@@ -3072,9 +2954,9 @@ class RestAPI:
 
     @async_api_call()
     def decode_pending_evmlike_transactions(
-        self,
-        ignore_cache: bool,
-        evmlike_chains: list[SUPPORTED_EVMLIKE_CHAINS_TYPE],  # pylint: disable=unused-argument
+            self,
+            ignore_cache: bool,
+            evmlike_chains: list[SUPPORTED_EVMLIKE_CHAINS_TYPE],  # pylint: disable=unused-argument
     ) -> dict[str, Any]:
         """This method should be called after querying evmlike transactions. Decodes
         all undecoded evmlike transactions or all transaction if ignore_cache is true.
@@ -3108,14 +2990,16 @@ class RestAPI:
     @async_api_call()
     def get_count_evmlike_transactions_not_decoded(self) -> dict[str, Any]:
         result = {}
-        # Get ZKSync Lite decoding info using ORM
-        undecoded = self.rotkehlchen.data.db.repos.zksync.get_undecoded_transaction_count()
-        if undecoded != 0:
-            total = self.rotkehlchen.data.db.repos.zksync.get_total_transaction_count()
-            result['zksync_lite'] = {
-                'undecoded': undecoded,
-                'total': total,
-            }
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            undecoded = cursor.execute(
+                'SELECT COUNT(*) FROM zksynclite_transactions WHERE is_decoded=0',
+            ).fetchone()[0]
+            if undecoded != 0:
+                cursor.execute('SELECT COUNT(*) FROM zksynclite_transactions')
+                result['zksync_lite'] = {
+                    'undecoded': undecoded,
+                    'total': cursor.fetchone()[0],
+                }
 
         return _wrap_in_ok_result(result)
 
@@ -3146,15 +3030,15 @@ class RestAPI:
 
     @async_api_call()
     def get_current_assets_price(
-        self,
-        assets: list[AssetWithNameAndType],
-        target_asset: Asset,
-        ignore_cache: bool,
+            self,
+            assets: list[AssetWithNameAndType],
+            target_asset: Asset,
+            ignore_cache: bool,
     ) -> dict[str, Any]:
         """Return the current price of the assets in the target asset currency."""
         log.debug(
-            f"Querying the current {target_asset.identifier} price of these assets: "
-            f"{', '.join([asset.identifier for asset in assets])}",
+            f'Querying the current {target_asset.identifier} price of these assets: '
+            f'{", ".join([asset.identifier for asset in assets])}',
         )
         # Type is list instead of tuple here because you can't serialize a tuple
         assets_price: dict[Asset, list[Price | (int | None)]] = {}
@@ -3166,11 +3050,7 @@ class RestAPI:
                     method='get_nfts_with_price',
                     query_specific_balances_before=None,
                 )
-                oracle = (
-                    CurrentPriceOracle.MANUALCURRENT
-                    if nft_price_data['manually_input'] is True
-                    else CurrentPriceOracle.BLOCKCHAIN
-                )
+                oracle = CurrentPriceOracle.MANUALCURRENT if nft_price_data['manually_input'] is True else CurrentPriceOracle.BLOCKCHAIN  # noqa: E501
                 assets_price[asset] = [Price(nft_price_data['usd_price']), oracle.value]
             else:
                 non_nft_assets.append(asset)
@@ -3181,12 +3061,10 @@ class RestAPI:
                 to_asset=target_asset,
                 ignore_cache=ignore_cache,
             )
-            assets_price.update(
-                {
-                    asset: [price_and_oracle[0], price_and_oracle[1].value]
-                    for asset, price_and_oracle in found_prices.items()
-                },
-            )
+            assets_price.update({
+                asset: [price_and_oracle[0], price_and_oracle[1].value]
+                for asset, price_and_oracle in found_prices.items()
+            })
 
         result = {
             'assets': assets_price,
@@ -3196,14 +3074,12 @@ class RestAPI:
         return _wrap_in_ok_result(process_result(result))
 
     def query_asset_mappings_by_type(
-        self,
-        dict_keys: tuple[str, str, str],
-        mapping_type: Literal['location', 'counterparty'],
-        location_or_counterparty_reader_callback: Callable,
-        filter_query: LocationAssetMappingsFilterQuery | CounterpartyAssetMappingsFilterQuery,
-        query_columns: Literal[
-            'local_id, location, exchange_symbol', 'local_id, counterparty, symbol',
-        ],
+            self,
+            dict_keys: tuple[str, str, str],
+            mapping_type: Literal['location', 'counterparty'],
+            location_or_counterparty_reader_callback: Callable,
+            filter_query: LocationAssetMappingsFilterQuery | CounterpartyAssetMappingsFilterQuery,
+            query_columns: Literal['local_id, location, exchange_symbol', 'local_id, counterparty, symbol'],  # noqa: E501
     ) -> Response:
         """Query the location/counterparty asset mappings using the provided filter_query
         and return them in a paginated format"""
@@ -3224,13 +3100,8 @@ class RestAPI:
 
     @staticmethod
     def perform_asset_mapping_operation(
-        mapping_fn: Callable,
-        entries: Sequence[
-            LocationAssetMappingUpdateEntry
-            | LocationAssetMappingDeleteEntry
-            | CounterpartyAssetMappingUpdateEntry
-            | CounterpartyAssetMappingDeleteEntry
-        ],
+            mapping_fn: Callable,
+            entries: Sequence[LocationAssetMappingUpdateEntry | LocationAssetMappingDeleteEntry | CounterpartyAssetMappingUpdateEntry | CounterpartyAssetMappingDeleteEntry],  # noqa: E501
     ) -> Response:
         """Perform an asset mapping database operation based on the given function and entries."""
         try:
@@ -3245,10 +3116,10 @@ class RestAPI:
 
     @async_api_call()
     def get_historical_assets_price(
-        self,
-        assets_timestamp: list[tuple[Asset, Timestamp]],
-        target_asset: Asset,
-        only_cache_period: int | None = None,
+            self,
+            assets_timestamp: list[tuple[Asset, Timestamp]],
+            target_asset: Asset,
+            only_cache_period: int | None = None,
     ) -> dict[str, Any]:
         if only_cache_period is not None:
             result: dict[str, Any] = {
@@ -3260,9 +3131,7 @@ class RestAPI:
                 max_seconds_distance=only_cache_period,
             ):
                 if price_result is not None:
-                    result['assets'][price_result.from_asset.identifier][
-                        price_result.timestamp
-                    ] = str(price_result.price)
+                    result['assets'][price_result.from_asset.identifier][price_result.timestamp] = str(price_result.price)  # noqa: E501
 
             return _wrap_in_ok_result(result)
 
@@ -3297,11 +3166,11 @@ class RestAPI:
 
     @async_api_call()
     def create_oracle_cache(
-        self,
-        oracle: HistoricalPriceOracle,
-        from_asset: AssetWithOracles,
-        to_asset: AssetWithOracles,
-        purge_old: bool,
+            self,
+            oracle: HistoricalPriceOracle,
+            from_asset: AssetWithOracles,
+            to_asset: AssetWithOracles,
+            purge_old: bool,
     ) -> dict[str, Any]:
         try:
             self.rotkehlchen.create_oracle_cache(oracle, from_asset, to_asset, purge_old)
@@ -3314,9 +3183,9 @@ class RestAPI:
 
     @staticmethod
     def delete_oracle_cache(
-        oracle: HistoricalPriceOracle,
-        from_asset: Asset,
-        to_asset: Asset,
+            oracle: HistoricalPriceOracle,
+            from_asset: Asset,
+            to_asset: Asset,
     ) -> Response:
         GlobalDBHandler.delete_historical_prices(
             from_asset=from_asset,
@@ -3340,20 +3209,14 @@ class RestAPI:
     def get_supported_oracles() -> Response:
         data = {
             # don't expose some sources in the api
-            'history': [
-                {'id': str(x), 'name': str(x).capitalize()}
-                for x in HistoricalPriceOracle
-                if x not in NOT_EXPOSED_SOURCES
-            ],
+            'history': [{'id': str(x), 'name': str(x).capitalize()} for x in HistoricalPriceOracle if x not in NOT_EXPOSED_SOURCES],  # noqa: E501
             'current': [{'id': str(x), 'name': str(x).capitalize()} for x in CurrentPriceOracle],
         }
         result_dict = _wrap_in_ok_result(data)
         return api_response(result_dict, status_code=HTTPStatus.OK)
 
     @async_api_call()
-    def get_token_info(
-        self, address: ChecksumEvmAddress, chain_id: SUPPORTED_CHAIN_IDS,
-    ) -> dict[str, Any]:
+    def get_token_info(self, address: ChecksumEvmAddress, chain_id: SUPPORTED_CHAIN_IDS) -> dict[str, Any]:  # noqa: E501
         evm_manager = self.rotkehlchen.chains_aggregator.get_evm_manager(chain_id)
         try:
             info = evm_manager.node_inquirer.get_erc20_contract_info(address=address)
@@ -3375,9 +3238,9 @@ class RestAPI:
 
     @async_api_call()
     def perform_assets_updates(
-        self,
-        up_to_version: int | None,
-        conflicts: dict[Asset, Literal['remote', 'local']] | None,
+            self,
+            up_to_version: int | None,
+            conflicts: dict[Asset, Literal['remote', 'local']] | None,
     ) -> dict[str, Any]:
         try:
             result = self.rotkehlchen.assets_updater.perform_update(up_to_version, conflicts)
@@ -3385,8 +3248,8 @@ class RestAPI:
             return {'result': None, 'message': str(e), 'status_code': HTTPStatus.BAD_GATEWAY}
 
         if result is None:
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.asset_updates.sync_globaldb_assets()
+            with self.rotkehlchen.data.db.user_write() as cursor:
+                self.rotkehlchen.data.db.sync_globaldb_assets(cursor)
             return OK_RESULT
 
         return {
@@ -3423,11 +3286,11 @@ class RestAPI:
         )
 
     def add_manual_price(
-        self,
-        from_asset: Asset,
-        to_asset: Asset,
-        price: Price,
-        timestamp: Timestamp,
+            self,
+            from_asset: Asset,
+            to_asset: Asset,
+            price: Price,
+            timestamp: Timestamp,
     ) -> Response:
         """
         Add a manual historical price.
@@ -3449,11 +3312,11 @@ class RestAPI:
         )
 
     def edit_manual_price(
-        self,
-        from_asset: Asset,
-        to_asset: Asset,
-        price: Price,
-        timestamp: Timestamp,
+            self,
+            from_asset: Asset,
+            to_asset: Asset,
+            price: Price,
+            timestamp: Timestamp,
     ) -> Response:
         historical_price = HistoricalPrice(
             from_asset=from_asset,
@@ -3471,9 +3334,9 @@ class RestAPI:
         )
 
     def get_manual_prices(
-        self,
-        from_asset: Asset | None,
-        to_asset: Asset | None,
+            self,
+            from_asset: Asset | None,
+            to_asset: Asset | None,
     ) -> Response:
         return api_response(
             _wrap_in_ok_result(GlobalDBHandler.get_manual_prices(from_asset, to_asset)),
@@ -3481,10 +3344,10 @@ class RestAPI:
         )
 
     def delete_manual_price(
-        self,
-        from_asset: Asset,
-        to_asset: Asset,
-        timestamp: Timestamp,
+            self,
+            from_asset: Asset,
+            to_asset: Asset,
+            timestamp: Timestamp,
     ) -> Response:
         deleted = GlobalDBHandler.delete_manual_price(from_asset, to_asset, timestamp)
         if deleted:
@@ -3506,9 +3369,9 @@ class RestAPI:
 
     @async_api_call()
     def get_nfts_balances(
-        self,
-        filter_query: NFTFilterQuery,
-        ignore_cache: bool,
+            self,
+            filter_query: NFTFilterQuery,
+            ignore_cache: bool,
     ) -> dict[str, Any]:
         if ignore_cache is True:
             self._eth_module_query(
@@ -3526,22 +3389,19 @@ class RestAPI:
         )
 
     def get_manual_latest_prices(
-        self,
-        from_asset: Asset | None,
-        to_asset: Asset | None,
+            self,
+            from_asset: Asset | None,
+            to_asset: Asset | None,
     ) -> Response:
         prices = GlobalDBHandler.get_all_manual_latest_prices(
             from_asset=from_asset,
             to_asset=to_asset,
         )
-        prices_information = [
-            {
-                'from_asset': x[0],
-                'to_asset': x[1],
-                'price': x[2],
-            }
-            for x in prices
-        ]
+        prices_information = [{
+            'from_asset': x[0],
+            'to_asset': x[1],
+            'price': x[2],
+        } for x in prices]
         if (nft_module := self.rotkehlchen.chains_aggregator.get_module('nfts')) is not None:
             # query also nfts manual prices
             nft_price_data = nft_module.get_nfts_with_price(
@@ -3549,16 +3409,11 @@ class RestAPI:
                 to_asset=to_asset,
                 only_with_manual_prices=True,
             )
-            prices_information.extend(
-                [
-                    {
-                        'from_asset': nft_data['asset'],
-                        'to_asset': nft_data['price_asset'],
-                        'price': nft_data['price_in_asset'],
-                    }
-                    for nft_data in nft_price_data
-                ],
-            )
+            prices_information.extend([{
+                'from_asset': nft_data['asset'],
+                'to_asset': nft_data['price_asset'],
+                'price': nft_data['price_in_asset'],
+            } for nft_data in nft_price_data])
 
         return api_response(_wrap_in_ok_result(prices_information), status_code=HTTPStatus.OK)
 
@@ -3572,10 +3427,10 @@ class RestAPI:
         )
 
     def add_manual_latest_price(
-        self,
-        from_asset: Asset,
-        to_asset: Asset,
-        price: Price,
+            self,
+            from_asset: Asset,
+            to_asset: Asset,
+            price: Price,
     ) -> Response:
         if from_asset.is_nft():
             module_query_result = self._eth_module_query(
@@ -3600,8 +3455,8 @@ class RestAPI:
         return api_response(OK_RESULT)
 
     def delete_manual_latest_price(
-        self,
-        asset: Asset,
+            self,
+            asset: Asset,
     ) -> Response:
         if asset.is_nft():
             module_query_result = self._eth_module_query(
@@ -3630,20 +3485,15 @@ class RestAPI:
             'userdb': {},
         }
         if self.rotkehlchen.user_is_logged_in:
-            # Get database info and backups using ORM
-            result_dict['userdb']['info'] = (
-                self.rotkehlchen.data.db.repos.database_info.get_db_info()
-            )  # type: ignore
-            result_dict['userdb']['backups'] = (
-                self.rotkehlchen.data.db.repos.database_info.get_backups()
-            )  # type: ignore
+            with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+                result_dict['userdb']['info'] = self.rotkehlchen.data.db.get_db_info(cursor)  # type: ignore
+            result_dict['userdb']['backups'] = self.rotkehlchen.data.db.get_backups()  # type: ignore
 
         return api_response(_wrap_in_ok_result(result_dict), status_code=HTTPStatus.OK)
 
     def create_database_backup(self) -> Response:
         try:
-            # Create database backup using ORM
-            db_backup_path = self.rotkehlchen.data.db.repos.database_info.create_backup()
+            db_backup_path = self.rotkehlchen.data.db.create_db_backup()
         except OSError as e:
             error_msg = f'Failed to create a DB backup due to {e!s}'
             return api_response(wrap_in_fail_result(error_msg), status_code=HTTPStatus.CONFLICT)
@@ -3651,7 +3501,7 @@ class RestAPI:
         return api_response(_wrap_in_ok_result(str(db_backup_path)), status_code=HTTPStatus.OK)
 
     def download_database_backup(self, filepath: Path) -> Response:
-        if filepath.parent != self.rotkehlchen.data.db.repos.database_info.get_user_data_dir():
+        if filepath.parent != self.rotkehlchen.data.db.user_data_dir:
             error_msg = f'DB backup file {filepath} is not in the user directory'
             return api_response(wrap_in_fail_result(error_msg), status_code=HTTPStatus.CONFLICT)
 
@@ -3664,7 +3514,7 @@ class RestAPI:
 
     def delete_database_backups(self, files: list[Path]) -> Response:
         for filepath in files:
-            if filepath.parent != self.rotkehlchen.data.db.repos.database_info.get_user_data_dir():
+            if filepath.parent != self.rotkehlchen.data.db.user_data_dir:
                 error_msg = f'DB backup file {filepath} is not in the user directory'
                 return api_response(
                     result=wrap_in_fail_result(error_msg),
@@ -3684,8 +3534,8 @@ class RestAPI:
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
     def get_pnl_reports(
-        self,
-        report_id: int | None,
+            self,
+            report_id: int | None,
     ) -> Response:
         with_limit = False
         entries_limit = -1
@@ -3700,13 +3550,11 @@ class RestAPI:
         )
 
         # success
-        result_dict = _wrap_in_ok_result(
-            {
-                'entries': reports,
-                'entries_found': entries_found,
-                'entries_limit': entries_limit,
-            },
-        )
+        result_dict = _wrap_in_ok_result({
+            'entries': reports,
+            'entries_found': entries_found,
+            'entries_limit': entries_limit,
+        })
         return api_response(process_result(result_dict), status_code=HTTPStatus.OK)
 
     def get_report_data(self, filter_query: ReportDataFilterQuery) -> Response:
@@ -3726,13 +3574,10 @@ class RestAPI:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.BAD_REQUEST)
 
         result = {
-            'entries': [
-                x.to_exported_dict(
-                    ts_converter=self.rotkehlchen.accountant.pots[0].timestamp_to_date,
-                    export_type=AccountingEventExportType.API,
-                )
-                for x in report_data
-            ],
+            'entries': [x.to_exported_dict(
+                ts_converter=self.rotkehlchen.accountant.pots[0].timestamp_to_date,
+                export_type=AccountingEventExportType.API,
+            ) for x in report_data],
             'entries_found': entries_found,
             'entries_total': entries_total,
             'entries_limit': entries_limit,
@@ -3741,8 +3586,7 @@ class RestAPI:
         return api_response(result_dict, status_code=HTTPStatus.OK)
 
     def get_associated_locations(self) -> Response:
-        # Get associated locations using ORM
-        locations = self.rotkehlchen.data.db.repos.location_data.get_associated_locations()
+        locations = self.rotkehlchen.data.db.get_associated_locations()
         return api_response(
             result=_wrap_in_ok_result([str(location) for location in locations]),
             status_code=HTTPStatus.OK,
@@ -3766,23 +3610,12 @@ class RestAPI:
                     to_ts=ts_now(),
                 )
             else:  # block production  # noqa: PLR5501, E501  # ruff thinks this should be elif but that makes the logic confusing
-                if (
-                    len(
-                        indices
-                        := eth2.beacon_inquirer.beaconchain.get_validators_to_query_for_blocks(),
-                    )
-                    != 0
-                ):
-                    log.debug(
-                        f'Querying block production information for validator indices {indices}',
-                    )
+                if len(indices := eth2.beacon_inquirer.beaconchain.get_validators_to_query_for_blocks()) != 0:  # noqa: E501
+                    log.debug(f'Querying block production information for validator indices {indices}')  # noqa: E501
                     eth2.beacon_inquirer.beaconchain.get_and_store_produced_blocks(indices)
                     eth2.combine_block_with_tx_events()
                 else:
-                    log.debug(
-                        'No active or un-queried validators found. '
-                        'Skipping query of block production information.',
-                    )
+                    log.debug('No active or un-queried validators found. Skipping query of block production information.')  # noqa: E501
         except RemoteError as e:
             return wrap_in_fail_result(
                 message=str(e),
@@ -3793,12 +3626,12 @@ class RestAPI:
 
     @staticmethod
     def _serialize_and_group_history_events(
-        events: list['HistoryBaseEntry'],
-        event_accounting_rule_statuses: list[EventAccountingRuleStatus],
-        grouped_events_nums: list[int | None],
-        customized_event_ids: list[int],
-        ignored_ids: set[str],
-        hidden_event_ids: list[int],
+            events: list['HistoryBaseEntry'],
+            event_accounting_rule_statuses: list[EventAccountingRuleStatus],
+            grouped_events_nums: list[int | None],
+            customized_event_ids: list[int],
+            ignored_ids: set[str],
+            hidden_event_ids: list[int],
     ) -> list[dict[str, Any] | list[dict[str, Any]]]:
         """Serialize and group history events for the api.
         Groups evm swap and multi trade events into sub-lists. Uses the order defined in
@@ -3830,19 +3663,16 @@ class RestAPI:
                 grouped_events_num=grouped_events_num,
             )
             if event.entry_type == HistoryBaseEntryType.EVM_SWAP_EVENT:
-                if (
-                    event_subtype_index := EVENT_GROUPING_ORDER[event.event_type].get(
-                        event.event_subtype,
-                    )
-                ) is None:
+                if (event_subtype_index := EVENT_GROUPING_ORDER[event.event_type].get(event.event_subtype)) is None:  # noqa: E501
                     log.error(
                         'Unable to determine group order for event type/subtype '
                         f'{event.event_type}/{event.event_subtype}',
                     )
                     event_subtype_index = 0
 
-                if len(current_group) == 0 or (
-                    last_subtype_index is not None and event_subtype_index >= last_subtype_index
+                if (
+                    len(current_group) == 0 or
+                    (last_subtype_index is not None and event_subtype_index >= last_subtype_index)
                 ):
                     current_group.append(serialized)
                 else:  # Start a new group because the order is broken
@@ -3863,46 +3693,41 @@ class RestAPI:
         return entries
 
     def get_history_events(
-        self,
-        filter_query: HistoryBaseEntryFilterQuery,
-        group_by_event_ids: bool,
+            self,
+            filter_query: HistoryBaseEntryFilterQuery,
+            group_by_event_ids: bool,
     ) -> Response:
+        dbevents = DBHistoryEvents(self.rotkehlchen.data.db)
         has_premium = False
         entries_limit = FREE_HISTORY_EVENTS_LIMIT
         if has_premium_check(self.rotkehlchen.premium):
             has_premium = True
-            entries_limit = -1
+            entries_limit = - 1
 
-        # Get history events using ORM
-        events_result, entries_found, entries_with_limit = (
-            self.rotkehlchen.data.db.repos.history_events.get_events_and_limit_info(
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            events_result, entries_found, entries_with_limit = dbevents.get_history_events_and_limit_info(  # noqa: E501
+                cursor=cursor,
                 filter_query=filter_query,
                 has_premium=has_premium,
                 group_by_event_ids=group_by_event_ids,
                 match_exact_events=True,  # set to True since the frontend requests the event_identifiers manually in their second call to this endpoint. https://github.com/orgs/rotki/projects/11?pane=issue&itemId=110464193  # noqa: E501
                 entries_limit=entries_limit if entries_limit != -1 else None,
             )
-        )
-        entries_total = self.rotkehlchen.data.db.repos.history_events.get_entries_count(
-            entries_table='history_events',
-            group_by='event_identifier' if group_by_event_ids else None,
-        )
-        customized_event_ids = (
-            self.rotkehlchen.data.db.repos.history_events.get_customized_event_identifiers(
+            entries_total = self.rotkehlchen.data.db.get_entries_count(
+                cursor=cursor,
+                entries_table='history_events',
+                group_by='event_identifier' if group_by_event_ids else None,
+            )
+            customized_event_ids = dbevents.get_customized_event_identifiers(
+                cursor=cursor,
                 location=filter_query.location,
             )
-        )
-        hidden_event_ids = self.rotkehlchen.data.db.repos.history_events.get_hidden_event_ids()
-        ignored_ids = self.rotkehlchen.data.db.repos.history_events.get_ignored_action_ids()
+            hidden_event_ids = dbevents.get_hidden_event_ids(cursor)
+            ignored_ids = self.rotkehlchen.data.db.get_ignored_action_ids(cursor=cursor)
 
         accountant_pot = AccountingPot(
             database=self.rotkehlchen.data.db,
-            evm_accounting_aggregators=EVMAccountingAggregators(
-                [
-                    self.rotkehlchen.chains_aggregator.get_evm_manager(x).accounting_aggregator
-                    for x in EVM_CHAIN_IDS_WITH_TRANSACTIONS
-                ],
-            ),
+            evm_accounting_aggregators=EVMAccountingAggregators([self.rotkehlchen.chains_aggregator.get_evm_manager(x).accounting_aggregator for x in EVM_CHAIN_IDS_WITH_TRANSACTIONS]),  # noqa: E501
             msg_aggregator=self.rotkehlchen.msg_aggregator,
             is_dummy_pot=True,
         )
@@ -3910,8 +3735,8 @@ class RestAPI:
         grouped_events_nums: list[int | None]
         grouped_events_nums, events = (
             zip(*events_result, strict=False)  # type: ignore  # mypy doesn't understand significance of boolean check.
-            if group_by_event_ids is True and len(events_result) != 0
-            else ([None] * len(events_result), events_result)
+            if group_by_event_ids is True and len(events_result) != 0 else
+            ([None] * len(events_result), events_result)
         )
         result = {
             'entries': self._serialize_and_group_history_events(
@@ -3939,10 +3764,10 @@ class RestAPI:
 
     @async_api_call()
     def query_kraken_staking_events(
-        self,
-        only_cache: bool,
-        query_filter: HistoryEventFilterQuery,
-        value_filter: HistoryEventFilterQuery,
+            self,
+            only_cache: bool,
+            query_filter: HistoryEventFilterQuery,
+            value_filter: HistoryEventFilterQuery,
     ) -> dict[str, Any]:
         return self._get_exchange_staking_or_savings_history(
             only_cache=only_cache,
@@ -4004,13 +3829,9 @@ class RestAPI:
                     raise ValidationError('Provided file could not be unzipped') from e
 
                 if 'assets.json' not in zip_file.namelist():
-                    raise ValidationError(
-                        'assets.json could not be found in the provided zip file.',
-                    )
+                    raise ValidationError('assets.json could not be found in the provided zip file.')  # noqa: E501
 
-                with (
-                    tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tempdir
-                ):  # needed on windows, see https://tinyurl.com/tmp-win-err
+                with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tempdir:  # needed on windows, see https://tinyurl.com/tmp-win-err  # noqa: E501
                     zip_file.extract('assets.json', tempdir)
                     import_assets_from_file(
                         path=Path(tempdir) / 'assets.json',
@@ -4028,15 +3849,13 @@ class RestAPI:
         return OK_RESULT
 
     def get_user_db_snapshot(self, timestamp: Timestamp) -> Response:
-        # Get snapshot data using ORM
-        balances = self.rotkehlchen.data.db.repos.timed_balances.get_balances_at_timestamp(
-            timestamp=timestamp,
+        dbsnapshot = DBSnapshot(
+            db_handler=self.rotkehlchen.data.db,
+            msg_aggregator=self.rotkehlchen.msg_aggregator,
         )
-        location_data = (
-            self.rotkehlchen.data.db.repos.location_data.get_location_data_at_timestamp(
-                timestamp=timestamp,
-            )
-        )
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            balances = dbsnapshot.get_timed_balances(cursor, timestamp=timestamp)
+            location_data = dbsnapshot.get_timed_location_data(cursor, timestamp=timestamp)
         if len(balances) == 0 or len(location_data) == 0:
             return api_response(
                 wrap_in_fail_result('No snapshot data found for the given timestamp.'),
@@ -4055,14 +3874,19 @@ class RestAPI:
         return api_response(result_dict, status_code=HTTPStatus.OK)
 
     def edit_user_db_snapshot(
-        self,
-        timestamp: Timestamp,
-        location_data_snapshot: list[LocationData],
-        balances_snapshot: list[DBAssetBalance],
+            self,
+            timestamp: Timestamp,
+            location_data_snapshot: list[LocationData],
+            balances_snapshot: list[DBAssetBalance],
     ) -> Response:
+        dbsnapshot = DBSnapshot(
+            db_handler=self.rotkehlchen.data.db,
+            msg_aggregator=self.rotkehlchen.msg_aggregator,
+        )
         try:
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.snapshots.update_snapshot(
+            with self.rotkehlchen.data.db.user_write() as cursor:
+                dbsnapshot.update(
+                    write_cursor=cursor,
                     timestamp=timestamp,
                     balances_snapshot=balances_snapshot,
                     location_data_snapshot=location_data_snapshot,
@@ -4072,25 +3896,24 @@ class RestAPI:
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
     def export_user_db_snapshot(self, timestamp: Timestamp, path: Path) -> Response:
-        is_success, message = self.rotkehlchen.data.db.repos.snapshots.export_snapshot(
-            timestamp=timestamp,
-            directory_path=path,
+        dbsnapshot = DBSnapshot(
+            db_handler=self.rotkehlchen.data.db,
+            msg_aggregator=self.rotkehlchen.msg_aggregator,
         )
+        is_success, message = dbsnapshot.export(timestamp=timestamp, directory_path=path)
         if is_success is False:
             return api_response(wrap_in_fail_result(message), status_code=HTTPStatus.CONFLICT)
 
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
     def download_user_db_snapshot(self, timestamp: Timestamp) -> Response:
-        is_success, zipfile_path = self.rotkehlchen.data.db.repos.snapshots.export_snapshot(
-            timestamp,
-            directory_path=None,
+        dbsnapshot = DBSnapshot(
+            db_handler=self.rotkehlchen.data.db,
+            msg_aggregator=self.rotkehlchen.msg_aggregator,
         )
+        is_success, zipfile_path = dbsnapshot.export(timestamp, directory_path=None)
         if is_success is False:
-            return api_response(
-                wrap_in_fail_result('Could not create a zip archive'),
-                status_code=HTTPStatus.CONFLICT,
-            )
+            return api_response(wrap_in_fail_result('Could not create a zip archive'), status_code=HTTPStatus.CONFLICT)  # noqa: E501
 
         try:
             register_post_download_cleanup(Path(zipfile_path))
@@ -4107,9 +3930,14 @@ class RestAPI:
             )
 
     def delete_user_db_snapshot(self, timestamp: Timestamp) -> Response:
+        dbsnapshot = DBSnapshot(
+            db_handler=self.rotkehlchen.data.db,
+            msg_aggregator=self.rotkehlchen.msg_aggregator,
+        )
         try:
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.snapshots.delete_snapshot(
+            with self.rotkehlchen.data.db.user_write() as write_cursor:
+                dbsnapshot.delete(
+                    write_cursor=write_cursor,
                     timestamp=timestamp,
                 )
         except InputError as e:
@@ -4118,9 +3946,9 @@ class RestAPI:
 
     @async_api_call()
     def get_ens_mappings(
-        self,
-        addresses: list[ChecksumEvmAddress],
-        ignore_cache: bool,
+            self,
+            addresses: list[ChecksumEvmAddress],
+            ignore_cache: bool,
     ) -> dict[str, Any]:
         mappings_to_send: dict[ChecksumEvmAddress, str] = {}
         try:
@@ -4136,26 +3964,26 @@ class RestAPI:
 
     @async_api_call()
     def resolve_ens_name(
-        self,
-        name: str,
-        ignore_cache: bool,
+            self,
+            name: str,
+            ignore_cache: bool,
     ) -> dict[str, Any]:
         address = maybe_resolve_name(
             ethereum_inquirer=self.rotkehlchen.chains_aggregator.ethereum.node_inquirer,
             name=name,
             ignore_cache=ignore_cache,
         )
-        return {
-            'result': address,
-            'message': '',
-            'status_code': HTTPStatus.OK if address else HTTPStatus.NOT_FOUND,
-        }
+        return {'result': address, 'message': '', 'status_code': HTTPStatus.OK if address else HTTPStatus.NOT_FOUND}  # noqa: E501
 
     def import_user_snapshot(
-        self,
-        balances_snapshot_file: Path,
-        location_data_snapshot_file: Path,
+            self,
+            balances_snapshot_file: Path,
+            location_data_snapshot_file: Path,
     ) -> Response:
+        dbsnapshot = DBSnapshot(
+            db_handler=self.rotkehlchen.data.db,
+            msg_aggregator=self.rotkehlchen.msg_aggregator,
+        )
         error_or_empty, processed_balances, processed_location_data = parse_import_snapshot_data(
             balances_snapshot_file=balances_snapshot_file,
             location_data_snapshot_file=location_data_snapshot_file,
@@ -4166,8 +3994,9 @@ class RestAPI:
                 status_code=HTTPStatus.CONFLICT,
             )
         try:
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.snapshots.import_snapshot(
+            with self.rotkehlchen.data.db.user_write() as write_cursor:
+                dbsnapshot.import_snapshot(
+                    write_cursor=write_cursor,
                     processed_balances_list=processed_balances,
                     processed_location_data_list=processed_location_data,
                 )
@@ -4176,18 +4005,20 @@ class RestAPI:
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
     def get_addressbook_entries(
-        self,
-        book_type: AddressbookType,
-        filter_query: AddressbookFilterQuery,
+            self,
+            book_type: AddressbookType,
+            filter_query: AddressbookFilterQuery,
     ) -> Response:
-        # Get addressbook entries using ORM
-        entries, entries_found = self.rotkehlchen.data.db.repos.address_book.get_entries(
-            book_type=book_type,
-            filter_query=filter_query,
-        )
-        entries_total = self.rotkehlchen.data.db.repos.address_book.get_entries_count(
-            book_type=book_type,
-        )
+        db_addressbook = DBAddressbook(self.rotkehlchen.data.db)
+        with db_addressbook.read_ctx(book_type) as cursor:
+            entries, entries_found = db_addressbook.get_addressbook_entries(
+                cursor=cursor,
+                filter_query=filter_query,
+            )
+            entries_total = self.rotkehlchen.data.db.get_entries_count(
+                cursor=cursor,
+                entries_table='address_book',
+            )
         serialized = [entry.serialize() for entry in entries]
         result = {
             'entries': serialized,
@@ -4197,31 +4028,27 @@ class RestAPI:
         return api_response(_wrap_in_ok_result(result))
 
     def add_addressbook_entries(
-        self,
-        book_type: AddressbookType,
-        entries: list[AddressbookEntry],
+            self,
+            book_type: AddressbookType,
+            entries: list[AddressbookEntry],
     ) -> Response:
-        # Add addressbook entries using ORM
-        with self.rotkehlchen.data.db.repos.unit_of_work():
-            self.rotkehlchen.data.db.repos.address_book.add_or_update_entries(
-                book_type=book_type,
+        db_addressbook = DBAddressbook(self.rotkehlchen.data.db)
+        with db_addressbook.write_ctx(book_type) as write_cursor:
+            db_addressbook.add_or_update_addressbook_entries(
+                write_cursor=write_cursor,
                 entries=entries,
             )
 
         return api_response(result=OK_RESULT)
 
     def update_addressbook_entries(
-        self,
-        book_type: AddressbookType,
-        entries: list[AddressbookEntry],
+            self,
+            book_type: AddressbookType,
+            entries: list[AddressbookEntry],
     ) -> Response:
-        # Update addressbook entries using ORM
+        db_addressbook = DBAddressbook(self.rotkehlchen.data.db)
         try:
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.address_book.update_entries(
-                    book_type=book_type,
-                    entries=entries,
-                )
+            db_addressbook.update_addressbook_entries(book_type=book_type, entries=entries)
         except InputError as e:
             return api_response(
                 result=wrap_in_fail_result(str(e)),
@@ -4231,17 +4058,16 @@ class RestAPI:
             return api_response(result=OK_RESULT)
 
     def delete_addressbook_entries(
-        self,
-        book_type: AddressbookType,
-        chain_addresses: list[OptionalChainAddress],
+            self,
+            book_type: AddressbookType,
+            chain_addresses: list[OptionalChainAddress],
     ) -> Response:
-        # Delete addressbook entries using ORM
+        db_addressbook = DBAddressbook(self.rotkehlchen.data.db)
         try:
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.address_book.delete_entries(
-                    book_type=book_type,
-                    chain_addresses=chain_addresses,
-                )
+            db_addressbook.delete_addressbook_entries(
+                book_type=book_type,
+                chain_addresses=chain_addresses,
+            )
         except InputError as e:
             return api_response(
                 result=wrap_in_fail_result(str(e)),
@@ -4251,8 +4077,8 @@ class RestAPI:
             return api_response(result=OK_RESULT)
 
     def search_for_names_everywhere(
-        self,
-        chain_addresses: list[OptionalChainAddress],
+            self,
+            chain_addresses: list[OptionalChainAddress],
     ) -> Response:
         mappings = search_for_addresses_names(
             prioritizer=self.rotkehlchen.addressbook_prioritizer,
@@ -4262,10 +4088,10 @@ class RestAPI:
 
     @async_api_call()
     def detect_evm_tokens(
-        self,
-        only_cache: bool,
-        addresses: Sequence[ChecksumEvmAddress] | None,
-        blockchain: SUPPORTED_EVM_CHAINS_TYPE,
+            self,
+            only_cache: bool,
+            addresses: Sequence[ChecksumEvmAddress] | None,
+            blockchain: SUPPORTED_EVM_CHAINS_TYPE,
     ) -> dict[str, Any]:
         manager: EvmManager = self.rotkehlchen.chains_aggregator.get_chain_manager(blockchain)
         if addresses is None:
@@ -4295,31 +4121,30 @@ class RestAPI:
         config = {
             'max_size_in_mb_all_logs': {
                 'value': self.rotkehlchen.args.max_size_in_mb_all_logs,
-                'is_default': self.rotkehlchen.args.max_size_in_mb_all_logs
-                == DEFAULT_MAX_LOG_SIZE_IN_MB,
+                'is_default': self.rotkehlchen.args.max_size_in_mb_all_logs == DEFAULT_MAX_LOG_SIZE_IN_MB,  # noqa: E501
             },
             'max_logfiles_num': {
                 'value': self.rotkehlchen.args.max_logfiles_num,
-                'is_default': self.rotkehlchen.args.max_logfiles_num
-                == DEFAULT_MAX_LOG_BACKUP_FILES,
+                'is_default': self.rotkehlchen.args.max_logfiles_num == DEFAULT_MAX_LOG_BACKUP_FILES,  # noqa: E501
             },
             'sqlite_instructions': {
                 'value': self.rotkehlchen.args.sqlite_instructions,
-                'is_default': self.rotkehlchen.args.sqlite_instructions
-                == DEFAULT_SQL_VM_INSTRUCTIONS_CB,
+                'is_default': self.rotkehlchen.args.sqlite_instructions == DEFAULT_SQL_VM_INSTRUCTIONS_CB,  # noqa: E501
             },
         }
         return api_response(_wrap_in_ok_result(config), status_code=HTTPStatus.OK)
 
     def get_user_notes(self, filter_query: UserNotesFilterQuery) -> Response:
-        # Get user notes using ORM
-        user_notes, entries_found = (
-            self.rotkehlchen.data.db.repos.user_notes.get_notes_and_limit_info(
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            user_notes, entries_found = self.rotkehlchen.data.db.get_user_notes_and_limit_info(
                 filter_query=filter_query,
+                cursor=cursor,
                 has_premium=has_premium_check(self.rotkehlchen.premium),
             )
-        )
-        user_notes_total = self.rotkehlchen.data.db.repos.user_notes.count()
+            user_notes_total = self.rotkehlchen.data.db.get_entries_count(
+                cursor=cursor,
+                entries_table='user_notes',
+            )
         entries = [entry.serialize() for entry in user_notes]
         result = {
             'entries': entries,
@@ -4330,50 +4155,42 @@ class RestAPI:
         return api_response(_wrap_in_ok_result(result), status_code=HTTPStatus.OK)
 
     def add_user_note(
-        self,
-        title: str,
-        content: str,
-        location: str,
-        is_pinned: bool,
+            self,
+            title: str,
+            content: str,
+            location: str,
+            is_pinned: bool,
     ) -> Response:
         try:
-            # Add user note using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                note_id = self.rotkehlchen.data.db.repos.user_notes.add_note(
-                    title=title,
-                    content=content,
-                    location=location,
-                    is_pinned=is_pinned,
-                    has_premium=self.rotkehlchen.premium is not None,
-                )
+            note_id = self.rotkehlchen.data.db.add_user_note(
+                title=title,
+                content=content,
+                location=location,
+                is_pinned=is_pinned,
+                has_premium=self.rotkehlchen.premium is not None,
+            )
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
         return api_response(result={'result': note_id, 'message': ''}, status_code=HTTPStatus.OK)
 
     def edit_user_note(self, user_note: UserNote) -> Response:
         try:
-            # Edit user note using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.user_notes.update_note(user_note=user_note)
+            self.rotkehlchen.data.db.edit_user_note(user_note=user_note)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
     def delete_user_note(self, identifier: int) -> Response:
         try:
-            # Delete user note using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.user_notes.delete_note(identifier=identifier)
+            self.rotkehlchen.data.db.delete_user_note(identifier=identifier)
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.CONFLICT)
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
     def get_custom_assets(self, filter_query: CustomAssetsFilterQuery) -> Response:
         db_custom_assets = DBCustomAssets(db_handler=self.rotkehlchen.data.db)
-        custom_assets_result, entries_found, entries_total = (
-            db_custom_assets.get_custom_assets_and_limit_info(
-                filter_query=filter_query,
-            )
+        custom_assets_result, entries_found, entries_total = db_custom_assets.get_custom_assets_and_limit_info(  # noqa: E501
+            filter_query=filter_query,
         )
         entries = [entry.to_dict(export_with_type=False) for entry in custom_assets_result]
         result = {
@@ -4409,28 +4226,23 @@ class RestAPI:
 
     def get_event_details(self, identifier: int) -> Response:
         """Gets an evm event details"""
-        event = self.rotkehlchen.data.db.repos.history_events.get_event_by_identifier(
-            identifier=identifier,
-        )
+        dbevents = DBHistoryEvents(self.rotkehlchen.data.db)
+        event = dbevents.get_evm_event_by_identifier(identifier=identifier)
         if event is None:
-            return api_response(
-                wrap_in_fail_result('No event found'), status_code=HTTPStatus.NOT_FOUND,
-            )
+            return api_response(wrap_in_fail_result('No event found'), status_code=HTTPStatus.NOT_FOUND)  # noqa: E501
 
         details = event.get_details()
         if details is None:
-            return api_response(
-                wrap_in_fail_result('No details found'), status_code=HTTPStatus.NOT_FOUND,
-            )
+            return api_response(wrap_in_fail_result('No details found'), status_code=HTTPStatus.NOT_FOUND)  # noqa: E501
 
         return api_response(_wrap_in_ok_result(details), status_code=HTTPStatus.OK)
 
     @async_api_call()
     def add_evm_transaction_by_hash(
-        self,
-        evm_chain: SUPPORTED_CHAIN_IDS,
-        tx_hash: EVMTxHash,
-        associated_address: ChecksumEvmAddress,
+            self,
+            evm_chain: SUPPORTED_CHAIN_IDS,
+            tx_hash: EVMTxHash,
+            associated_address: ChecksumEvmAddress,
     ) -> dict[str, Any]:
         """
         Adds an evm transaction to the DB and associates it with the address provided.
@@ -4465,20 +4277,21 @@ class RestAPI:
         return OK_RESULT
 
     def _get_exchange_staking_or_savings_history(
-        self,
-        only_cache: bool,
-        location: Literal[Location.KRAKEN, Location.BINANCE, Location.BINANCEUS],
-        event_types: list[HistoryEventType],
-        query_filter: HistoryEventFilterQuery,
-        value_filter: HistoryEventFilterQuery,
-        event_subtypes: list[HistoryEventSubType] | None = None,
-        exclude_subtypes: list[HistoryEventSubType] | None = None,
+            self,
+            only_cache: bool,
+            location: Literal[Location.KRAKEN, Location.BINANCE, Location.BINANCEUS],
+            event_types: list[HistoryEventType],
+            query_filter: HistoryEventFilterQuery,
+            value_filter: HistoryEventFilterQuery,
+            event_subtypes: list[HistoryEventSubType] | None = None,
+            exclude_subtypes: list[HistoryEventSubType] | None = None,
     ) -> dict[str, Any]:
         """Query exchanges for either staking or savings history.
 
         If `only_cache` is False, only data stored in the database is returned. Otherwise,
         the latest data is fetched from the exchange.
         """
+        history_events_db = DBHistoryEvents(self.rotkehlchen.data.db)
         table_filter = HistoryEventFilterQuery.make(
             location=location,
             event_types=event_types,
@@ -4502,73 +4315,68 @@ class RestAPI:
             )
 
         # query events from db and remote data(if `only_cache` is false).
-        # Query history events using ORM
-        try:
-            events_raw, entries_found = (
-                self.rotkehlchen.history_querying_manager.query_history_events(
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            try:
+                events_raw, entries_found = self.rotkehlchen.history_querying_manager.query_history_events(  # noqa: E501
+                    cursor=cursor,
                     location=location,
                     filter_query=query_filter,
                     only_cache=only_cache,
                 )
-            )
-        except sqlcipher.OperationalError as e:  # pylint: disable=no-member
-            return wrap_in_fail_result(
-                message=f'Database query error retrieving missing prices {e!s}',
-                status_code=HTTPStatus.CONFLICT,
-            )
+            except sqlcipher.OperationalError as e:  # pylint: disable=no-member
+                return wrap_in_fail_result(
+                    message=f'Database query error retrieving missing prices {e!s}',
+                    status_code=HTTPStatus.CONFLICT,
+                )
 
-        events = []
-        for event in events_raw:
-            try:
-                event_data = history_event_to_staking_for_api(event)
-            except DeserializationError as e:
-                log.warning(f'Could not deserialize staking event: {event} due to {e!s}')
-                continue
-            events.append(event_data)
+            events = []
+            for event in events_raw:
+                try:
+                    event_data = history_event_to_staking_for_api(event)
+                except DeserializationError as e:
+                    log.warning(f'Could not deserialize staking event: {event} due to {e!s}')
+                    continue
+                events.append(event_data)
 
-        entries_total, _ = self.rotkehlchen.data.db.repos.history_events.get_events_count(
-            query_filter=table_filter,
-        )
-        value_query_filters, value_bindings = value_filter.prepare(
-            with_pagination=False, with_order=False,
-        )
-        asset_amounts_and_value, total_usd = (
-            self.rotkehlchen.data.db.repos.history_events.get_amount_and_value_stats(
+            entries_total, _ = history_events_db.get_history_events_count(
+                cursor=cursor,
+                query_filter=table_filter,
+            )
+            value_query_filters, value_bindings = value_filter.prepare(with_pagination=False, with_order=False)  # noqa: E501
+            asset_amounts_and_value, total_usd = history_events_db.get_amount_and_value_stats(
+                cursor=cursor,
                 query_filters=value_query_filters,
                 bindings=value_bindings,
                 counterparty=CPT_KRAKEN,
             )
-        )
-        result = {
-            'entries': events,
-            'entries_found': entries_found,
-            'entries_limit': entries_limit,
-            'entries_total': entries_total,
-            'total_usd_value': total_usd,
-            'assets': (
-                self.rotkehlchen.data.db.repos.history_events.get_entries_assets_history_events(
+            result = {
+                'entries': events,
+                'entries_found': entries_found,
+                'entries_limit': entries_limit,
+                'entries_total': entries_total,
+                'total_usd_value': total_usd,
+                'assets': history_events_db.get_entries_assets_history_events(
+                    cursor=cursor,
                     query_filter=table_filter,
-                )
-            ),
-            'received': [
-                {
-                    'asset': entry[0],
-                    'amount': entry[1],
-                    'usd_value': entry[2],
-                }
-                for entry in asset_amounts_and_value
-            ],
-        }
+                ),
+                'received': [
+                    {
+                        'asset': entry[0],
+                        'amount': entry[1],
+                        'usd_value': entry[2],
+                    } for entry in asset_amounts_and_value
+                ],
+            }
 
         return {'result': result, 'message': message, 'status_code': HTTPStatus.OK}
 
     @async_api_call()
     def get_binance_savings_history(
-        self,
-        only_cache: bool,
-        location: Literal[Location.BINANCE, Location.BINANCEUS],
-        query_filter: HistoryEventFilterQuery,
-        value_filter: HistoryEventFilterQuery,
+            self,
+            only_cache: bool,
+            location: Literal[Location.BINANCE, Location.BINANCEUS],
+            query_filter: HistoryEventFilterQuery,
+            value_filter: HistoryEventFilterQuery,
     ) -> dict[str, Any]:
         """Returns a summary of Binance savings events that match the filter provided."""
         return self._get_exchange_staking_or_savings_history(
@@ -4611,8 +4419,7 @@ class RestAPI:
             return make_response(
                 (
                     b'',
-                    HTTPStatus.CONFLICT,
-                    {'mimetype': 'image/png', 'Content-Type': 'image/png'},
+                    HTTPStatus.CONFLICT, {'mimetype': 'image/png', 'Content-Type': 'image/png'},
                 ),
             )
 
@@ -4632,8 +4439,7 @@ class RestAPI:
                 return make_response(
                     (
                         b'',
-                        HTTPStatus.CONFLICT,
-                        {'mimetype': 'image/png', 'Content-Type': 'image/png'},
+                        HTTPStatus.CONFLICT, {'mimetype': 'image/png', 'Content-Type': 'image/png'},  # noqa: E501
                     ),
                 )
 
@@ -4668,9 +4474,8 @@ class RestAPI:
                 if entry.is_file():
                     entry.unlink()
 
-            # Reset all ENS avatar updates using ORM
-            with self.rotkehlchen.data.db.repos.unit_of_work():
-                self.rotkehlchen.data.db.repos.ens_mappings.reset_all_avatar_updates()
+            with self.rotkehlchen.data.db.user_write() as delete_cursor:
+                delete_cursor.execute('UPDATE ens_mappings SET last_avatar_update=?', (Timestamp(0),))  # noqa: E501
 
             return api_response(OK_RESULT)
 
@@ -4679,10 +4484,11 @@ class RestAPI:
             if avatar.is_file():
                 avatar.unlink()
 
-        # Reset specific ENS avatar updates using ORM
-        with self.rotkehlchen.data.db.repos.unit_of_work():
-            for avatar_name in avatars:
-                self.rotkehlchen.data.db.repos.ens_mappings.reset_avatar_update(avatar_name)
+        with self.rotkehlchen.data.db.user_write() as delete_cursor:
+            delete_cursor.executemany(
+                'UPDATE ens_mappings SET last_avatar_update=? WHERE ens_name=?',
+                [(Timestamp(0), avatar_name) for avatar_name in avatars],
+            )
 
         return api_response(OK_RESULT)
 
@@ -4691,10 +4497,7 @@ class RestAPI:
             'global_mappings': EVENT_CATEGORY_MAPPINGS,
             'entry_type_mappings': ENTRY_TYPE_MAPPINGS,
             'event_category_details': {
-                category: {
-                    'counterparty_mappings': entries,
-                    'direction': category.direction.serialize(),
-                }
+                category: {'counterparty_mappings': entries, 'direction': category.direction.serialize()}  # noqa: E501
                 for category, entries in EVENT_CATEGORY_DETAILS.items()
             },
             'accounting_events_icons': ACCOUNTING_EVENTS_ICONS,
@@ -4724,9 +4527,7 @@ class RestAPI:
         """
         products_mappings: dict[str, list[EvmProduct]] = {}
         for chain_id in EVM_CHAIN_IDS_WITH_TRANSACTIONS:
-            decoder_products = self.rotkehlchen.chains_aggregator.get_evm_manager(
-                chain_id,
-            ).transactions_decoder.get_decoders_products()
+            decoder_products = self.rotkehlchen.chains_aggregator.get_evm_manager(chain_id).transactions_decoder.get_decoders_products()  # noqa: E501
             for decoder, products in decoder_products.items():
                 if decoder in products_mappings:
                     for product in products:
@@ -4736,14 +4537,12 @@ class RestAPI:
                 else:
                     products_mappings[decoder] = products
         return api_response(
-            result=process_result(
-                _wrap_in_ok_result(
-                    {
-                        'mappings': products_mappings,
-                        'products': [product.serialize() for product in EvmProduct],
-                    },
-                ),
-            ),
+            result=process_result(_wrap_in_ok_result(
+                {
+                    'mappings': products_mappings,
+                    'products': [product.serialize() for product in EvmProduct],
+                },
+            )),
             status_code=HTTPStatus.OK,
         )
 
@@ -4755,69 +4554,61 @@ class RestAPI:
         arbitrum_inquirer = self.rotkehlchen.chains_aggregator.arbitrum_one.node_inquirer
         gnosis_inquirer = self.rotkehlchen.chains_aggregator.gnosis.node_inquirer
         polygon_inquirer = self.rotkehlchen.chains_aggregator.polygon_pos.node_inquirer
-        cache_rules: list[tuple[str, CacheType, Callable, ChainID | None, EvmNodeInquirer],] = []
+        cache_rules: list[
+            tuple[str, CacheType, Callable, ChainID | None, EvmNodeInquirer],
+        ] = []
 
         match cache_protocol:
             case ProtocolsWithCache.CURVE:
-                cache_rules.extend(
-                    [
-                        (
-                            'curve pools',
-                            CacheType.CURVE_LP_TOKENS,
-                            query_curve_data,
-                            chain_id,
-                            node_inquirer,
-                        )
-                        for chain_id, node_inquirer in (
-                            (ChainID.ETHEREUM, eth_node_inquirer),
-                            (ChainID.OPTIMISM, optimism_inquirer),
-                            (ChainID.ARBITRUM_ONE, arbitrum_inquirer),
-                            (ChainID.BASE, base_inquirer),
-                            (ChainID.GNOSIS, gnosis_inquirer),
-                            (ChainID.POLYGON_POS, polygon_inquirer),
-                        )
-                    ],
-                )
+                cache_rules.extend([
+                    (
+                        'curve pools',
+                        CacheType.CURVE_LP_TOKENS,
+                        query_curve_data,
+                        chain_id,
+                        node_inquirer,
+                    )
+                    for chain_id, node_inquirer in (
+                        (ChainID.ETHEREUM, eth_node_inquirer),
+                        (ChainID.OPTIMISM, optimism_inquirer),
+                        (ChainID.ARBITRUM_ONE, arbitrum_inquirer),
+                        (ChainID.BASE, base_inquirer),
+                        (ChainID.GNOSIS, gnosis_inquirer),
+                        (ChainID.POLYGON_POS, polygon_inquirer),
+                    )
+                ])
             case ProtocolsWithCache.VELODROME:
-                cache_rules.append(
-                    (
-                        'velodrome pools',
-                        CacheType.VELODROME_POOL_ADDRESS,
-                        query_velodrome_like_data,
-                        None,
-                        optimism_inquirer,
-                    ),
-                )
+                cache_rules.append((
+                    'velodrome pools',
+                    CacheType.VELODROME_POOL_ADDRESS,
+                    query_velodrome_like_data,
+                    None,
+                    optimism_inquirer,
+                ))
             case ProtocolsWithCache.AERODROME:
-                cache_rules.append(
-                    (
-                        'aerodrome pools',
-                        CacheType.AERODROME_POOL_ADDRESS,
-                        query_velodrome_like_data,
-                        None,
-                        base_inquirer,
-                    ),
-                )
+                cache_rules.append((
+                    'aerodrome pools',
+                    CacheType.AERODROME_POOL_ADDRESS,
+                    query_velodrome_like_data,
+                    None,
+                    base_inquirer,
+                ))
             case ProtocolsWithCache.CONVEX:
-                cache_rules.append(
-                    (
-                        'convex pools',
-                        CacheType.CONVEX_POOL_ADDRESS,
-                        query_convex_data,
-                        None,
-                        eth_node_inquirer,
-                    ),
-                )
+                cache_rules.append((
+                    'convex pools',
+                    CacheType.CONVEX_POOL_ADDRESS,
+                    query_convex_data,
+                    None,
+                    eth_node_inquirer,
+                ))
             case ProtocolsWithCache.GEARBOX:
-                cache_rules.append(
-                    (
-                        'gearbox pools',
-                        CacheType.GEARBOX_POOL_ADDRESS,
-                        query_gearbox_data,
-                        ChainID.ETHEREUM,
-                        eth_node_inquirer,
-                    ),
-                )
+                cache_rules.append((
+                    'gearbox pools',
+                    CacheType.GEARBOX_POOL_ADDRESS,
+                    query_gearbox_data,
+                    ChainID.ETHEREUM,
+                    eth_node_inquirer,
+                ))
             case ProtocolsWithCache.YEARN:
                 try:
                     query_yearn_vaults(
@@ -4851,9 +4642,9 @@ class RestAPI:
                         status_code=HTTPStatus.CONFLICT,
                     )
             case ProtocolsWithCache.ETH_WITHDRAWALS:
-                # Delete ETH withdrawals cache using ORM
-                with self.rotkehlchen.data.db.repos.unit_of_work():
-                    self.rotkehlchen.data.db.repos.cache.delete_dynamic_caches(
+                with self.rotkehlchen.data.db.conn.write_ctx() as write_cursor:
+                    self.rotkehlchen.data.db.delete_dynamic_caches(
+                        write_cursor=write_cursor,
                         key_parts=[
                             DBCacheDynamic.WITHDRAWALS_TS.value[0].split('_')[0],
                             DBCacheDynamic.WITHDRAWALS_IDX.value[0].split('_')[0],
@@ -4861,31 +4652,26 @@ class RestAPI:
                     )
 
             case ProtocolsWithCache.ETH_BLOCKS:
-                # Delete ETH blocks cache using ORM
-                with self.rotkehlchen.data.db.repos.unit_of_work():
-                    self.rotkehlchen.data.db.repos.cache.delete_dynamic_caches(
+                with self.rotkehlchen.data.db.conn.write_ctx() as write_cursor:
+                    self.rotkehlchen.data.db.delete_dynamic_caches(
+                        write_cursor=write_cursor,
                         key_parts=[DBCacheDynamic.LAST_PRODUCED_BLOCKS_QUERY_TS.value[0][:30]],
                     )
 
         failed_to_update = []
-        for cache, cache_type, query_method, chain_id, inquirer in cache_rules:
-            if (
-                inquirer.ensure_cache_data_is_updated(
-                    cache_type=cache_type,
-                    query_method=query_method,
-                    chain_id=chain_id,
-                    cache_key_parts=[]
-                    if chain_id is None
-                    else (str(chain_id.serialize_for_db()),),
-                    force_refresh=True,
-                )
-                == RemoteDataQueryStatus.FAILED
-            ):
+        for (cache, cache_type, query_method, chain_id, inquirer) in cache_rules:
+            if inquirer.ensure_cache_data_is_updated(
+                cache_type=cache_type,
+                query_method=query_method,
+                chain_id=chain_id,
+                cache_key_parts=[] if chain_id is None else (str(chain_id.serialize_for_db()),),
+                force_refresh=True,
+            ) == RemoteDataQueryStatus.FAILED:
                 failed_to_update.append(cache)
 
         if len(failed_to_update) != 0:
             return wrap_in_fail_result(
-                message=f"Failed to refresh caches for: {', '.join(failed_to_update)}",
+                message=f'Failed to refresh caches for: {", ".join(failed_to_update)}',
                 status_code=HTTPStatus.CONFLICT,
             )
 
@@ -4895,16 +4681,12 @@ class RestAPI:
         """Returns a list of airdrops metadata"""
         result = []
         try:
-            for identifier, airdrop in fetch_airdrops_metadata(self.rotkehlchen.data.db)[
-                0
-            ].items():
-                result.append(
-                    {
-                        'identifier': identifier,
-                        'name': airdrop.name,
-                        'icon': airdrop.icon,
-                    },
-                )
+            for identifier, airdrop in fetch_airdrops_metadata(self.rotkehlchen.data.db)[0].items():  # noqa: E501
+                result.append({
+                    'identifier': identifier,
+                    'name': airdrop.name,
+                    'icon': airdrop.icon,
+                })
                 if airdrop.icon_url is not None:
                     result[-1]['icon_url'] = airdrop.icon_url
         except RemoteError as e:
@@ -4915,13 +4697,11 @@ class RestAPI:
         """Returns a list of defi metadata"""
         result = []
         for identifier, protocol in DEFI_PROTOCOLS.items():
-            result.append(
-                {
-                    'identifier': identifier,
-                    'name': protocol.name,
-                    'icon': protocol.icon,
-                },
-            )
+            result.append({
+                'identifier': identifier,
+                'name': protocol.name,
+                'icon': protocol.icon,
+            })
         return api_response(result=_wrap_in_ok_result(result=result))
 
     def get_skipped_external_events_summary(self) -> Response:
@@ -4963,21 +4743,21 @@ class RestAPI:
 
     @async_api_call()
     def export_history_events(
-        self,
-        filter_query: HistoryBaseEntryFilterQuery,
-        directory_path: Path | None,
-        match_exact_events: bool,
+            self,
+            filter_query: HistoryBaseEntryFilterQuery,
+            directory_path: Path | None,
+            match_exact_events: bool,
     ) -> dict[str, Any] | Response:
         """Export history events data to a CSV file."""
-        # Get history events using ORM
-        history_events, _, _ = (
-            self.rotkehlchen.data.db.repos.history_events.get_events_and_limit_info(
+        dbevents = DBHistoryEvents(self.rotkehlchen.data.db)
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            history_events, _, _ = dbevents.get_history_events_and_limit_info(
+                cursor=cursor,
                 filter_query=filter_query,
                 has_premium=has_premium_check(self.rotkehlchen.premium),
                 match_exact_events=match_exact_events,
                 entries_limit=None,
             )
-        )
 
         if len(history_events) == 0:
             return wrap_in_fail_result(
@@ -4985,17 +4765,15 @@ class RestAPI:
                 status_code=HTTPStatus.CONFLICT,
             )
 
-        # Get settings using ORM
-        settings = self.rotkehlchen.get_settings()
-        currency = settings.main_currency.resolve_to_asset_with_oracles()
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            settings = self.rotkehlchen.get_settings(cursor)
+            currency = settings.main_currency.resolve_to_asset_with_oracles()
 
         serialized_history_events = []
         headers: dict[str, None] = {}
         query_data, unique_data = [], set()
         for event in history_events:
-            if (
-                entry := (event.asset, currency, ts_ms_to_sec(event.timestamp))
-            ) not in unique_data:
+            if (entry := (event.asset, currency, ts_ms_to_sec(event.timestamp))) not in unique_data:  # noqa: E501
                 unique_data.add(entry)
                 query_data.append(entry)
 
@@ -5004,9 +4782,7 @@ class RestAPI:
             max_seconds_distance=HOUR_IN_SECONDS,
         )
         missing_prices: list[tuple[Asset, Timestamp]] = []
-        cached_db_prices: defaultdict[Asset, defaultdict[Timestamp, FVal]] = defaultdict(
-            lambda: defaultdict(lambda: ZERO),
-        )
+        cached_db_prices: defaultdict[Asset, defaultdict[Timestamp, FVal]] = defaultdict(lambda: defaultdict(lambda: ZERO))  # noqa: E501
         for idx, (asset, _, timestamp) in enumerate(query_data):
             if (db_price := prices_from_db[idx]) is not None:
                 cached_db_prices[db_price.from_asset][db_price.timestamp] = db_price.price
@@ -5022,8 +4798,7 @@ class RestAPI:
 
         for event in history_events:
             serialized_event = event.serialize_for_csv(
-                fiat_value=event.amount
-                * cached_db_prices[event.asset][ts_ms_to_sec(event.timestamp)],
+                fiat_value=event.amount * cached_db_prices[event.asset][ts_ms_to_sec(event.timestamp)],  # noqa: E501
                 settings=settings,
             )
             serialized_history_events.append(serialized_event)
@@ -5031,12 +4806,8 @@ class RestAPI:
             headers.update(dict.fromkeys(serialized_event))
 
         try:
-            filename = generate_events_export_filename(
-                filter_query=filter_query, use_localtime=settings.display_date_in_localtime,
-            )
-            if (
-                directory_path is None
-            ):  # file will be downloaded later via download_history_events_csv endpoint  # noqa: E501
+            filename = generate_events_export_filename(filter_query=filter_query, use_localtime=settings.display_date_in_localtime)  # noqa: E501
+            if directory_path is None:  # file will be downloaded later via download_history_events_csv endpoint  # noqa: E501
                 file_path = Path(tempfile.mkdtemp()) / filename
                 dict_to_csv_file(
                     path=file_path,
@@ -5076,10 +4847,10 @@ class RestAPI:
         )
 
     def _invalidate_cache_for_accounting_rule(
-        self,
-        event_type: HistoryEventType,
-        event_subtype: HistoryEventSubType,
-        counterparty: str | None,
+            self,
+            event_type: HistoryEventType,
+            event_subtype: HistoryEventSubType,
+            counterparty: str | None,
     ) -> None:
         accountant = self.rotkehlchen.accountant
         type_identifier = get_event_type_identifier(
@@ -5092,12 +4863,12 @@ class RestAPI:
             accountant.processable_events_cache.remove(event_id)
 
     def add_accounting_rule(
-        self,
-        event_type: HistoryEventType,
-        event_subtype: HistoryEventSubType,
-        counterparty: str | None,
-        rule: 'BaseEventSettings',
-        links: dict[LINKABLE_ACCOUNTING_PROPERTIES, LINKABLE_ACCOUNTING_SETTINGS_NAME],
+            self,
+            event_type: HistoryEventType,
+            event_subtype: HistoryEventSubType,
+            counterparty: str | None,
+            rule: 'BaseEventSettings',
+            links: dict[LINKABLE_ACCOUNTING_PROPERTIES, LINKABLE_ACCOUNTING_SETTINGS_NAME],
     ) -> Response:
         db = DBAccountingRules(self.rotkehlchen.data.db)
         try:
@@ -5119,13 +4890,13 @@ class RestAPI:
         return api_response(_wrap_in_ok_result(True), status_code=HTTPStatus.OK)
 
     def update_accounting_rule(
-        self,
-        event_type: HistoryEventType,
-        event_subtype: HistoryEventSubType,
-        counterparty: str | None,
-        rule: 'BaseEventSettings',
-        links: dict[LINKABLE_ACCOUNTING_PROPERTIES, LINKABLE_ACCOUNTING_SETTINGS_NAME],
-        identifier: int,
+            self,
+            event_type: HistoryEventType,
+            event_subtype: HistoryEventSubType,
+            counterparty: str | None,
+            rule: 'BaseEventSettings',
+            links: dict[LINKABLE_ACCOUNTING_PROPERTIES, LINKABLE_ACCOUNTING_SETTINGS_NAME],
+            identifier: int,
     ) -> Response:
         db = DBAccountingRules(self.rotkehlchen.data.db)
         try:
@@ -5163,15 +4934,14 @@ class RestAPI:
 
     def query_accounting_rules(self, filter_query: AccountingRulesFilterQuery) -> Response:
         db = self.rotkehlchen.data.db
-        entries, total_filter_count = DBAccountingRules(db).query_rules_and_serialize(
-            filter_query=filter_query,
-        )
-        result = {
-            'entries': entries,
-            'entries_found': total_filter_count,
-            'entries_total': self.rotkehlchen.data.db.repos.accounting_rules.count(),
-            'entries_limit': -1,
-        }
+        entries, total_filter_count = DBAccountingRules(db).query_rules_and_serialize(filter_query=filter_query)  # noqa: E501
+        with db.conn.read_ctx() as cursor:
+            result = {
+                'entries': entries,
+                'entries_found': total_filter_count,
+                'entries_total': self.rotkehlchen.data.db.get_entries_count(cursor=cursor, entries_table='accounting_rules'),  # noqa: E501
+                'entries_limit': -1,
+            }
 
         return api_response(process_result(_wrap_in_ok_result(result)), status_code=HTTPStatus.OK)
 
@@ -5186,9 +4956,9 @@ class RestAPI:
         return api_response(_wrap_in_ok_result(result), status_code=HTTPStatus.OK)
 
     def solve_multiple_accounting_rule_conflicts(
-        self,
-        conflicts: list[tuple[int, Literal['remote', 'local']]],
-        solve_all_using: Literal['remote', 'local'] | None,
+            self,
+            conflicts: list[tuple[int, Literal['remote', 'local']]],
+            solve_all_using: Literal['remote', 'local'] | None,
     ) -> Response:
         conflict_db = DBRemoteConflicts(self.rotkehlchen.data.db)
         try:
@@ -5204,8 +4974,11 @@ class RestAPI:
     def list_accounting_rules_conflicts(self, filter_query: DBFilterQuery) -> Response:
         conflict_db = DBRemoteConflicts(self.rotkehlchen.data.db)
         conflicts = conflict_db.list_accounting_conflicts(filter_query=filter_query)
-        # Get total entries using ORM
-        total_entries = self.rotkehlchen.data.db.repos.unresolved_conflicts.count()
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            total_entries = self.rotkehlchen.data.db.get_entries_count(
+                cursor=cursor,
+                entries_table='unresolved_remote_conflicts',
+            )
         result = {
             'entries': conflicts,
             'entries_found': total_entries,
@@ -5231,9 +5004,11 @@ class RestAPI:
             if token.protocol == SPAM_PROTOCOL:  # remove the spam protocol if it was set
                 set_token_spam_protocol(write_cursor=write_cursor, token=token, is_spam=False)
 
-        # Remove from ignored assets using ORM
-        with self.rotkehlchen.data.db.repos.unit_of_work():
-            self.rotkehlchen.data.db.repos.ignored_assets.remove_ignored_asset(token.identifier)
+        with self.rotkehlchen.data.db.user_write() as write_cursor:  # remove it from the ignored assets  # noqa: E501
+            self.rotkehlchen.data.db.remove_from_ignored_assets(
+                write_cursor=write_cursor,
+                asset=token,
+            )
 
         return api_response(OK_RESULT, status_code=HTTPStatus.OK)
 
@@ -5320,8 +5095,8 @@ class RestAPI:
             )
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.BAD_REQUEST)
-        return api_response(
-            _wrap_in_ok_result({'entry_id': calendar_event_id}),
+        return api_response(_wrap_in_ok_result(
+            {'entry_id': calendar_event_id}),
             status_code=HTTPStatus.OK,
         )
 
@@ -5341,12 +5116,10 @@ class RestAPI:
         result = DBCalendar(self.rotkehlchen.data.db).query_calendar_entry(
             filter_query=filter_query,
         )
-        return api_response(
-            _wrap_in_ok_result(
-                result=process_result(result),
-                status_code=HTTPStatus.OK,
-            ),
-        )
+        return api_response(_wrap_in_ok_result(
+            result=process_result(result),
+            status_code=HTTPStatus.OK,
+        ))
 
     def update_calendar_entry(self, calendar: CalendarEntry) -> Response:
         """Update the calendar entry with the given identifier using the information provided"""
@@ -5357,8 +5130,8 @@ class RestAPI:
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.BAD_REQUEST)
 
-        return api_response(
-            _wrap_in_ok_result({'entry_id': calendar_event_id}),
+        return api_response(_wrap_in_ok_result(
+            {'entry_id': calendar_event_id}),
             status_code=HTTPStatus.OK,
         )
 
@@ -5394,20 +5167,18 @@ class RestAPI:
         except InputError as e:
             return api_response(wrap_in_fail_result(str(e)), status_code=HTTPStatus.BAD_REQUEST)
 
-        return api_response(
-            _wrap_in_ok_result({'entry_id': calendar_event_id}),
+        return api_response(_wrap_in_ok_result(
+            {'entry_id': calendar_event_id}),
             status_code=HTTPStatus.OK,
         )
 
     def query_reminders(self, event_id: int) -> Response:
         """Query the calendar table using the provided filter"""
         result = DBCalendar(self.rotkehlchen.data.db).query_reminder_entry(event_id=event_id)
-        return api_response(
-            _wrap_in_ok_result(
-                result=process_result(result),
-                status_code=HTTPStatus.OK,
-            ),
-        )
+        return api_response(_wrap_in_ok_result(
+            result=process_result(result),
+            status_code=HTTPStatus.OK,
+        ))
 
     def query_wrap_stats(self, from_ts: Timestamp, to_ts: Timestamp) -> Response:
         """Query starts in the time range selected.
@@ -5460,11 +5231,11 @@ class RestAPI:
         return _wrap_in_ok_result(result=balance)
 
     def get_historical_asset_amounts(
-        self,
-        asset: Asset | None,
-        collection_id: int | None,
-        from_timestamp: Timestamp,
-        to_timestamp: Timestamp,
+            self,
+            asset: Asset | None,
+            collection_id: int | None,
+            from_timestamp: Timestamp,
+            to_timestamp: Timestamp,
     ) -> Response:
         assets: tuple[Asset, ...]
         try:
@@ -5478,17 +5249,13 @@ class RestAPI:
                     )
                     assets = tuple(Asset(row[0]) for row in cursor)
 
-            balances, last_event_identifier = HistoricalBalancesManager(
-                self.rotkehlchen.data.db,
-            ).get_assets_amounts(
+            balances, last_event_identifier = HistoricalBalancesManager(self.rotkehlchen.data.db).get_assets_amounts(  # noqa: E501
                 assets=assets,
                 from_ts=from_timestamp,
                 to_ts=to_timestamp,
             )
         except DeserializationError as e:
-            return api_response(
-                wrap_in_fail_result(str(e), status_code=HTTPStatus.INTERNAL_SERVER_ERROR),
-            )
+            return api_response(wrap_in_fail_result(str(e), status_code=HTTPStatus.INTERNAL_SERVER_ERROR))  # noqa: E501
         except NotFoundError as e:
             return api_response(wrap_in_fail_result(str(e), status_code=HTTPStatus.NOT_FOUND))
 
@@ -5502,21 +5269,17 @@ class RestAPI:
         return api_response(_wrap_in_ok_result(result=result))
 
     def get_historical_netvalue(
-        self,
-        from_timestamp: Timestamp,
-        to_timestamp: Timestamp,
+            self,
+            from_timestamp: Timestamp,
+            to_timestamp: Timestamp,
     ) -> Response:
         try:
-            netvalue, missing_prices, last_event_id = HistoricalBalancesManager(
-                self.rotkehlchen.data.db,
-            ).get_historical_netvalue(
+            netvalue, missing_prices, last_event_id = HistoricalBalancesManager(self.rotkehlchen.data.db).get_historical_netvalue(  # noqa: E501
                 from_ts=from_timestamp,
                 to_ts=to_timestamp,
             )
         except DeserializationError as e:
-            return api_response(
-                wrap_in_fail_result(str(e), status_code=HTTPStatus.INTERNAL_SERVER_ERROR),
-            )
+            return api_response(wrap_in_fail_result(str(e), status_code=HTTPStatus.INTERNAL_SERVER_ERROR))  # noqa: E501
         except NotFoundError as e:
             return api_response(wrap_in_fail_result(str(e), status_code=HTTPStatus.NOT_FOUND))
 
@@ -5532,13 +5295,13 @@ class RestAPI:
 
     @async_api_call()
     def get_historical_prices_per_asset(
-        self,
-        asset: Asset,
-        interval: int,
-        to_timestamp: Timestamp,
-        from_timestamp: Timestamp,
-        exclude_timestamps: set[Timestamp],
-        only_cache_period: int | None = None,
+            self,
+            asset: Asset,
+            interval: int,
+            to_timestamp: Timestamp,
+            from_timestamp: Timestamp,
+            exclude_timestamps: set[Timestamp],
+            only_cache_period: int | None = None,
     ) -> dict[str, Any]:
         prices = {}
         no_prices_ts: list[Timestamp] = []
@@ -5549,8 +5312,7 @@ class RestAPI:
         # Generate timestamps at regular intervals up to current time or
         # to_timestamp (whichever comes first). Skip any timestamps found in exclude_timestamps
         timestamps = [
-            ts
-            for i in range((min(ts_now(), to_timestamp) - from_timestamp) // interval + 1)
+            ts for i in range((min(ts_now(), to_timestamp) - from_timestamp) // interval + 1)
             if (ts := Timestamp(from_timestamp + (i * interval))) not in exclude_timestamps
         ]
         if only_cache_period is not None:
@@ -5561,13 +5323,11 @@ class RestAPI:
                 if price_result is not None:
                     prices[price_result.timestamp] = str(price_result.price)
 
-            return _wrap_in_ok_result(
-                result={
-                    'prices': prices,
-                    'no_prices_timestamps': no_prices_ts,
-                    'rate_limited_prices_timestamps': rate_limited_prices_ts,
-                },
-            )
+            return _wrap_in_ok_result(result={
+                'prices': prices,
+                'no_prices_timestamps': no_prices_ts,
+                'rate_limited_prices_timestamps': rate_limited_prices_ts,
+            })
 
         total = len(timestamps)
         for processed_count, current_ts in enumerate(timestamps, 1):
@@ -5595,21 +5355,19 @@ class RestAPI:
                     },
                 )
 
-        return _wrap_in_ok_result(
-            result={
-                'prices': prices,
-                'no_prices_timestamps': no_prices_ts,
-                'rate_limited_prices_timestamps': rate_limited_prices_ts,
-            },
-        )
+        return _wrap_in_ok_result(result={
+            'prices': prices,
+            'no_prices_timestamps': no_prices_ts,
+            'rate_limited_prices_timestamps': rate_limited_prices_ts,
+        })
 
     @async_api_call()
     def force_refetch_evm_transactions(
-        self,
-        from_timestamp: Timestamp,
-        to_timestamp: Timestamp,
-        address: ChecksumEvmAddress | None = None,
-        evm_chain: EVM_CHAIN_IDS_WITH_TRANSACTIONS_TYPE | None = None,
+            self,
+            from_timestamp: Timestamp,
+            to_timestamp: Timestamp,
+            address: ChecksumEvmAddress | None = None,
+            evm_chain: EVM_CHAIN_IDS_WITH_TRANSACTIONS_TYPE | None = None,
     ) -> dict[str, Any]:
         """Re-query EVM transactions for a given time range, adding only missing transactions.
 
@@ -5627,20 +5385,14 @@ class RestAPI:
 
         transaction_count = 0
         db_evmtx = DBEvmTx(self.rotkehlchen.data.db)
-        chains_to_query: list[EVM_CHAIN_IDS_WITH_TRANSACTIONS_TYPE] = (
-            [evm_chain] if evm_chain else list(EVM_CHAIN_IDS_WITH_TRANSACTIONS)
-        )
+        chains_to_query: list[EVM_CHAIN_IDS_WITH_TRANSACTIONS_TYPE] = [evm_chain] if evm_chain else list(EVM_CHAIN_IDS_WITH_TRANSACTIONS)  # noqa: E501
         for chain_id in chains_to_query:
             chain_manager = self.rotkehlchen.chains_aggregator.get_evm_manager(chain_id)
             if address:
                 addresses_to_query: tuple[ChecksumEvmAddress, ...] = (address,)
             else:
-                # Get blockchain accounts using ORM
-                addresses_to_query = (
-                    self.rotkehlchen.data.db.repos.accounts.get_blockchain_accounts().get(
-                        chain_manager.node_inquirer.blockchain,
-                    )
-                )
+                with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+                    addresses_to_query = self.rotkehlchen.data.db.get_blockchain_accounts(cursor).get(chain_manager.node_inquirer.blockchain)  # noqa: E501
 
             if len(addresses_to_query) == 0:
                 continue
@@ -5659,9 +5411,7 @@ class RestAPI:
                         end_ts=to_timestamp,
                     )
                 except (sqlcipher.OperationalError, RemoteError, DeserializationError) as e:  # pylint: disable=no-member
-                    log.debug(
-                        f'Skipping transaction refetching for {addr} on {chain_id} due to: {e!s}',
-                    )
+                    log.debug(f'Skipping transaction refetching for {addr} on {chain_id} due to: {e!s}')  # noqa: E501
                     continue
 
             # Get total count after query and count the difference as addition
@@ -5670,30 +5420,32 @@ class RestAPI:
                 from_ts=from_timestamp,
                 to_ts=to_timestamp,
             )
-            transaction_count += after_count - before_count
+            transaction_count += (after_count - before_count)
 
         return _wrap_in_ok_result({'new_transactions_count': transaction_count})
 
     def addresses_interacted_before(
-        self,
-        from_address: ChecksumEvmAddress,
-        to_address: ChecksumEvmAddress,
+            self,
+            from_address: ChecksumEvmAddress,
+            to_address: ChecksumEvmAddress,
     ) -> Response:
-        # Check if addresses have interacted using ORM
-        count = self.rotkehlchen.data.db.repos.history_events.count_interactions(
-            from_address=from_address,
-            to_address=to_address,
-        )
-        return api_response(_wrap_in_ok_result(result=count > 0))
+        with self.rotkehlchen.data.db.conn.read_ctx() as cursor:
+            cursor.execute(
+                'SELECT COUNT(*) FROM history_events JOIN evm_events_info ON '
+                'history_events.identifier=evm_events_info.identifier WHERE '
+                'location_label=? AND address=?',
+                (from_address, to_address),
+            )
+            return api_response(_wrap_in_ok_result(result=cursor.fetchone()[0] > 0))
 
     @async_api_call()
     def prepare_token_transfer(
-        self,
-        from_address: ChecksumEvmAddress,
-        to_address: ChecksumEvmAddress,
-        blockchain: 'SUPPORTED_EVM_CHAINS_TYPE',
-        token: EvmToken,
-        amount: FVal,
+            self,
+            from_address: ChecksumEvmAddress,
+            to_address: ChecksumEvmAddress,
+            blockchain: 'SUPPORTED_EVM_CHAINS_TYPE',
+            token: EvmToken,
+            amount: FVal,
     ) -> dict[str, Any]:
         manager = self.rotkehlchen.chains_aggregator.get_chain_manager(blockchain=blockchain)
 
@@ -5711,11 +5463,11 @@ class RestAPI:
 
     @async_api_call()
     def prepare_native_transfer(
-        self,
-        from_address: ChecksumEvmAddress,
-        to_address: ChecksumEvmAddress,
-        chain: 'EVM_CHAIN_IDS_WITH_TRANSACTIONS_TYPE',
-        amount: FVal,
+            self,
+            from_address: ChecksumEvmAddress,
+            to_address: ChecksumEvmAddress,
+            chain: 'EVM_CHAIN_IDS_WITH_TRANSACTIONS_TYPE',
+            amount: FVal,
     ) -> dict[str, Any]:
         manager = self.rotkehlchen.chains_aggregator.get_chain_manager(chain.to_blockchain())  # type: ignore[arg-type]
 
@@ -5732,10 +5484,10 @@ class RestAPI:
 
     @async_api_call()
     def fetch_token_balance_for_address(
-        self,
-        address: ChecksumEvmAddress,
-        evm_chain: EVM_CHAIN_IDS_WITH_TRANSACTIONS_TYPE,
-        asset: 'CryptoAsset',
+            self,
+            address: ChecksumEvmAddress,
+            evm_chain: EVM_CHAIN_IDS_WITH_TRANSACTIONS_TYPE,
+            asset: 'CryptoAsset',
     ) -> dict[str, Any]:
         node_inquirer = self.rotkehlchen.chains_aggregator.get_evm_manager(evm_chain).node_inquirer
         try:

@@ -36,7 +36,6 @@ class DataHandler:
         self.username = 'no_user'
         self.msg_aggregator = msg_aggregator
         self.sql_vm_instructions_cb = sql_vm_instructions_cb
-        self.db: DBHandler | None = None
 
     def logout(self) -> None:
         if self.logged_in:
@@ -44,8 +43,9 @@ class DataHandler:
             self.user_data_dir: Path | None = None
             db = getattr(self, 'db', None)
             if db is not None:
+                with self.db.conn.read_ctx() as cursor:
+                    self.db.update_owned_assets_in_globaldb(cursor)
                 self.db.logout()
-                self.db = None
             self.logged_in = False
 
     def unlock(
@@ -108,11 +108,11 @@ class DataHandler:
                     'A backup of the user directory was created.',
                 ) from e
 
-        self.db = DBHandler(
+        self.db: DBHandler = DBHandler(
             user_data_dir=user_data_dir,
             password=password,
             msg_aggregator=self.msg_aggregator,
-            initial_settings=initial_settings if create_new else None,
+            initial_settings=initial_settings,
             sql_vm_instructions_cb=self.sql_vm_instructions_cb,
             resume_from_backup=resume_from_backup,
         )
@@ -128,22 +128,17 @@ class DataHandler:
         ignored.
         """
         already_ignored, to_ignore = set(), set()
-
-        # Get currently ignored assets
         with self.db.conn.read_ctx() as cursor:
-            cursor.execute("SELECT value FROM multisettings WHERE name='ignored_asset'")
-            ignored_asset_ids = {row[0] for row in cursor}
+            ignored_asset_ids = self.db.get_ignored_asset_ids(cursor)
+            for asset in assets:
+                if asset.identifier in ignored_asset_ids:
+                    already_ignored.add(asset)
+                else:
+                    to_ignore.add(asset)
 
-        for asset in assets:
-            if asset.identifier in ignored_asset_ids:
-                already_ignored.add(asset)
-            else:
-                to_ignore.add(asset)
-
-        # Add new ignored assets
         with self.db.user_write() as write_cursor:
             for asset in to_ignore:
-                self.db.add_to_ignored_assets(write_cursor, asset)
+                self.db.add_to_ignored_assets(write_cursor=write_cursor, asset=asset)
 
         return to_ignore, already_ignored
 
@@ -154,22 +149,17 @@ class DataHandler:
         ignored.
         """
         not_ignored, to_unignore = set(), set()
-
-        # Get currently ignored assets
         with self.db.conn.read_ctx() as cursor:
-            cursor.execute("SELECT value FROM multisettings WHERE name='ignored_asset'")
-            ignored_asset_ids = {row[0] for row in cursor}
+            ignored_asset_ids = self.db.get_ignored_asset_ids(cursor)
+            for asset in assets:
+                if asset.identifier not in ignored_asset_ids:
+                    not_ignored.add(asset)
+                else:
+                    to_unignore.add(asset)
 
-        for asset in assets:
-            if asset.identifier not in ignored_asset_ids:
-                not_ignored.add(asset)
-            else:
-                to_unignore.add(asset)
-
-        # Remove from ignored assets
         with self.db.user_write() as write_cursor:
             for asset in to_unignore:
-                self.db.remove_from_ignored_assets(write_cursor, asset)
+                self.db.remove_from_ignored_assets(write_cursor=write_cursor, asset=asset)
 
         return to_unignore, not_ignored
 
@@ -199,9 +189,6 @@ class DataHandler:
         and then re-encrypt it
 
         Returns a b64 encoded binary blob"""
-        # First backup the database to the temp path
-        self.db.backup(tempdbpath)
-
         compressor = zlib.compressobj(level=9)
         source_data = bytearray()
         compressed_data = bytearray()
@@ -217,9 +204,7 @@ class DataHandler:
         original_data_hash = base64.b64encode(
             hashlib.sha256(source_data).digest(),
         ).decode()
-        # Get password from database session manager
-        password = self.db.session_manager.password
-        encrypted_data = encrypt(password.encode(), bytes(compressed_data))
+        encrypted_data = encrypt(self.db.password.encode(), bytes(compressed_data))
         # cleanup temp file to avoid windows problem (https://github.com/rotki/rotki/issues/5051)
         tempdbpath.unlink()
         return encrypted_data, original_data_hash
@@ -245,24 +230,6 @@ class DataHandler:
             users_dir / self.username / f'rotkehlchen_db_{date}.backup',
         )
 
-        # Get password from database session manager
-        password = self.db.session_manager.password
-        decrypted_data = decrypt(password.encode(), encrypted_data)
+        decrypted_data = decrypt(self.db.password.encode(), encrypted_data)
         decompressed_data = zlib.decompress(decrypted_data)
-
-        # Write decompressed data to temporary file and restore
-        temp_db_path = self.user_data_dir / 'temp_restore.db'
-        with open(temp_db_path, 'wb') as f:
-            f.write(decompressed_data)
-
-        # Close current DB and replace with restored one
-        self.db.close()
-        db_path = self.user_data_dir / USERDB_NAME
-        shutil.move(str(temp_db_path), str(db_path))
-
-        # Reopen database
-        self.db = create_database(
-            user_data_dir=self.user_data_dir,
-            password=password,
-            echo_sql=False,
-        )
+        self.db.import_unencrypted(decompressed_data)

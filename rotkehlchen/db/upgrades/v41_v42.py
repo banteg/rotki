@@ -83,7 +83,7 @@ def upgrade_v41_to_v42(db: 'DBHandler', progress_handler: 'DBUpgradeProgressHand
         from_asset TEXT NOT NULL,
         from_amount TEXT NOT NULL,
         to_asset TEXT NOT NULL,
-        to_amount TEXT NOT NULL,
+        to_amount TEXT_NOT NULL,
         FOREIGN KEY(tx_id) REFERENCES zksynclite_transactions(identifier) ON UPDATE CASCADE ON DELETE CASCADE,
         FOREIGN KEY(from_asset) REFERENCES assets(identifier) ON UPDATE CASCADE,
         FOREIGN KEY(to_asset) REFERENCES assets(identifier) ON UPDATE CASCADE
