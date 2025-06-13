@@ -1,7 +1,7 @@
 """Async Eth2 service for ETH2/staking operations"""
 from typing import TYPE_CHECKING, Any
 
-from rotki2.api.v2.repositories.async_eth2 import AsyncEth2Repository
+from rotki2.api.v2.repositories.eth2 import Eth2Repository
 from rotkehlchen.chain.ethereum.modules.eth2.structures import (
     ValidatorDailyStats,
     ValidatorDetails,
@@ -22,7 +22,7 @@ class AsyncEth2Service:
     
     def __init__(
         self,
-        eth2_repository: AsyncEth2Repository,
+        eth2_repository: Eth2Repository,
     ):
         self.eth2_repository = eth2_repository
     

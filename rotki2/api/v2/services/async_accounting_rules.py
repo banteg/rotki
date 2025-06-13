@@ -2,7 +2,7 @@
 from typing import TYPE_CHECKING, Any
 
 from rotkehlchen.accounting.types import EventAccountingRuleStatus
-from rotki2.api.v2.repositories.async_accounting_rule import AsyncAccountingRuleRepository
+from rotki2.api.v2.repositories.accounting_rule import AccountingRuleRepository
 from rotkehlchen.chain.evm.accounting.structures import BaseEventSettings, TxAccountingTreatment
 from rotkehlchen.db.constants import (
     LINKABLE_ACCOUNTING_PROPERTIES,
@@ -22,7 +22,7 @@ class AsyncAccountingRulesService:
     
     def __init__(
         self,
-        accounting_rule_repository: AsyncAccountingRuleRepository,
+        accounting_rule_repository: AccountingRuleRepository,
         accountant: 'Accountant | None' = None,
     ):
         self.accounting_rule_repository = accounting_rule_repository

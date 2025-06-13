@@ -3,7 +3,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel, select
 
-from rotki2.api.v2.repositories.async_accounting_rule import AsyncAccountingRuleRepository
+from rotki2.api.v2.repositories.accounting_rule import AccountingRuleRepository
 from rotki2.api.v2.services.async_accounting_rules import AsyncAccountingRulesService
 from rotkehlchen.chain.evm.accounting.structures import BaseEventSettings, TxAccountingTreatment
 from rotkehlchen.db.constants import (
@@ -18,14 +18,14 @@ from rotkehlchen.history.events.structures.types import HistoryEventSubType, His
 
 
 @pytest.fixture
-async def accounting_rule_repository(async_session: AsyncSession) -> AsyncAccountingRuleRepository:
+async def accounting_rule_repository(async_session: AsyncSession) -> AccountingRuleRepository:
     """Create an async accounting rule repository instance."""
-    return AsyncAccountingRuleRepository(async_session)
+    return AccountingRuleRepository(async_session)
 
 
 @pytest.fixture
 async def accounting_rules_service(
-    accounting_rule_repository: AsyncAccountingRuleRepository,
+    accounting_rule_repository: AccountingRuleRepository,
 ) -> AsyncAccountingRulesService:
     """Create an async accounting rules service instance."""
     return AsyncAccountingRulesService(
@@ -54,12 +54,12 @@ async def sample_links() -> dict[LINKABLE_ACCOUNTING_PROPERTIES, LINKABLE_ACCOUN
     }
 
 
-class TestAsyncAccountingRuleRepository:
+class TestAccountingRuleRepository:
     """Test async accounting rule repository functionality."""
 
     async def test_add_accounting_rule(
         self,
-        accounting_rule_repository: AsyncAccountingRuleRepository,
+        accounting_rule_repository: AccountingRuleRepository,
         sample_rule: BaseEventSettings,
         sample_links: dict,
     ):
@@ -98,7 +98,7 @@ class TestAsyncAccountingRuleRepository:
 
     async def test_add_duplicate_rule_fails(
         self,
-        accounting_rule_repository: AsyncAccountingRuleRepository,
+        accounting_rule_repository: AccountingRuleRepository,
         sample_rule: BaseEventSettings,
     ):
         """Test that adding a duplicate rule fails."""
@@ -123,7 +123,7 @@ class TestAsyncAccountingRuleRepository:
 
     async def test_add_rule_with_force_update(
         self,
-        accounting_rule_repository: AsyncAccountingRuleRepository,
+        accounting_rule_repository: AccountingRuleRepository,
         sample_rule: BaseEventSettings,
     ):
         """Test adding a rule with force update."""
@@ -166,7 +166,7 @@ class TestAsyncAccountingRuleRepository:
 
     async def test_remove_accounting_rule(
         self,
-        accounting_rule_repository: AsyncAccountingRuleRepository,
+        accounting_rule_repository: AccountingRuleRepository,
         sample_rule: BaseEventSettings,
         sample_links: dict,
     ):
@@ -201,7 +201,7 @@ class TestAsyncAccountingRuleRepository:
 
     async def test_remove_nonexistent_rule_fails(
         self,
-        accounting_rule_repository: AsyncAccountingRuleRepository,
+        accounting_rule_repository: AccountingRuleRepository,
     ):
         """Test that removing a nonexistent rule fails."""
         with pytest.raises(InputError, match='does not exist'):
@@ -209,7 +209,7 @@ class TestAsyncAccountingRuleRepository:
 
     async def test_update_accounting_rule(
         self,
-        accounting_rule_repository: AsyncAccountingRuleRepository,
+        accounting_rule_repository: AccountingRuleRepository,
         sample_rule: BaseEventSettings,
     ):
         """Test updating an accounting rule."""
@@ -258,7 +258,7 @@ class TestAsyncAccountingRuleRepository:
 
     async def test_get_rules_for_event(
         self,
-        accounting_rule_repository: AsyncAccountingRuleRepository,
+        accounting_rule_repository: AccountingRuleRepository,
         sample_rule: BaseEventSettings,
     ):
         """Test getting rules for specific event criteria."""
@@ -309,7 +309,7 @@ class TestAsyncAccountingRuleRepository:
 
     async def test_get_all_rules_with_filter(
         self,
-        accounting_rule_repository: AsyncAccountingRuleRepository,
+        accounting_rule_repository: AccountingRuleRepository,
         sample_rule: BaseEventSettings,
     ):
         """Test getting all rules with filter."""
@@ -339,7 +339,7 @@ class TestAsyncAccountingRuleRepository:
 
     async def test_rule_with_no_counterparty(
         self,
-        accounting_rule_repository: AsyncAccountingRuleRepository,
+        accounting_rule_repository: AccountingRuleRepository,
         sample_rule: BaseEventSettings,
     ):
         """Test handling rules with no counterparty."""

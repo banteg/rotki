@@ -3,7 +3,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from rotki2.api.v2.repositories.async_eth2 import AsyncEth2Repository
+from rotki2.api.v2.repositories.eth2 import Eth2Repository
 from rotki2.api.v2.services.async_eth2 import AsyncEth2Service
 from rotkehlchen.chain.ethereum.modules.eth2.structures import ValidatorDailyStats, ValidatorDetails
 from rotkehlchen.constants import ONE
@@ -12,20 +12,20 @@ from rotkehlchen.types import ChecksumEvmAddress, Eth2PubKey, Timestamp
 
 
 @pytest_asyncio.fixture
-async def eth2_repository(async_session: AsyncSession) -> AsyncEth2Repository:
+async def eth2_repository(async_session: AsyncSession) -> Eth2Repository:
     """Create an async ETH2 repository instance."""
-    return AsyncEth2Repository(async_session)
+    return Eth2Repository(async_session)
 
 
 @pytest_asyncio.fixture
-async def eth2_service(eth2_repository: AsyncEth2Repository) -> AsyncEth2Service:
+async def eth2_service(eth2_repository: Eth2Repository) -> AsyncEth2Service:
     """Create an async ETH2 service instance."""
     return AsyncEth2Service(eth2_repository)
 
 
 @pytest.mark.asyncio
 async def test_validator_crud_operations_with_orm(
-    eth2_repository: AsyncEth2Repository,
+    eth2_repository: Eth2Repository,
 ):
     """Test CRUD operations using ORM."""
     # Create validator
@@ -83,7 +83,7 @@ async def test_validator_crud_operations_with_orm(
 
 @pytest.mark.asyncio
 async def test_daily_stats_operations_with_orm(
-    eth2_repository: AsyncEth2Repository,
+    eth2_repository: Eth2Repository,
 ):
     """Test daily stats operations using ORM."""
     # First add a validator
@@ -133,7 +133,7 @@ async def test_daily_stats_operations_with_orm(
 
 @pytest.mark.asyncio
 async def test_count_operations_with_orm(
-    eth2_repository: AsyncEth2Repository,
+    eth2_repository: Eth2Repository,
 ):
     """Test count operations using ORM."""
     # Initially empty

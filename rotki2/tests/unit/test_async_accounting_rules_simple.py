@@ -3,7 +3,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from rotki2.api.v2.repositories.async_accounting_rule import AsyncAccountingRuleRepository
+from rotki2.api.v2.repositories.accounting_rule import AccountingRuleRepository
 from rotki2.api.v2.services.async_accounting_rules import AsyncAccountingRulesService
 from rotkehlchen.chain.evm.accounting.structures import BaseEventSettings, TxAccountingTreatment
 from rotkehlchen.db.constants import NO_ACCOUNTING_COUNTERPARTY
@@ -12,14 +12,14 @@ from rotkehlchen.history.events.structures.types import HistoryEventSubType, His
 
 
 @pytest.fixture
-async def accounting_rule_repository(async_session: AsyncSession) -> AsyncAccountingRuleRepository:
+async def accounting_rule_repository(async_session: AsyncSession) -> AccountingRuleRepository:
     """Create an async accounting rule repository instance."""
-    return AsyncAccountingRuleRepository(async_session)
+    return AccountingRuleRepository(async_session)
 
 
 @pytest.fixture
 async def accounting_rules_service(
-    accounting_rule_repository: AsyncAccountingRuleRepository,
+    accounting_rule_repository: AccountingRuleRepository,
 ) -> AsyncAccountingRulesService:
     """Create an async accounting rules service instance."""
     return AsyncAccountingRulesService(

@@ -1,7 +1,7 @@
 """Async ENS service for ENS operations"""
 from typing import TYPE_CHECKING
 
-from rotki2.api.v2.repositories.async_ens import AsyncENSRepository
+from rotki2.api.v2.repositories.ens import ENSRepository
 from rotkehlchen.types import ChecksumEvmAddress, Timestamp
 from rotkehlchen.utils.misc import ts_now
 
@@ -14,7 +14,7 @@ class AsyncENSService:
 
     def __init__(
         self,
-        ens_repository: AsyncENSRepository,
+        ens_repository: ENSRepository,
         chains_aggregator: 'ChainsAggregator | None' = None,
     ):
         self.ens_repository = ens_repository

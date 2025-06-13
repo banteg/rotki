@@ -9,7 +9,7 @@ from rotki2.api.v2.dependencies import (
     get_chains_aggregator,
     require_logged_in_user,
 )
-from rotki2.api.v2.repositories.async_ens import AsyncENSRepository
+from rotki2.api.v2.repositories.ens import ENSRepository
 from rotki2.api.v2.services.async_ens import AsyncENSService
 from rotkehlchen.chain.evm.types import string_to_evm_address
 from rotkehlchen.errors.misc import InputError
@@ -39,7 +39,7 @@ class ResolveEnsRequest(BaseModel):
 
 
 async def get_async_ens_service(
-    ens_repository: Annotated[AsyncENSRepository, Depends(get_async_ens_repository)],
+    ens_repository: Annotated[ENSRepository, Depends(get_async_ens_repository)],
     chains_aggregator: Annotated['ChainsAggregator', Depends(get_chains_aggregator)],
 ) -> AsyncENSService:
     """Get async ENS service instance"""

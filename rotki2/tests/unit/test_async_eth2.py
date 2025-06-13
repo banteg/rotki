@@ -4,7 +4,7 @@ import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from rotki2.api.v2.repositories.async_eth2 import AsyncEth2Repository
+from rotki2.api.v2.repositories.eth2 import Eth2Repository
 from rotki2.api.v2.services.async_eth2 import AsyncEth2Service
 from rotkehlchen.chain.ethereum.modules.eth2.structures import ValidatorDailyStats, ValidatorDetails
 from rotkehlchen.constants import ONE
@@ -46,14 +46,14 @@ async def setup_eth2_tables(async_session: AsyncSession):
 async def eth2_repository(
     async_session: AsyncSession,
     setup_eth2_tables,
-) -> AsyncEth2Repository:
+) -> Eth2Repository:
     """Create an async ETH2 repository instance."""
-    return AsyncEth2Repository(async_session)
+    return Eth2Repository(async_session)
 
 
 @pytest_asyncio.fixture
 async def eth2_service(
-    eth2_repository: AsyncEth2Repository,
+    eth2_repository: Eth2Repository,
 ) -> AsyncEth2Service:
     """Create an async ETH2 service instance."""
     return AsyncEth2Service(eth2_repository)
@@ -145,7 +145,7 @@ async def test_add_validator_daily_stats(async_session: AsyncSession, setup_eth2
 
 @pytest.mark.asyncio
 async def test_get_validators(
-    eth2_repository: AsyncEth2Repository,
+    eth2_repository: Eth2Repository,
     sample_validator: ValidatorDetails,
 ):
     """Test getting validators through repository."""
@@ -162,7 +162,7 @@ async def test_get_validators(
 
 @pytest.mark.asyncio
 async def test_validator_exists(
-    eth2_repository: AsyncEth2Repository,
+    eth2_repository: Eth2Repository,
     sample_validator: ValidatorDetails,
 ):
     """Test checking if validator exists."""
@@ -180,7 +180,7 @@ async def test_validator_exists(
 
 @pytest.mark.asyncio
 async def test_edit_validator_ownership(
-    eth2_repository: AsyncEth2Repository,
+    eth2_repository: Eth2Repository,
     sample_validator: ValidatorDetails,
 ):
     """Test editing validator ownership proportion."""
@@ -202,7 +202,7 @@ async def test_edit_validator_ownership(
 
 @pytest.mark.asyncio
 async def test_delete_validators(
-    eth2_repository: AsyncEth2Repository,
+    eth2_repository: Eth2Repository,
     sample_validator: ValidatorDetails,
     sample_daily_stats: ValidatorDailyStats,
 ):
@@ -227,7 +227,7 @@ async def test_delete_validators(
 
 @pytest.mark.asyncio
 async def test_get_validator_daily_stats(
-    eth2_repository: AsyncEth2Repository,
+    eth2_repository: Eth2Repository,
     sample_validator: ValidatorDetails,
 ):
     """Test getting validator daily stats."""
@@ -264,7 +264,7 @@ async def test_get_validator_daily_stats(
 
 @pytest.mark.asyncio
 async def test_get_performance_stats(
-    eth2_repository: AsyncEth2Repository,
+    eth2_repository: Eth2Repository,
     sample_validator: ValidatorDetails,
 ):
     """Test getting performance stats."""

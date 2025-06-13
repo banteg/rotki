@@ -9,7 +9,7 @@ from sqlmodel import Session
 from rotki2.api.v2.repositories.accounting_rule import AccountingRuleRepository
 from rotki2.api.v2.repositories.addressbook import AddressBookRepository
 from rotki2.api.v2.repositories.blockchain_account import BlockchainAccountRepository
-from rotki2.api.v2.repositories.eth2_validator import Eth2ValidatorRepository
+from rotki2.api.v2.repositories.eth2 import Eth2Repository
 from rotki2.api.v2.repositories.evm_transaction import EvmTransactionRepository
 from rotki2.api.v2.repositories.nft import NFTRepository
 from rotki2.api.v2.repositories.settings import MultiSettingsRepository, SettingsRepository
@@ -211,11 +211,11 @@ def get_evm_transaction_repository(
     return EvmTransactionRepository(session)
 
 
-def get_eth2_validator_repository(
-    session: Annotated[Session, Depends(get_db_session)],
-) -> Eth2ValidatorRepository:
-    """Get Eth2ValidatorRepository instance"""
-    return Eth2ValidatorRepository(session)
+def get_eth2_repository(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> Eth2Repository:
+    """Get Eth2Repository instance"""
+    return Eth2Repository(session)
 
 
 def get_tag_repository(
@@ -275,18 +275,18 @@ async def get_async_session(request: Request) -> AsyncGenerator[AsyncSession, No
 # Async repository dependencies
 def get_async_ens_repository(
     session: Annotated[AsyncSession, Depends(get_async_session)],
-) -> 'AsyncENSRepository':
-    """Get AsyncENSRepository instance"""
-    from rotki2.api.v2.repositories.async_ens import AsyncENSRepository
-    return AsyncENSRepository(session)
+) -> 'ENSRepository':
+    """Get ENSRepository instance"""
+    from rotki2.api.v2.repositories.ens import ENSRepository
+    return ENSRepository(session)
 
 
 def get_async_addressbook_repository(
     session: Annotated[AsyncSession, Depends(get_async_session)],
-) -> 'AsyncAddressBookRepository':
-    """Get AsyncAddressBookRepository instance"""
-    from rotki2.api.v2.repositories.async_addressbook import AsyncAddressBookRepository
-    return AsyncAddressBookRepository(session)
+) -> 'AddressBookRepository':
+    """Get AddressBookRepository instance"""
+    from rotki2.api.v2.repositories.addressbook import AddressBookRepository
+    return AddressBookRepository(session)
 
 
 def get_async_loopring_repository(
@@ -299,15 +299,15 @@ def get_async_loopring_repository(
 
 def get_async_accounting_rule_repository(
     session: Annotated[AsyncSession, Depends(get_async_session)],
-) -> 'AsyncAccountingRuleRepository':
-    """Get AsyncAccountingRuleRepository instance"""
-    from rotki2.api.v2.repositories.async_accounting_rule import AsyncAccountingRuleRepository
-    return AsyncAccountingRuleRepository(session)
+) -> 'AccountingRuleRepository':
+    """Get AccountingRuleRepository instance"""
+    from rotki2.api.v2.repositories.accounting_rule import AccountingRuleRepository
+    return AccountingRuleRepository(session)
 
 
 # Async service dependencies
 def get_async_ens_service(
-    ens_repository: Annotated['AsyncENSRepository', Depends(get_async_ens_repository)],
+    ens_repository: Annotated['ENSRepository', Depends(get_async_ens_repository)],
 ) -> 'AsyncENSService':
     """Get AsyncENSService instance"""
     from rotki2.api.v2.services.async_ens import AsyncENSService
@@ -315,7 +315,7 @@ def get_async_ens_service(
 
 
 def get_async_addressbook_service(
-    addressbook_repository: Annotated['AsyncAddressBookRepository', Depends(get_async_addressbook_repository)],
+    addressbook_repository: Annotated['AddressBookRepository', Depends(get_async_addressbook_repository)],
 ) -> 'AsyncAddressBookService':
     """Get AsyncAddressBookService instance"""
     from rotki2.api.v2.services.async_addressbook import AsyncAddressBookService
@@ -331,7 +331,7 @@ def get_async_loopring_service(
 
 
 def get_async_accounting_rules_service(
-    accounting_rule_repository: Annotated['AsyncAccountingRuleRepository', Depends(get_async_accounting_rule_repository)],
+    accounting_rule_repository: Annotated['AccountingRuleRepository', Depends(get_async_accounting_rule_repository)],
     accountant: Annotated['Accountant', Depends(get_accountant)],
 ) -> 'AsyncAccountingRulesService':
     """Get AsyncAccountingRulesService instance"""

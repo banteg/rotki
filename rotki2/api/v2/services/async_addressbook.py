@@ -1,7 +1,7 @@
 """Async AddressBook service for addressbook operations"""
 from typing import TYPE_CHECKING, Any
 
-from rotki2.api.v2.repositories.async_addressbook import AsyncAddressBookRepository
+from rotki2.api.v2.repositories.addressbook import AddressBookRepository
 from rotkehlchen.db.filtering import AddressbookFilterQuery
 from rotkehlchen.errors.misc import InputError
 from rotkehlchen.types import (
@@ -21,7 +21,7 @@ class AsyncAddressBookService:
 
     def __init__(
         self,
-        addressbook_repository: AsyncAddressBookRepository,
+        addressbook_repository: AddressBookRepository,
         book_type: AddressbookType,
         global_db: 'GlobalDBHandler | None' = None,
     ):

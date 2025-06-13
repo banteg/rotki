@@ -1,24 +1,24 @@
 """ENS repository for v2 API.
 
-Handles all ENS-related database operations.
-"""
+Handles all ENS-related async database operations."""
 
-from sqlmodel import Session, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
-from rotki2.api.v2.repositories.base import BaseRepository
+from rotki2.api.v2.repositories.async_base import AsyncBaseRepository
 from rotki2.db.models.user.ens import ENSMapping
 from rotkehlchen.errors.misc import InputError
 from rotkehlchen.types import ChecksumEvmAddress, EnsMapping, Timestamp
 from rotkehlchen.utils.misc import ts_now
 
 
-class ENSRepository(BaseRepository[ENSMapping]):
+class ENSRepository(AsyncBaseRepository[ENSMapping]):
     """Repository for ENS mappings."""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         super().__init__(session, ENSMapping)
 
-    def add_ens_mapping(
+    async def add_ens_mapping(
         self,
         address: ChecksumEvmAddress,
         name: str | None,
@@ -33,15 +33,15 @@ class ENSRepository(BaseRepository[ENSMapping]):
             now = ts_now()
 
         # Check if mapping exists
-        existing = self.session.get(ENSMapping, address)
+        existing = await self.session.get(ENSMapping, address)
 
         if existing:
             # Update existing mapping
             existing.ens_name = name
             existing.last_update = now
             self.session.add(existing)
-            self.session.commit()
-            self.session.refresh(existing)
+            await self.session.commit()
+            await self.session.refresh(existing)
             return existing
         else:
             # Create new mapping
@@ -51,9 +51,9 @@ class ENSRepository(BaseRepository[ENSMapping]):
                 last_update=now,
                 last_avatar_update=0,
             )
-            return self.create(mapping)
+            return await self.create(mapping)
 
-    def get_reverse_ens(
+    async def get_reverse_ens(
         self,
         addresses: list[ChecksumEvmAddress],
     ) -> dict[ChecksumEvmAddress, EnsMapping | Timestamp]:
@@ -67,10 +67,11 @@ class ENSRepository(BaseRepository[ENSMapping]):
             return {}
 
         statement = select(ENSMapping).where(ENSMapping.address.in_(addresses))
-        results = self.session.exec(statement)
+        results = await self.session.execute(statement)
 
         output = {}
-        for mapping in results:
+        for row in results:
+            mapping = row[0]
             address = ChecksumEvmAddress(mapping.address)
             if mapping.ens_name is None:
                 output[address] = Timestamp(mapping.last_update)
@@ -83,17 +84,18 @@ class ENSRepository(BaseRepository[ENSMapping]):
 
         return output
 
-    def get_address_for_name(self, name: str) -> ChecksumEvmAddress | None:
+    async def get_address_for_name(self, name: str) -> ChecksumEvmAddress | None:
         """Returns the address for the given name if cached."""
         statement = select(ENSMapping).where(ENSMapping.ens_name == name)
-        result = self.session.exec(statement).first()
+        result = await self.session.execute(statement)
+        first_result = result.first()
 
-        if result is None:
+        if first_result is None:
             return None
 
-        return ChecksumEvmAddress(result.address)
+        return ChecksumEvmAddress(first_result[0].address)
 
-    def update_values(
+    async def update_values(
         self,
         ens_lookup_results: dict[ChecksumEvmAddress, str | None],
         mappings_to_send: dict[ChecksumEvmAddress, str],
@@ -104,23 +106,23 @@ class ENSRepository(BaseRepository[ENSMapping]):
         for address, name in ens_lookup_results.items():
             # If name conflicts with existing mapping for another address, remove the old one
             if name is not None:
-                existing_with_name = self.session.exec(
-                    select(ENSMapping).where(ENSMapping.ens_name == name),
-                ).first()
+                statement = select(ENSMapping).where(ENSMapping.ens_name == name)
+                result = await self.session.execute(statement)
+                first_result = result.first()
 
-                if existing_with_name and existing_with_name.address != address:
-                    self.session.delete(existing_with_name)
-                    self.session.commit()
+                if first_result and first_result[0].address != address:
+                    self.session.delete(first_result[0])
+                    await self.session.commit()
 
             # Add or update the mapping
-            self.add_ens_mapping(address=address, name=name, now=now)
+            await self.add_ens_mapping(address=address, name=name, now=now)
 
             if name is not None:
                 mappings_to_send[address] = name
 
         return mappings_to_send
 
-    def get_last_avatar_update(self, ens_name: str) -> Timestamp:
+    async def get_last_avatar_update(self, ens_name: str) -> Timestamp:
         """
         Returns the timestamp when the avatar for the given ens name was updated last time.
         
@@ -128,14 +130,15 @@ class ENSRepository(BaseRepository[ENSMapping]):
         - InputError if given `ens_name` is not in `ens_mappings` table
         """
         statement = select(ENSMapping).where(ENSMapping.ens_name == ens_name)
-        result = self.session.exec(statement).first()
+        result = await self.session.execute(statement)
+        first_result = result.first()
 
-        if result is None:
+        if first_result is None:
             raise InputError(f'ens name {ens_name} is not being tracked')
 
-        return Timestamp(result.last_avatar_update)
+        return Timestamp(first_result[0].last_avatar_update)
 
-    def find_by(self, **kwargs) -> list[ENSMapping]:
+    async def find_by(self, **kwargs) -> list[ENSMapping]:
         """Find ENS mappings by criteria."""
         statement = select(ENSMapping)
 
@@ -143,5 +146,5 @@ class ENSRepository(BaseRepository[ENSMapping]):
             if hasattr(ENSMapping, key):
                 statement = statement.where(getattr(ENSMapping, key) == value)
 
-        results = self.session.exec(statement)
-        return list(results.all())
+        results = await self.session.execute(statement)
+        return [row[0] for row in results.all()]

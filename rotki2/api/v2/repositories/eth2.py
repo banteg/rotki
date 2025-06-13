@@ -1,7 +1,6 @@
-"""Async Eth2 repository for v2 API.
+"""Eth2 repository for v2 API.
 
-Handles all ETH2/staking related async database operations.
-"""
+Handles all ETH2/staking related async database operations."""
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import delete as sa_delete
@@ -38,8 +37,8 @@ if TYPE_CHECKING:
     from collections.abc import Collection
 
 
-class AsyncEth2Repository:
-    """Async repository for ETH2/staking data.
+class Eth2Repository:
+    """Repository for ETH2/staking data.
     
     Note: This doesn't inherit from AsyncBaseRepository as ETH2 data
     uses multiple custom tables that don't map to a single model.
