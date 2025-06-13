@@ -430,9 +430,9 @@ async def query_blockchain_transactions(
     blockchain: str,
     from_timestamp: Timestamp,
     to_timestamp: Timestamp,
-    address: str | None = None,
     _: Annotated[str, Depends(require_logged_in_user)],
     blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    address: str | None = None,
 ) -> BlockchainResponse:
     """Query blockchain transactions - Compatible with v1 POST /api/1/blockchains/transactions"""
     try:
@@ -455,9 +455,9 @@ async def query_blockchain_transactions(
 
 @router.delete('/transactions')
 async def purge_blockchain_transactions(
-    blockchain: str | None = None,
     _: Annotated[str, Depends(require_logged_in_user)],
     blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    blockchain: str | None = None,
 ) -> BlockchainResponse:
     """Purge transaction data - Compatible with v1 DELETE /api/1/blockchains/transactions"""
     purged = blockchain_service.purge_blockchain_transactions(blockchain)
@@ -553,9 +553,9 @@ async def get_undecoded_evmlike_transactions_count(
 @router.get('/evm/erc20details')
 async def get_erc20_details(
     address: str,
-    chain_id: int = 1,
     _: Annotated[str, Depends(require_logged_in_user)],
     blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    chain_id: int = 1,
 ) -> BlockchainResponse:
     """Get info for an ERC20 token - Compatible with v1 GET /api/1/blockchains/evm/erc20details"""
     token_info = blockchain_service.get_erc20_token_info(address, chain_id)
@@ -583,10 +583,10 @@ async def refresh_evm_accounts(
 @router.put('/evm/accounts')
 async def add_evm_accounts(
     accounts: list[str],
-    labels: list[str] | None = None,
-    tags: list[list[str]] | None = None,
     _: Annotated[str, Depends(require_logged_in_user)],
     blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    labels: list[str] | None = None,
+    tags: list[list[str]] | None = None,
 ) -> BlockchainResponse:
     """Add EVM accounts - Compatible with v1 PUT /api/1/blockchains/evm/accounts"""
     added = blockchain_service.add_evm_accounts(accounts, labels, tags)
@@ -600,9 +600,9 @@ async def add_evm_accounts(
 @router.post('/{blockchain}/tokens/detect')
 async def detect_blockchain_tokens(
     blockchain: str,
-    addresses: list[str] | None = None,
     _: Annotated[str, Depends(require_logged_in_user)],
     blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    addresses: list[str] | None = None,
 ) -> BlockchainResponse:
     """Detect tokens for a chain - Compatible with v1 POST /api/1/blockchains/<blockchain>/tokens/detect"""
     try:
@@ -662,11 +662,11 @@ async def refetch_blockchain_transactions(
 async def add_xpub(
     blockchain: str,
     xpub: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
     label: str | None = None,
     xpub_type: str | None = None,
     derivation_path: str | None = None,
-    _: Annotated[str, Depends(require_logged_in_user)],
-    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
 ) -> BlockchainResponse:
     """Add a BTC/BCH xpub - Compatible with v1 PUT /api/1/blockchains/<blockchain>/xpub"""
     if blockchain.upper() not in ['BTC', 'BCH']:
@@ -690,9 +690,9 @@ async def add_xpub(
 async def edit_xpub(
     blockchain: str,
     xpub: str,
-    label: str | None = None,
     _: Annotated[str, Depends(require_logged_in_user)],
     blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+    label: str | None = None,
 ) -> BlockchainResponse:
     """Edit a BTC/BCH xpub - Compatible with v1 PATCH /api/1/blockchains/<blockchain>/xpub"""
     if blockchain.upper() not in ['BTC', 'BCH']:

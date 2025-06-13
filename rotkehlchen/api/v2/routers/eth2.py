@@ -142,11 +142,11 @@ async def get_stake_deposits(
 # v1 compatibility endpoints
 @router.put('/validators')
 async def add_validator_v1(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[ETH2Service, Depends(get_eth2_service)],
     validator_index: int | None = None,
     public_key: str | None = None,
     ownership_proportion: str = "1.0",
-    _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[ETH2Service, Depends(get_eth2_service)],
 ) -> ETH2Response:
     """Add an ETH2 validator - Compatible with v1 PUT /api/1/blockchains/eth2/validators"""
     request = ValidatorRequest(
@@ -190,10 +190,10 @@ async def delete_validator_v1(
 
 @router.put('/stake/performance')
 async def get_stake_performance_v1(
-    from_timestamp: Timestamp = 0,
-    to_timestamp: Timestamp | None = None,
     _: Annotated[str, Depends(require_logged_in_user)],
     service: Annotated[ETH2Service, Depends(get_eth2_service)],
+    from_timestamp: Timestamp = 0,
+    to_timestamp: Timestamp | None = None,
 ) -> ETH2Response:
     """Get ETH2 staking performance - Compatible with v1 PUT /api/1/blockchains/eth2/stake/performance"""
     return await get_stake_performance(_, service, from_timestamp, to_timestamp)
@@ -201,10 +201,10 @@ async def get_stake_performance_v1(
 
 @router.post('/stake/dailystats')
 async def get_daily_stats_v1(
-    from_timestamp: Timestamp = 0,
-    to_timestamp: Timestamp | None = None,
     _: Annotated[str, Depends(require_logged_in_user)],
     service: Annotated[ETH2Service, Depends(get_eth2_service)],
+    from_timestamp: Timestamp = 0,
+    to_timestamp: Timestamp | None = None,
 ) -> ETH2Response:
     """Get ETH2 daily staking statistics - Compatible with v1 POST /api/1/blockchains/eth2/stake/dailystats"""
     return await get_daily_stats(_, service, from_timestamp, to_timestamp)
