@@ -1,6 +1,6 @@
 # Rotkehlchen API V2 Migration Status
 
-_Last updated: 2025-06-13 11:33:18 UTC_
+_Last updated: 2025-06-13 11:53:30 UTC_
 
 ---
 
@@ -8,9 +8,9 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 
 | Area                        | Status      | Notes                                    |
 | --------------------------- | ----------- | ---------------------------------------- |
-| **API Endpoint Migration**  | 29%         | 94 of 328 v1 endpoints migrated |
+| **API Endpoint Migration**  | 30%         | 100 of 328 v1 endpoints migrated |
 | **Legacy Dependency Score** | 23          | 23 legacy imports found in v2 code |
-| **Architecture Health**     | ⚠️ 75 Alerts | 75 files have incorrect dependencies |
+| **Architecture Health**     | ⚠️ 80 Alerts | 80 files have incorrect dependencies |
 
 
 ---
@@ -18,9 +18,9 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 ## 1. API Endpoint Migration Details
 
 - **Total V1 Endpoints:** 328
-- **Migrated:** 94
-- **Pending:** 234
-- **Migration Progress:** 28.7%
+- **Migrated:** 100
+- **Pending:** 228
+- **Migration Progress:** 30.5%
 
 <details>
 <summary><b>❌ Endpoints Pending Migration (Click to expand)</b></summary>
@@ -118,7 +118,6 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 | GET | `/history/events/type_mappings` |
 | GET | `/history/skipped_external_events` |
 | GET | `/import` |
-| GET | `/info` |
 | GET | `/locations/all` |
 | GET | `/locations/associated` |
 | GET | `/messages` |
@@ -126,11 +125,9 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 | GET | `/oracles` |
 | GET | `/oracles/{oracle}/cache` |
 | GET | `/periodic` |
-| GET | `/ping` |
 | GET | `/premium` |
 | GET | `/protocols/data/refresh` |
 | GET | `/queried_addresses` |
-| GET | `/settings/configuration` |
 | GET | `/snapshots` |
 | GET | `/snapshots/{timestamp}` |
 | GET | `/staking/kraken` |
@@ -218,7 +215,6 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 | POST | `/history/events/query/exchange` |
 | POST | `/history/events/type_mappings` |
 | POST | `/history/skipped_external_events` |
-| POST | `/info` |
 | POST | `/locations/all` |
 | POST | `/locations/associated` |
 | POST | `/messages` |
@@ -226,12 +222,10 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 | POST | `/oracles` |
 | POST | `/oracles/{oracle}/cache` |
 | POST | `/periodic` |
-| POST | `/ping` |
 | POST | `/premium` |
 | POST | `/premium/sync` |
 | POST | `/protocols/data/refresh` |
 | POST | `/queried_addresses` |
-| POST | `/settings/configuration` |
 | POST | `/snapshots` |
 | POST | `/staking/kraken` |
 | POST | `/statistics/balance` |
@@ -303,6 +297,7 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 | GET | `/history/events` |
 | GET | `/history/export` |
 | GET | `/history/status` |
+| GET | `/info` |
 | GET | `/names` |
 | GET | `/names/addressbook/{book_type}` |
 | GET | `/names/ens/resolve` |
@@ -310,11 +305,13 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 | GET | `/nfts` |
 | GET | `/nfts/balances` |
 | GET | `/nfts/prices` |
+| GET | `/ping` |
 | GET | `/premium/sync` |
 | GET | `/reports` |
 | GET | `/reports/{report_id}` |
 | GET | `/reports/{report_id}/data` |
 | GET | `/settings` |
+| GET | `/settings/configuration` |
 | GET | `/statistics/balance` |
 | GET | `/statistics/netvalue` |
 | GET | `/statistics/renderer` |
@@ -343,15 +340,18 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 | POST | `/history/export` |
 | POST | `/history/status` |
 | POST | `/import` |
+| POST | `/info` |
 | POST | `/names` |
 | POST | `/names/ens/resolve` |
 | POST | `/names/ens/reverse` |
 | POST | `/nfts` |
 | POST | `/nfts/balances` |
 | POST | `/nfts/prices` |
+| POST | `/ping` |
 | POST | `/reports` |
 | POST | `/reports/{report_id}/data` |
 | POST | `/settings` |
+| POST | `/settings/configuration` |
 | POST | `/statistics/netvalue` |
 | POST | `/statistics/renderer` |
 | POST | `/statistics/value_distribution` |
@@ -380,6 +380,9 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 | DELETE | `/history/events/{event_id}` |
 | DELETE | `/nfts/prices/manual/{asset}` |
 | DELETE | `/watchers` |
+| DELETE | `/{note_id}` |
+| DELETE | `/{tag_name}` |
+| GET | `/` |
 | GET | `/accounting/rules/linked` |
 | GET | `/assets/evm/erc20/{chain_id}/{address}` |
 | GET | `/auth/api-keys` |
@@ -406,6 +409,7 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 | PATCH | `/settings` |
 | PATCH | `/users/{username}/password` |
 | PATCH | `/watchers` |
+| POST | `/` |
 | POST | `/accounting/rules/linked` |
 | POST | `/auth/api-keys` |
 | POST | `/auth/login` |
@@ -425,6 +429,8 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 | PUT | `/history/events/{event_id}` |
 | PUT | `/watchers` |
 | PUT | `/watchers/sync` |
+| PUT | `/{note_id}` |
+| PUT | `/{tag_name}` |
 
 </details>
 
@@ -452,7 +458,7 @@ _Last updated: 2025-06-13 11:33:18 UTC_
   - `from rotkehlchen.db.filtering import AssetsFilterQuery`
 
 **`history.py`** (1 legacy imports):
-  - `from rotkehlchen.db.constants import HISTORY_MAPPING_KEY_STATE, HISTORY_MAPPING_STATE_CUSTOMIZED`
+  - `from rotkehlchen.db.constants import HISTORY_MAPPING_STATE_CUSTOMIZED, HISTORY_MAPPING_KEY_STATE`
 
 #### `api/v2/routers/`
 
@@ -471,7 +477,7 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 
 **`assets.py`** (3 legacy imports):
   - `from rotkehlchen.db.dbhandler import DBHandler`
-  - `from rotkehlchen.db.filtering import AssetsFilterQuery, LevenshteinFilterQuery`
+  - `from rotkehlchen.db.filtering import LevenshteinFilterQuery, AssetsFilterQuery`
   - `from rotkehlchen.db.search_assets import search_assets_levenshtein`
 
 **`blockchain.py`** (1 legacy imports):
@@ -503,7 +509,7 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 
 ## 3. Architecture Health Check
 
-**Total Violations Found:** 75
+**Total Violations Found:** 80
 
 ### Architecture Violations 🚨
 
@@ -536,6 +542,10 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 **`api/v2/routers/history.py`** (1 violations):
   - Line 13: `rotkehlchen.history.events.structures.base` - Routers should not import from rotkehlchen.history.events.structures.base
 
+**`api/v2/routers/info.py`** (2 violations):
+  - Line 10: `rotkehlchen.version` - Routers should not import from rotkehlchen.version
+  - Line 13: `rotkehlchen.rotkehlchen` - Routers should not import from rotkehlchen.rotkehlchen
+
 **`api/v2/routers/names.py`** (6 violations):
   - Line 15: `rotkehlchen.chain.evm.types` - Routers should not import from rotkehlchen.chain.evm.types
   - Line 16: `rotkehlchen.db.drivers.gevent` - Routers should not import from rotkehlchen.db.drivers.gevent
@@ -552,9 +562,16 @@ _Last updated: 2025-06-13 11:33:18 UTC_
   - Line 21: `rotkehlchen.data_handler` - Routers should not import from rotkehlchen.data_handler
   - Line 119: `rotkehlchen.chain.evm.types` - Routers should not import from rotkehlchen.chain.evm.types
 
+**`api/v2/routers/notes.py`** (2 violations):
+  - Line 6: `sqlmodel` - Routers must not use SQLModel directly
+  - Line 9: `rotkehlchen.db.models.user_note` - Routers must not import database models directly
+
 **`api/v2/routers/reports.py`** (2 violations):
   - Line 18: `rotkehlchen.accounting.accountant` - Routers should not import from rotkehlchen.accounting.accountant
   - Line 19: `rotkehlchen.api.websockets.notifier` - Routers should not import from rotkehlchen.api.websockets.notifier
+
+**`api/v2/routers/tags.py`** (1 violations):
+  - Line 11: `rotkehlchen.api.v2.repositories.tag` - Routers must not import repositories directly
 
 **`api/v2/routers/users.py`** (3 violations):
   - Line 16: `rotkehlchen.db.settings` - Routers should not import from rotkehlchen.db.settings
@@ -616,12 +633,12 @@ _Last updated: 2025-06-13 11:33:18 UTC_
   - Line 6: `rotkehlchen.db.filtering` - Services should not import from rotkehlchen.db.filtering
   - Line 7: `rotkehlchen.db.drivers.gevent` - Services should not import from rotkehlchen.db.drivers.gevent
   - Line 9: `rotkehlchen.premium.premium` - Services should not import from rotkehlchen.premium.premium
-  - Line 15: `rotkehlchen.data_handler` - Services should not import from rotkehlchen.data_handler
-  - Line 128: `rotkehlchen.assets.asset` - Services should not import from rotkehlchen.assets.asset
-  - Line 129: `rotkehlchen.assets.types` - Services should not import from rotkehlchen.assets.types
-  - Line 130: `rotkehlchen.fval` - Services should not import from rotkehlchen.fval
-  - Line 148: `rotkehlchen.assets.asset` - Services should not import from rotkehlchen.assets.asset
-  - Line 149: `rotkehlchen.assets.types` - Services should not import from rotkehlchen.assets.types
+  - Line 16: `rotkehlchen.data_handler` - Services should not import from rotkehlchen.data_handler
+  - Line 131: `rotkehlchen.assets.asset` - Services should not import from rotkehlchen.assets.asset
+  - Line 132: `rotkehlchen.assets.types` - Services should not import from rotkehlchen.assets.types
+  - Line 133: `rotkehlchen.fval` - Services should not import from rotkehlchen.fval
+  - Line 167: `rotkehlchen.assets.asset` - Services should not import from rotkehlchen.assets.asset
+  - Line 168: `rotkehlchen.assets.types` - Services should not import from rotkehlchen.assets.types
 
 **`api/v2/services/reports.py`** (1 violations):
   - Line 9: `rotkehlchen.api.websockets.notifier` - Services should not import from rotkehlchen.api.websockets.notifier
@@ -640,6 +657,6 @@ _Last updated: 2025-06-13 11:33:18 UTC_
 
 Based on this analysis:
 
-1. **Complete endpoint migration**: 234 endpoints still need to be migrated to v2
+1. **Complete endpoint migration**: 228 endpoints still need to be migrated to v2
 2. **Eliminate legacy dependencies**: Refactor 14 files to use the new repository pattern
-3. **Fix architecture violations**: Address 75 violations to maintain clean architecture
+3. **Fix architecture violations**: Address 80 violations to maintain clean architecture

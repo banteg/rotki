@@ -123,3 +123,33 @@ async def update_settings(
         result={'updated': list(update_dict.keys())},
         message='Settings updated successfully',
     )
+
+
+@router.post('/')
+async def update_settings_post(
+    settings_update: SettingsUpdateRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    db_service: Annotated[DatabaseService, Depends(get_database_service)],
+) -> SettingsResponse:
+    """Update user settings (POST version)"""
+    return await update_settings(settings_update, _, db_service)
+
+
+# Configuration endpoints (alias for settings)
+@router.get('/configuration')
+async def get_configuration(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    db_service: Annotated[DatabaseService, Depends(get_database_service)],
+) -> SettingsResponse:
+    """Get current configuration (alias for settings)"""
+    return await get_settings(_, db_service)
+
+
+@router.post('/configuration')
+async def update_configuration(
+    settings_update: SettingsUpdateRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    db_service: Annotated[DatabaseService, Depends(get_database_service)],
+) -> SettingsResponse:
+    """Update configuration (alias for settings)"""
+    return await update_settings(settings_update, _, db_service)

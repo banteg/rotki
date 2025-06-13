@@ -21,11 +21,17 @@ from rotkehlchen.api.v2.routers import (
     eth2,
     exchanges,
     history,
+    info,
+    locations,
+    messages,
     names,
     nfts,
+    notes,
     reports,
     settings as settings_router,
     statistics,
+    tags,
+    tasks,
     users,
     watchers,
 )
@@ -117,22 +123,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(defi.router, prefix='/api/v2', tags=['defi'])
     app.include_router(names.router, prefix='/api/v2/names', tags=['names'])
     app.include_router(watchers.router, prefix='/api/v2/watchers', tags=['watchers'])
-
-    @app.get('/api/v2/ping')
-    async def ping() -> dict[str, Any]:
-        """Health check endpoint"""
-        return {'result': True}
-
-    @app.get('/api/v2/info')
-    async def info() -> dict[str, Any]:
-        """Get application information"""
-        version_info = get_current_version()
-        return {
-            'result': {
-                'version': version_info.our_version,
-                'data_directory': str(settings.data_dir),
-            },
-        }
+    app.include_router(info.router, prefix='/api/v2', tags=['info'])
+    app.include_router(tags.router, prefix='/api/v2/tags', tags=['tags'])
+    app.include_router(notes.router, prefix='/api/v2/notes', tags=['notes'])
+    app.include_router(locations.router, prefix='/api/v2/locations', tags=['locations'])
+    app.include_router(messages.router, prefix='/api/v2/messages', tags=['messages'])
+    app.include_router(tasks.router, prefix='/api/v2/tasks', tags=['tasks'])
 
     # WebSocket endpoint
     @app.websocket('/api/v2/ws')
