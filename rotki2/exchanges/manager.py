@@ -23,6 +23,7 @@ from rotki2.exchanges.bitfinex import Bitfinex
 from rotki2.exchanges.bitstamp import Bitstamp
 from rotki2.exchanges.coinbase import Coinbase
 from rotki2.exchanges.kraken import Kraken
+from rotki2.exchanges.okx import OKX
 
 if TYPE_CHECKING:
     from rotkehlchen.db.dbhandler import DBHandler
@@ -38,6 +39,7 @@ EXCHANGE_MAPPING = {
     Location.BITSTAMP: Bitstamp,
     Location.COINBASE: Coinbase,
     Location.KRAKEN: Kraken,
+    Location.OKX: OKX,
     # TODO: Add remaining exchanges as they are implemented:
     # Location.BITCOINDE: Bitcoinde,
     # Location.BITMEX: Bitmex,
@@ -49,7 +51,6 @@ EXCHANGE_MAPPING = {
     # Location.ICONOMI: Iconomi,
     # Location.INDEPENDENTRESERVE: IndependentReserve,
     # Location.KUCOIN: Kucoin,
-    # Location.OKX: OKX,
     # Location.POLONIEX: Poloniex,
     # Location.WOO: Woo,
 }
