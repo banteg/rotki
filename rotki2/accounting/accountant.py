@@ -20,9 +20,9 @@ from rotkehlchen.history.events.structures.base import HistoryEvent
 from rotkehlchen.logging import RotkehlchenLogsAdapter
 from rotkehlchen.types import Timestamp
 from rotkehlchen.utils.misc import ts_ms_to_sec, ts_now
-from rotki2.accounting.aggregator import AsyncEVMAccountingAggregator
-from rotki2.accounting.pot import AsyncAccountingPot
-from rotki2.accounting.price_historian import AsyncPriceHistorian
+from rotki2.accounting.aggregator import EVMAccountingAggregator
+from rotki2.accounting.pot import AccountingPot
+from rotki2.accounting.price_historian import PriceHistorian
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 logger = RotkehlchenLogsAdapter(__name__)
 
 
-class AsyncAccountant:
+class Accountant:
     """Async version of the Accountant for processing accounting events
     
     This class orchestrates the processing of historical trading events
@@ -52,16 +52,16 @@ class AsyncAccountant:
         msg_aggregator: 'MessagesAggregator',
         chains_aggregator: 'ChainsAggregator',
         premium: 'Premium | None',
-        price_historian: 'AsyncPriceHistorian | None' = None,
+        price_historian: 'PriceHistorian | None' = None,
     ):
         self.db = db
         self.msg_aggregator = msg_aggregator
         self.chains_aggregator = chains_aggregator
         self.premium = premium
-        self.price_historian = price_historian or AsyncPriceHistorian()
+        self.price_historian = price_historian or PriceHistorian()
         
         # Accounting components
-        self.pots: list[AsyncAccountingPot] = []
+        self.pots: list[AccountingPot] = []
         self.csv_exporter = None  # Will be initialized per report
         
         # Caches
@@ -134,7 +134,7 @@ class AsyncAccountant:
         )
         
         # Initialize accounting pot
-        pot = AsyncAccountingPot(
+        pot = AccountingPot(
             database=self.db,
             msg_aggregator=self.msg_aggregator,
             price_historian=self.price_historian,
@@ -227,7 +227,7 @@ class AsyncAccountant:
         self,
         event: 'AccountingEventMixin',
         events_iterator: Any,  # peekable iterator
-        evm_aggregators: 'AsyncEVMAccountingAggregator',
+        evm_aggregators: 'EVMAccountingAggregator',
     ) -> None:
         """Process a single accounting event"""
         # Check if event should be ignored
@@ -272,9 +272,9 @@ class AsyncAccountant:
             return f"{event.event_type}_{event.event_subtype}_{event.counterparty}"
         return f"{type(event).__name__}"
     
-    async def _get_evm_aggregators(self) -> 'AsyncEVMAccountingAggregator':
+    async def _get_evm_aggregators(self) -> 'EVMAccountingAggregator':
         """Get EVM accounting aggregators"""
-        return AsyncEVMAccountingAggregator(
+        return EVMAccountingAggregator(
             database=self.db,
             msg_aggregator=self.msg_aggregator,
             chains_aggregator=self.chains_aggregator,

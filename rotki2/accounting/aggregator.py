@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from rotkehlchen.chain.aggregator import ChainsAggregator
     from rotkehlchen.premium.premium import Premium
     from rotkehlchen.user_messages import MessagesAggregator
-    from rotki2.accounting.pot import AsyncAccountingPot
+    from rotki2.accounting.pot import AccountingPot
     from rotki2.api.v2.services.database import DatabaseService
 
 logger = RotkehlchenLogsAdapter(__name__)
@@ -32,7 +32,7 @@ PROTOCOL_HANDLERS = {
 }
 
 
-class AsyncEVMAccountingAggregator:
+class EVMAccountingAggregator:
     """Async aggregator for EVM-specific accounting rules
     
     This class routes events to protocol-specific handlers for
@@ -56,7 +56,7 @@ class AsyncEVMAccountingAggregator:
     
     async def process_event(
         self,
-        pot: 'AsyncAccountingPot',
+        pot: 'AccountingPot',
         event: 'AccountingEventMixin',
         events_iterator: Iterator['AccountingEventMixin'],
     ) -> None:
@@ -107,7 +107,7 @@ class AsyncEVMAccountingAggregator:
     
     async def _process_generic_event(
         self,
-        pot: 'AsyncAccountingPot',
+        pot: 'AccountingPot',
         event: HistoryEvent,
         events_iterator: Iterator['AccountingEventMixin'],
     ) -> None:
@@ -144,7 +144,7 @@ class AsyncEVMAccountingAggregator:
     
     async def _process_buy(
         self,
-        pot: 'AsyncAccountingPot',
+        pot: 'AccountingPot',
         event: HistoryEvent,
     ) -> None:
         """Process a buy event"""
@@ -159,7 +159,7 @@ class AsyncEVMAccountingAggregator:
     
     async def _process_sell(
         self,
-        pot: 'AsyncAccountingPot',
+        pot: 'AccountingPot',
         event: HistoryEvent,
     ) -> None:
         """Process a sell event"""
@@ -175,7 +175,7 @@ class AsyncEVMAccountingAggregator:
     
     async def _process_swap(
         self,
-        pot: 'AsyncAccountingPot',
+        pot: 'AccountingPot',
         event: HistoryEvent,
     ) -> None:
         """Process a swap event"""
@@ -188,7 +188,7 @@ class AsyncEVMAccountingAggregator:
     
     async def _process_receive(
         self,
-        pot: 'AsyncAccountingPot',
+        pot: 'AccountingPot',
         event: HistoryEvent,
     ) -> None:
         """Process a receive event"""
@@ -214,7 +214,7 @@ class AsyncEVMAccountingAggregator:
     
     async def _process_send(
         self,
-        pot: 'AsyncAccountingPot',
+        pot: 'AccountingPot',
         event: HistoryEvent,
     ) -> None:
         """Process a send event"""
@@ -237,7 +237,7 @@ class AsyncEVMAccountingAggregator:
     
     async def _process_fee(
         self,
-        pot: 'AsyncAccountingPot',
+        pot: 'AccountingPot',
         event: HistoryEvent,
     ) -> None:
         """Process a fee event"""
@@ -252,7 +252,7 @@ class AsyncEVMAccountingAggregator:
     
     async def _process_transfer(
         self,
-        pot: 'AsyncAccountingPot',
+        pot: 'AccountingPot',
         event: HistoryEvent,
     ) -> None:
         """Process a transfer (deposit/withdrawal) event"""

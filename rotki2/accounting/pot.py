@@ -19,13 +19,13 @@ if TYPE_CHECKING:
     from rotkehlchen.accounting.pnl import PnlTotals
     from rotkehlchen.db.reports import DBAccountingReports
     from rotkehlchen.user_messages import MessagesAggregator
-    from rotki2.accounting.price_historian import AsyncPriceHistorian
+    from rotki2.accounting.price_historian import PriceHistorian
     from rotki2.api.v2.services.database import DatabaseService
 
 logger = RotkehlchenLogsAdapter(__name__)
 
 
-class AsyncAccountingPot:
+class AccountingPot:
     """Async version of AccountingPot for tracking cost basis and PnL
     
     This class manages the calculation of profit/loss for accounting events
@@ -36,7 +36,7 @@ class AsyncAccountingPot:
         self,
         database: 'DatabaseService',
         msg_aggregator: 'MessagesAggregator',
-        price_historian: 'AsyncPriceHistorian',
+        price_historian: 'PriceHistorian',
         profit_currency: Asset,
         cost_basis_method: CostBasisMethod,
         ignored_action_ids: set[str] | None = None,

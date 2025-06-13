@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 logger = RotkehlchenLogsAdapter(__name__)
 
 
-class AsyncPriceHistorian:
+class PriceHistorian:
     """Async version of PriceHistorian for querying historical prices
     
     This class manages historical price lookups using async oracles.

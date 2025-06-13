@@ -8,13 +8,13 @@ This involves migrating the logic from `rotkehlchen/accounting/` to `rotki2/acco
 
 This phase ensures your environment is ready and conforms to the new codebase standards.
 
-- [ ] **Rename async classes:** In the `rotki2/` directory, rename all classes that have an `Async` prefix to remove it, as the entire new codebase is asynchronous by default.
-  - [ ] Rename `rotki2/accounting/accountant.py` -> `Accountant`.
-  - [ ] Rename `rotki2/accounting/pot.py` -> `AccountingPot`.
-  - [ ] Rename `rotki2/accounting/aggregator.py` -> `EVMAccountingAggregator`.
-  - [ ] Rename `rotki2/accounting/price_historian.py` -> `PriceHistorian`.
-  - [ ] Search for and rename any other `Async` prefixed classes in the `rotki2/` tree.
-- [ ] **Familiarize yourself:** Thoroughly read through the v1 files in `rotkehlchen/accounting/` to understand the data flow and logic. Pay close attention to `accountant.py`, `pot.py`, and `cost_basis/base.py`.
+- [x] **Rename async classes:** In the `rotki2/` directory, rename all classes that have an `Async` prefix to remove it, as the entire new codebase is asynchronous by default.
+  - [x] Rename `rotki2/accounting/accountant.py` -> `Accountant`.
+  - [x] Rename `rotki2/accounting/pot.py` -> `AccountingPot`.
+  - [x] Rename `rotki2/accounting/aggregator.py` -> `EVMAccountingAggregator`.
+  - [x] Rename `rotki2/accounting/price_historian.py` -> `PriceHistorian`.
+  - [x] Search for and rename any other `Async` prefixed classes in the `rotki2/` tree.
+- [x] **Familiarize yourself:** Thoroughly read through the v1 files in `rotkehlchen/accounting/` to understand the data flow and logic. Pay close attention to `accountant.py`, `pot.py`, and `cost_basis/base.py`.
 
 ---
 
@@ -22,22 +22,22 @@ This phase ensures your environment is ready and conforms to the new codebase st
 
 Before we can port the logic, we need the data structures that the logic operates on. These are mostly data containers and can be ported with minimal changes, aside from updating imports.
 
-- [ ] **Port `PNL` and `PnlTotals`:**
-  - [ ] Create the file `rotki2/accounting/pnl.py`.
-  - [ ] Copy the `PNL` and `PnlTotals` classes from `rotkehlchen/accounting/pnl.py` into the new file.
-  - [ ] Update any internal type hints to reflect the new structure.
-- [ ] **Port `AccountingEventMixin` and `AccountingEventType`:**
-  - [ ] Create the file `rotki2/accounting/mixins.py`.
-  - [ ] Copy the `AccountingEventMixin` and `AccountingEventType` from `rotkehlchen/accounting/mixins/event.py`.
-- [ ] **Port `ProcessedAccountingEvent`:**
-  - [ ] Create `rotki2/accounting/structures.py` for shared data structures.
-  - [ ] Move `ProcessedAccountingEvent` from `rotkehlchen/accounting/structures/processed_event.py` to `rotki2/accounting/structures.py`.
-  - [ ] Update its imports to use the newly ported `PNL` and other v2 types.
-  - [ ] The `to_exported_dict` method's `database` argument should be changed to a repository or service dependency in the future, but for now, you can leave it and we will refactor it later.
-- [ ] **Port Cost Basis Data Structures:**
-  - [ ] Create `rotki2/accounting/cost_basis/structures.py`.
-  - [ ] Move `AssetAcquisitionEvent`, `AssetSpendEvent`, `MatchedAcquisition`, and `CostBasisInfo` classes from `rotkehlchen/accounting/cost_basis/base.py` into the new file.
-  - [ ] Update imports within these classes to point to v2 structures like `ProcessedAccountingEvent`.
+- [x] **Port `PNL` and `PnlTotals`:**
+  - [x] Create the file `rotki2/accounting/pnl.py`.
+  - [x] Copy the `PNL` and `PnlTotals` classes from `rotkehlchen/accounting/pnl.py` into the new file.
+  - [x] Update any internal type hints to reflect the new structure.
+- [x] **Port `AccountingEventMixin` and `AccountingEventType`:**
+  - [x] Create the file `rotki2/accounting/mixins.py`.
+  - [x] Copy the `AccountingEventMixin` and `AccountingEventType` from `rotkehlchen/accounting/mixins/event.py`.
+- [x] **Port `ProcessedAccountingEvent`:**
+  - [x] Create `rotki2/accounting/structures.py` for shared data structures.
+  - [x] Move `ProcessedAccountingEvent` from `rotkehlchen/accounting/structures/processed_event.py` to `rotki2/accounting/structures.py`.
+  - [x] Update its imports to use the newly ported `PNL` and other v2 types.
+  - [x] The `to_exported_dict` method's `database` argument should be changed to a repository or service dependency in the future, but for now, you can leave it and we will refactor it later.
+- [x] **Port Cost Basis Data Structures:**
+  - [x] Create `rotki2/accounting/cost_basis/structures.py`.
+  - [x] Move `AssetAcquisitionEvent`, `AssetSpendEvent`, `MatchedAcquisition`, and `CostBasisInfo` classes from `rotkehlchen/accounting/cost_basis/base.py` into the new file.
+  - [x] Update imports within these classes to point to v2 structures like `ProcessedAccountingEvent`.
 
 ---
 
@@ -45,26 +45,26 @@ Before we can port the logic, we need the data structures that the logic operate
 
 This is the most critical calculation logic. We will port it class by class, ensuring each part is async and uses the new patterns.
 
-- [ ] **Create the `CostBasisCalculator` base:**
-  - [ ] Create the file `rotki2/accounting/cost_basis/calculator.py`.
-  - [ ] Copy the `BaseCostBasisMethod` class into this new file.
-- [ ] **Port FIFO method:**
-  - [ ] Copy the `FIFOCostBasisMethod` class from `rotkehlchen/accounting/cost_basis/base.py` to `rotki2/accounting/cost_basis/calculator.py`.
-- [ ] **Port LIFO method:**
-  - [ ] Copy the `LIFOCostBasisMethod` class to `rotki2/accounting/cost_basis/calculator.py`.
-- [ ] **Port HIFO method:**
-  - [ ] Copy the `HIFOCostBasisMethod` class to `rotki2/accounting/cost_basis/calculator.py`.
-- [ ] **Port Average Cost Basis (ACB) method:**
-  - [ ] Copy the `AverageCostBasisMethod` class to `rotki2/accounting/cost_basis/calculator.py`.
-  - [ ] This method has complex logic; ensure all its helper methods are also ported.
-- [ ] **Port `CostBasisCalculator` orchestrator:**
-  - [ ] Copy the `CostBasisCalculator` class from `rotkehlchen/accounting/cost_basis/base.py` to `rotki2/accounting/cost_basis/calculator.py`.
-  - [ ] Refactor its `__init__` to accept a `DatabaseService` or specific repositories instead of the old `DBHandler`.
-  - [ ] Convert `reduce_asset_amount` and `spend_asset` to `async` methods, as they may implicitly trigger price lookups in the future.
-- [ ] **Port Pre-fork Logic:**
-  - [ ] Create `rotki2/accounting/cost_basis/prefork.py`.
-  - [ ] Copy `handle_prefork_asset_acquisitions` and `handle_prefork_asset_spends` from `rotkehlchen/accounting/cost_basis/prefork.py`.
-  - [ ] Ensure these functions call the new `CostBasisCalculator` methods.
+- [x] **Create the `CostBasisCalculator` base:**
+  - [x] Create the file `rotki2/accounting/cost_basis/calculator.py`.
+  - [x] Copy the `BaseCostBasisMethod` class into this new file.
+- [x] **Port FIFO method:**
+  - [x] Copy the `FIFOCostBasisMethod` class from `rotkehlchen/accounting/cost_basis/base.py` to `rotki2/accounting/cost_basis/calculator.py`.
+- [x] **Port LIFO method:**
+  - [x] Copy the `LIFOCostBasisMethod` class to `rotki2/accounting/cost_basis/calculator.py`.
+- [x] **Port HIFO method:**
+  - [x] Copy the `HIFOCostBasisMethod` class to `rotki2/accounting/cost_basis/calculator.py`.
+- [x] **Port Average Cost Basis (ACB) method:**
+  - [x] Copy the `AverageCostBasisMethod` class to `rotki2/accounting/cost_basis/calculator.py`.
+  - [x] This method has complex logic; ensure all its helper methods are also ported.
+- [x] **Port `CostBasisCalculator` orchestrator:**
+  - [x] Copy the `CostBasisCalculator` class from `rotkehlchen/accounting/cost_basis/base.py` to `rotki2/accounting/cost_basis/calculator.py`.
+  - [x] Refactor its `__init__` to accept a `DatabaseService` or specific repositories instead of the old `DBHandler`.
+  - [x] Convert `reduce_asset_amount` and `spend_asset` to `async` methods, as they may implicitly trigger price lookups in the future.
+- [x] **Port Pre-fork Logic:**
+  - [x] Create `rotki2/accounting/cost_basis/prefork.py`.
+  - [x] Copy `handle_prefork_asset_acquisitions` and `handle_prefork_asset_spends` from `rotkehlchen/accounting/cost_basis/prefork.py`.
+  - [x] Ensure these functions call the new `CostBasisCalculator` methods.
 
 ---
 
