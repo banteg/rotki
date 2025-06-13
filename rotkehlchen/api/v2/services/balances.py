@@ -166,9 +166,46 @@ class BalancesService:
             tags=tags or [],
         )
     
+    def edit_manual_balance(
+        self,
+        identifier: int,
+        asset: Asset,
+        amount: FVal,
+        location: Location,
+        tags: list[str] | None = None,
+    ) -> ManuallyTrackedBalance:
+        """Edit a manually tracked balance"""
+        # Update the balance
+        self.balance_repo.update(
+            identifier=identifier,
+            asset=asset.identifier,
+            amount=str(amount),
+            location=location.value,
+            label='',  # Empty label for now
+        )
+        
+        # Get and return the updated balance
+        updated = self.balance_repo.get_by_id(identifier)
+        return ManuallyTrackedBalance(
+            identifier=updated.id,
+            asset=Asset(updated.asset),
+            label=updated.label or '',
+            amount=FVal(updated.amount),
+            location=Location.deserialize(updated.location),
+            tags=tags or [],
+        )
+    
     def delete_manual_balance(self, identifier: int) -> bool:
         """Delete a manual balance"""
         return self.balance_repo.delete(identifier)
+    
+    def delete_manual_balances(self, identifiers: list[int]) -> int:
+        """Delete multiple manual balances"""
+        deleted_count = 0
+        for identifier in identifiers:
+            if self.balance_repo.delete(identifier):
+                deleted_count += 1
+        return deleted_count
 
     def get_manual_balances(
         self,

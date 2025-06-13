@@ -100,6 +100,24 @@ async def get_blockchain_balances(
     return BalanceResponse(result={'balances': result})
 
 
+@router.get('/blockchains/{blockchain}')
+async def get_specific_blockchain_balance(
+    blockchain: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    balances_service: Annotated[BalancesService, Depends(get_balances_service)],
+) -> BalanceResponse:
+    """Get balances for a specific blockchain - Compatible with v1 GET /api/1/balances/blockchains/<blockchain>"""
+    blockchain_balances = balances_service._get_blockchain_balances()
+    
+    location = Location(blockchain.upper())
+    if location in blockchain_balances:
+        result = {blockchain: blockchain_balances[location]}
+    else:
+        result = {}
+    
+    return BalanceResponse(result={'balances': result})
+
+
 @router.get('/exchanges')
 async def get_exchange_balances(
     _: Annotated[str, Depends(require_logged_in_user)],
@@ -171,6 +189,77 @@ async def add_manual_balance(
             'location': balance.location.value,
         },
         message='Manual balance added successfully',
+    )
+
+
+@router.put('/manual')
+async def add_manual_balances_bulk(
+    balances_data: list[ManualBalanceRequest],
+    _: Annotated[str, Depends(require_logged_in_user)],
+    balances_service: Annotated[BalancesService, Depends(get_balances_service)],
+) -> BalanceResponse:
+    """Add multiple manually tracked balances - Compatible with v1 PUT /api/1/balances/manual"""
+    added_balances = []
+    
+    for balance_data in balances_data:
+        balance = balances_service.add_manual_balance(
+            asset=Asset(balance_data.asset),
+            amount=FVal(balance_data.amount),
+            location=Location(balance_data.location),
+            tags=balance_data.tags,
+        )
+        added_balances.append({
+            'identifier': balance.identifier,
+            'asset': balance.asset.identifier,
+            'amount': str(balance.amount),
+            'location': balance.location.value,
+        })
+    
+    return BalanceResponse(
+        result={'balances': added_balances},
+        message=f'{len(added_balances)} manual balances added successfully',
+    )
+
+
+@router.patch('/manual')
+async def edit_manual_balance(
+    balance_data: ManualBalanceRequest,
+    identifier: int,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    balances_service: Annotated[BalancesService, Depends(get_balances_service)],
+) -> BalanceResponse:
+    """Edit a manually tracked balance - Compatible with v1 PATCH /api/1/balances/manual"""
+    balance = balances_service.edit_manual_balance(
+        identifier=identifier,
+        asset=Asset(balance_data.asset),
+        amount=FVal(balance_data.amount),
+        location=Location(balance_data.location),
+        tags=balance_data.tags,
+    )
+    
+    return BalanceResponse(
+        result={
+            'identifier': balance.identifier,
+            'asset': balance.asset.identifier,
+            'amount': str(balance.amount),
+            'location': balance.location.value,
+        },
+        message='Manual balance updated successfully',
+    )
+
+
+@router.delete('/manual')
+async def delete_manual_balances(
+    identifiers: list[int],
+    _: Annotated[str, Depends(require_logged_in_user)],
+    balances_service: Annotated[BalancesService, Depends(get_balances_service)],
+) -> BalanceResponse:
+    """Delete manually tracked balances - Compatible with v1 DELETE /api/1/balances/manual"""
+    deleted_count = balances_service.delete_manual_balances(identifiers)
+    
+    return BalanceResponse(
+        result={'deleted': deleted_count},
+        message=f'{deleted_count} manual balances deleted successfully',
     )
 
 

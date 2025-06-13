@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional
 from sqlmodel import select
 
 from rotkehlchen.api.v2.repositories.base import BaseRepository
-from rotkehlchen.db.models.accounting_rule import AccountingRule, LinkedRuleProperty
+from rotkehlchen.db.models.user.accounting import AccountingRule, LinkedRuleProperty
 
 if TYPE_CHECKING:
     from rotkehlchen.types import ChecksumEvmAddress

@@ -49,11 +49,11 @@
 
 #### **Assets & Pricing**
 
-- [ ] `POST /api/1/assets/all` (Query all assets)
-- [ ] `GET /api/1/assets` (Get owned assets)
-- [ ] `PUT /api/1/assets/all` (Add a new asset)
-- [ ] `PATCH /api/1/assets/all` (Edit an existing asset)
-- [ ] `DELETE /api/1/assets/all` (Delete a custom asset)
+- [x] `POST /api/1/assets/all` (Query all assets) ✅ Migrated to `POST /api/v2/assets/all`
+- [x] `GET /api/1/assets` (Get owned assets) ✅ Migrated to `GET /api/v2/assets/` and `GET /api/v2/assets/user`
+- [x] `PUT /api/1/assets/all` (Add a new asset) ✅ Migrated to `PUT /api/v2/assets/all`
+- [x] `PATCH /api/1/assets/all` (Edit an existing asset) ✅ Migrated to `PATCH /api/v2/assets/all`
+- [x] `DELETE /api/1/assets/all` (Delete a custom asset) ✅ Migrated to `DELETE /api/v2/assets/all`
 - [ ] `POST /api/1/assets/mappings` (Get asset mappings)
 - [ ] `POST /api/1/assets/search` (Search for an asset by name/symbol)
 - [ ] `POST /api/1/assets/search/levenshtein` (Fuzzy search for an asset)
@@ -68,7 +68,7 @@
 - [ ] `PATCH /api/1/assets/custom` (Edit a custom asset)
 - [ ] `DELETE /api/1/assets/custom` (Delete a custom asset)
 - [ ] `GET /api/1/assets/custom/types` (Get all custom asset types)
-- [ ] `GET /api/1/exchange_rates` (Get exchange rates for given pairs)
+- [x] `GET /api/1/exchange_rates` (Get exchange rates for given pairs) ✅ Migrated to `GET /api/v2/exchange_rates/`
 - [ ] `POST /api/1/assets/prices/latest` (Get current prices for a list of assets)
 - [ ] `GET /api/1/assets/prices/latest/all` (Get all stored manual latest prices)
 - [ ] `PUT /api/1/assets/prices/latest` (Add a manual latest price)
@@ -92,13 +92,13 @@
 
 #### **Balances**
 
-- [ ] `GET /api/1/balances` (Get all balances)
-- [ ] `GET /api/1/balances/blockchains` (Get all blockchain balances)
-- [ ] `GET /api/1/balances/blockchains/<string:blockchain>` (Get balances for a specific blockchain)
-- [ ] `GET /api/1/balances/manual` (Get all manually tracked balances)
-- [ ] `PUT /api/1/balances/manual` (Add manually tracked balances)
-- [ ] `PATCH /api/1/balances/manual` (Edit manually tracked balances)
-- [ ] `DELETE /api/1/balances/manual` (Remove manually tracked balances)
+- [x] `GET /api/1/balances` (Get all balances) ✅ Migrated to `GET /api/v2/balances/`
+- [x] `GET /api/1/balances/blockchains` (Get all blockchain balances) ✅ Migrated to `GET /api/v2/balances/blockchains`
+- [x] `GET /api/1/balances/blockchains/<string:blockchain>` (Get balances for a specific blockchain) ✅ Migrated to `GET /api/v2/balances/blockchains/{blockchain}`
+- [x] `GET /api/1/balances/manual` (Get all manually tracked balances) ✅ Migrated to `GET /api/v2/balances/manual`
+- [x] `PUT /api/1/balances/manual` (Add manually tracked balances) ✅ Migrated to `PUT /api/v2/balances/manual`
+- [x] `PATCH /api/1/balances/manual` (Edit manually tracked balances) ✅ Migrated to `PATCH /api/v2/balances/manual`
+- [x] `DELETE /api/1/balances/manual` (Remove manually tracked balances) ✅ Migrated to `DELETE /api/v2/balances/manual`
 
 #### **Blockchains & EVM**
 
@@ -189,9 +189,9 @@
 
 #### **Ignored Assets & Actions**
 
-- [ ] `GET /api/1/assets/ignored` (Get all ignored assets)
-- [ ] `PUT /api/1/assets/ignored` (Add assets to ignored list)
-- [ ] `DELETE /api/1/assets/ignored` (Remove assets from ignored list)
+- [x] `GET /api/1/assets/ignored` (Get all ignored assets) ✅ Migrated to `GET /api/v2/assets/ignored`
+- [x] `PUT /api/1/assets/ignored` (Add assets to ignored list) ✅ Migrated to `POST /api/v2/assets/ignored` with action='add'
+- [x] `DELETE /api/1/assets/ignored` (Remove assets from ignored list) ✅ Migrated to `POST /api/v2/assets/ignored` with action='remove'
 - [ ] `POST /api/1/assets/ignored/whitelist` (Add a spam token to the false positive list)
 - [ ] `DELETE /api/1/assets/ignored/whitelist` (Remove a token from the false positive list)
 - [ ] `GET /api/1/assets/ignored/whitelist` (Get the list of false positive spam tokens)

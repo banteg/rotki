@@ -186,6 +186,42 @@ class AssetsService:
             return {'identifier': asset_id}
         except InputError as e:
             raise InputError(f'Failed to add custom asset: {e!s}') from e
+    
+    def edit_custom_asset(
+        self,
+        identifier: str,
+        name: str,
+        notes: str | None = None,
+        custom_asset_type: str = 'non-fungible',
+    ) -> dict[str, str]:
+        """Edit an existing custom asset"""
+        # Check if asset exists
+        if not self.asset_repo.check_asset_exists(identifier):
+            raise ValueError(f'Asset {identifier} not found')
+        
+        # Update asset using repository
+        self.asset_repo.update_asset(
+            identifier=identifier,
+            name=name,
+            custom_asset_type=custom_asset_type,
+            notes=notes,
+        )
+        
+        return {'identifier': identifier}
+    
+    def delete_custom_asset(self, identifier: str) -> None:
+        """Delete a custom asset"""
+        # Check if asset exists
+        if not self.asset_repo.check_asset_exists(identifier):
+            raise ValueError(f'Asset {identifier} not found')
+        
+        # Delete asset using repository
+        self.asset_repo.delete_asset(identifier)
+        
+        # Remove from user's owned assets if db handler is available
+        if self.db is not None:
+            with self.db.user_write() as cursor:
+                self.db.remove_asset_identifiers(cursor, [identifier])
 
     def add_user_asset(
         self,

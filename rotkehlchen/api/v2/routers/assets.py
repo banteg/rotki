@@ -41,6 +41,18 @@ def get_assets_service() -> AssetsService:
     return AssetsService()
 
 
+@router.post('/all')
+async def query_all_assets(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    asset_type: AssetType | None = None,
+    limit: int = 500,
+    offset: int = 0,
+) -> AssetResponse:
+    """Query all assets - Compatible with v1 POST /api/1/assets/all"""
+    return await get_all_assets(_, assets_service, asset_type, limit, offset)
+
+
 @router.get('/all')
 async def get_all_assets(
     _: Annotated[str, Depends(require_logged_in_user)],
@@ -125,6 +137,16 @@ async def get_latest_prices(
     )
 
 
+@router.put('/all')
+async def add_asset_v1_compatible(
+    asset_data: CustomAssetRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Add a new asset - Compatible with v1 PUT /api/1/assets/all"""
+    return await add_custom_asset(asset_data, _, assets_service)
+
+
 @router.post('/custom')
 async def add_custom_asset(
     asset_data: CustomAssetRequest,
@@ -136,9 +158,8 @@ async def add_custom_asset(
         asset = assets_service.add_custom_asset(
             identifier=asset_data.identifier,
             name=asset_data.name,
-            symbol=asset_data.symbol,
-            asset_type=asset_data.asset_type,
-            decimals=asset_data.decimals,
+            notes=f"Symbol: {asset_data.symbol}",
+            custom_asset_type=asset_data.asset_type.value,
         )
 
         return AssetResponse(
@@ -148,6 +169,63 @@ async def add_custom_asset(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        ) from e
+
+
+@router.patch('/all')
+async def edit_custom_asset(
+    asset_data: CustomAssetRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Edit an existing custom asset - Compatible with v1 PATCH /api/1/assets/all"""
+    try:
+        asset = assets_service.edit_custom_asset(
+            identifier=asset_data.identifier,
+            name=asset_data.name,
+            notes=f"Symbol: {asset_data.symbol}",
+            custom_asset_type=asset_data.asset_type.value,
+        )
+
+        return AssetResponse(
+            result={'identifier': asset.identifier},
+            message='Custom asset updated successfully',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.delete('/all')
+async def delete_custom_asset(
+    identifier: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Delete a custom asset - Compatible with v1 DELETE /api/1/assets/all"""
+    try:
+        assets_service.delete_custom_asset(identifier)
+        
+        return AssetResponse(
+            result={'success': True},
+            message=f'Custom asset {identifier} deleted successfully',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
 
