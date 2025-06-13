@@ -319,3 +319,98 @@ class BalancesService:
     def _get_manual_balances(self) -> list[ManuallyTrackedBalance]:
         """Get manually tracked balances"""
         return self.get_manual_balances()
+    
+    def get_historical_balance_for_all_assets(
+        self,
+        timestamp: Timestamp,
+    ) -> dict[str, dict[str, str]]:
+        """Get historical balance for all assets at a timestamp"""
+        # TODO: Implement proper historical balance query
+        # For now, return current balances as placeholder
+        current_balances = self.get_all_balances()
+        
+        result = {}
+        for location, assets in current_balances['assets'].items():
+            for asset_id, balance_data in assets.items():
+                if asset_id not in result:
+                    result[asset_id] = {
+                        'amount': '0',
+                        'usd_value': '0',
+                        'locations': {},
+                    }
+                
+                # Add to total
+                result[asset_id]['amount'] = str(
+                    FVal(result[asset_id]['amount']) + FVal(balance_data['amount'])
+                )
+                result[asset_id]['usd_value'] = str(
+                    FVal(result[asset_id]['usd_value']) + FVal(balance_data['usd_value'])
+                )
+                
+                # Add location details
+                result[asset_id]['locations'][location] = balance_data
+        
+        return result
+    
+    def get_historical_asset_amounts(
+        self,
+        asset: Asset,
+        from_timestamp: Timestamp,
+        to_timestamp: Timestamp,
+    ) -> list[dict[str, Any]]:
+        """Get historical amounts for a single asset in a time range"""
+        # TODO: Implement proper historical data query
+        # For now, return simulated data points
+        entries = []
+        
+        # Generate some sample data points
+        interval = (to_timestamp - from_timestamp) // 10  # 10 data points
+        if interval == 0:
+            interval = 86400  # 1 day
+        
+        current_amount = FVal('1000')  # Starting amount
+        
+        for i in range(10):
+            timestamp = from_timestamp + (i * interval)
+            if timestamp > to_timestamp:
+                break
+            
+            # Simulate some variation
+            amount = current_amount * FVal(1 + (i * 0.1))
+            usd_value = amount * FVal('1.5')  # Mock USD price
+            
+            entries.append({
+                'timestamp': timestamp,
+                'amount': str(amount),
+                'usd_value': str(usd_value),
+            })
+        
+        return entries
+    
+    def get_historical_netvalue(self) -> dict[str, Any]:
+        """Get historical net value data"""
+        # TODO: Implement proper historical net value query
+        # For now, return simulated data
+        import time
+        
+        current_time = int(time.time())
+        times = []
+        data = []
+        
+        # Generate 30 days of data
+        for i in range(30):
+            timestamp = current_time - (i * 86400)  # 1 day intervals
+            times.append(timestamp)
+            
+            # Simulate net value changes
+            base_value = 10000
+            variation = (30 - i) * 100  # Increasing value over time
+            data.append(str(base_value + variation))
+        
+        times.reverse()
+        data.reverse()
+        
+        return {
+            'times': times,
+            'data': data,
+        }

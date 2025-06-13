@@ -280,3 +280,56 @@ async def get_historical_balance(
     )
 
     return BalanceResponse(result=balance)
+
+
+# v1 compatibility endpoints for historical balances
+@router.post('/historical')
+async def get_historical_balance_v1(
+    timestamp: int,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    balances_service: Annotated[BalancesService, Depends(get_balances_service)],
+) -> BalanceResponse:
+    """Get historical balance for all assets at a timestamp - Compatible with v1 POST /api/1/balances/historical"""
+    balances = balances_service.get_historical_balance_for_all_assets(timestamp)
+    
+    return BalanceResponse(
+        result={
+            'assets': balances,
+            'liabilities': {},  # TODO: Implement liabilities
+            'net_usd': str(sum(FVal(b['usd_value']) for b in balances.values())),
+        },
+    )
+
+
+@router.post('/historical/asset')
+async def get_historical_asset_balance(
+    asset: str,
+    from_timestamp: int,
+    to_timestamp: int,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    balances_service: Annotated[BalancesService, Depends(get_balances_service)],
+) -> BalanceResponse:
+    """Get historical amounts for a single asset - Compatible with v1 POST /api/1/balances/historical/asset"""
+    amounts = balances_service.get_historical_asset_amounts(
+        asset=Asset(asset),
+        from_timestamp=from_timestamp,
+        to_timestamp=to_timestamp,
+    )
+    
+    return BalanceResponse(result={'entries': amounts})
+
+
+@router.post('/historical/netvalue')
+async def get_historical_netvalue(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    balances_service: Annotated[BalancesService, Depends(get_balances_service)],
+) -> BalanceResponse:
+    """Get historical net value - Compatible with v1 POST /api/1/balances/historical/netvalue"""
+    netvalue_data = balances_service.get_historical_netvalue()
+    
+    return BalanceResponse(
+        result={
+            'times': netvalue_data['times'],
+            'data': netvalue_data['data'],
+        },
+    )

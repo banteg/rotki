@@ -183,9 +183,9 @@
 - [x] `POST /api/1/accounting/rules/export` (Export accounting rules) ✅ Migrated to `POST /api/v2/accounting/rules/export`
 - [x] `POST /api/1/accounting/rules/conflicts` (List accounting rule conflicts) ✅ Migrated to `POST /api/v2/accounting/rules/conflicts`
 - [x] `PATCH /api/1/accounting/rules/conflicts` (Solve accounting rule conflicts) ✅ Migrated to `PATCH /api/v2/accounting/rules/conflicts`
-- [ ] `POST /api/1/balances/historical` (Get historical balance for all assets at a timestamp)
-- [ ] `POST /api/1/balances/historical/asset` (Get historical amounts for a single asset)
-- [ ] `POST /api/1/balances/historical/netvalue` (Get historical net value)
+- [x] `POST /api/1/balances/historical` (Get historical balance for all assets at a timestamp) ✅ Migrated to `POST /api/v2/balances/historical`
+- [x] `POST /api/1/balances/historical/asset` (Get historical amounts for a single asset) ✅ Migrated to `POST /api/v2/balances/historical/asset`
+- [x] `POST /api/1/balances/historical/netvalue` (Get historical net value) ✅ Migrated to `POST /api/v2/balances/historical/netvalue`
 
 #### **Ignored Assets & Actions**
 
