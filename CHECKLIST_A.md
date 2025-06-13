@@ -1,132 +1,40 @@
-The work is split into **Backend/Core Logic (Dev A)** and **API/Data Layer (Dev B)**. This division allows Dev B to build out the new data access patterns and API surface while Dev A focuses on migrating the complex, often intertwined, business logic.
+### `Developer A: Core Infrastructure, API Foundation, and User/Asset Management`
 
-YOU ARE DEV A!
+This track focuses on setting up the fundamental application structure, authentication, database connections, and migrating the core User and Asset domains.
 
----
+- **Phase 1: Core Setup & Database Foundation**
 
-### **Checklist 1: Backend & Business Logic Migration (Developer A)**
+  - `[ ]` **Finalize FastAPI App Setup:** In `rotki2/api/v2/app.py`, complete the `lifespan` manager to correctly initialize and shut down the `Rotkehlchen` instance and the new `AnyioTaskManager`.
+  - `[ ]` **Establish Async DB Connection:** In `rotki2/db/async_connection.py`, ensure `create_async_db_engine` and `create_async_session_factory` correctly handle the SQLCipher password and performance pragmas.
+  - `[ ]` **Implement Dependency Injection:** In `rotki2/api/v2/dependencies.py`, implement the `get_session` dependency to provide an `AsyncSession` to repositories.
+  - `[ ]` **Set up Alembic:** Run `alembic revision --autogenerate -m "Initial schema"` to create the first migration script based on all defined SQLModels. This script will be for new users. Do not apply it yet.
+  - `[ ]` **Refactor Task Manager:** In `rotki2/tasks/anyio_manager.py`, fully implement the task spawning and tracking logic. Migrate the scheduling logic from `rotkehlchen/tasks/manager.py` into `rotki2/tasks/async_manager.py`, replacing `gevent` calls with `anyio` equivalents.
 
-**Focus:** Migrating core application logic, business rules, and external service interactions from the old `rotkehlchen` and `RestAPI` god objects into the new, clean **Service Layer**. You will depend on the repositories that Developer B is building.
+- **Phase 2: Authentication & User Management**
 
-#### Phase A1: Service Layer Foundation & Logic Migration
+  - `[ ]` **Implement `UserRepository`:** In `rotki2/api/v2/repositories/user.py`, implement all methods for user and API key management, drawing logic from `rotkehlchen/db/dbhandler.py`.
+  - `[ ]` **Implement `AuthService`:** In `rotki2/api/v2/services/auth.py`, implement user authentication (`unlock_user`, `logout`), password changes, and API key management logic from `rotkehlchen/rotkehlchen.py` and `rotkehlchen/api/rest.py`.
+  - `[ ]` **Implement `auth.py` Router:** Wire up all endpoints in `rotki2/api/v2/routers/auth.py` to the `AuthService`.
+  - `[ ]` **Implement `users.py` Router:** Wire up all endpoints in `rotki2/api/v2/routers/users.py` to the `AuthService` and `UsersService`.
+  - `[ ]` **Implement `require_logged_in_user`:** In `rotki2/api/v2/dependencies.py`, implement a robust authentication check, likely using JWT tokens or a similar stateless mechanism, replacing the v1 session state check.
 
-_This phase is about creating the homes for the new business logic and starting the migration process._
+- **Phase 3: Settings & Info Management**
 
-- [x] **Task 1: Decompose `rotkehlchen.py` - User & Settings Logic**
+  - `[ ]` **Implement `SettingsRepository`:** In `rotki2/api/v2/repositories/settings.py`, fully implement methods to get and set values in the `settings` and `multisettings` tables.
+  - `[ ]` **Implement `SettingsService`:** In `rotki2/api/v2/services/settings.py`, port the logic for validating and applying settings from `rotkehlchen/rotkehlchen.py` and `rotkehlchen/api/rest.py`.
+  - `[ ]` **Wire up `settings.py` Router:** Connect all endpoints in `rotki2/api/v2/routers/settings.py` to the `SettingsService`.
+  - `[ ]` **Wire up `info.py` Router:** Implement the logic for the info endpoint in `rotki2/api/v2/routers/info.py`.
 
-  - [x] **Goal:** Extract user management and settings logic.
-  - [x] **Action:** In `rotki2/api/v2/services/`, create `auth.py` and `settings.py`.
-  - [x] **`AuthService`:** Move logic from `Rotkehlchen.unlock_user`, `_logout`, and `set_premium_credentials` into this new service. It will depend on a (future) `UserRepository`.
-  - [x] **`SettingsService`:** Move logic from `Rotkehlchen.set_settings` and `get_settings` here. It will depend on a (future) `SettingsRepository`.
-  - [x] **Note:** Services updated with async methods. Need to create async versions of repositories.
+- **Phase 4: Asset & Data Management**
 
-- [x] **Task 2: Decompose `rotkehlchen/api/rest.py` - Balances & Exchanges**
+  - `[ ]` **Finalize Asset Models:** Ensure all asset-related models in `rotki2/db/models/globaldb/assets.py` are complete and match the v1 schema.
+  - `[ ]` **Implement `GlobalAssetRepository`:** In `rotki2/api/v2/repositories/globaldb_asset.py`, port all asset-related queries from `rotkehlchen/globaldb/handler.py`.
+  - `[ ]` **Implement `AssetIgnoreRepository`:** In `rotki2/api/v2/repositories/asset_ignore.py`, implement the logic for managing ignored assets from `rotkehlchen/db/dbhandler.py`.
+  - `[ ]` **Implement `AssetsService`:** In `rotki2/api/v2/services/assets.py`, consolidate asset management logic.
+  - `[ ]` **Implement `DataService`:** In `rotki2/api/v2/services/data.py`, port data import/export logic from `rotkehlchen/data_import/manager.py`.
+  - `[ ]` **Wire up `assets.py` Router:** Connect all endpoints to the `AssetsService`.
+  - `[ ]` **Wire up `import_export.py` Router:** Connect endpoints to the `DataService`.
 
-  - [x] **Goal:** Extract balance querying and exchange management logic.
-  - [x] **Action:** In `rotki2/api/v2/services/`, create `balances.py` and `exchanges.py`.
-  - [x] **`BalancesService`:** Move the high-level logic from `RestAPI.query_all_balances` and `query_exchange_balances`. This service will orchestrate calls to the `ChainsAggregator` and `ExchangeManager`.
-  - [x] **`ExchangeService`:** Move logic from `RestAPI.setup_exchange`, `edit_exchange`, and `remove_exchange`. This will depend on the (future) `ExchangeRepository`.
-
-- [x] **Task 3: Decompose `rotkehlchen/api/rest.py` - History & Accounting**
-  - [x] **Goal:** Extract history processing and accounting report logic.
-  - [x] **Action:** In `rotki2/api/v2/services/`, create `history.py` and `reports.py`.
-  - [x] **`HistoryService`:** Move logic from `RestAPI.process_history` and `get_history_debug`. It will depend on the `HistoryRepository`.
-  - [x] **`ReportsService`:** Move logic for generating and querying PnL reports from `RestAPI` into this service. It will depend on the `ReportsRepository`.
-
-#### Phase A2: Core Logic and External API Migration (Async Conversion)
-
-_This phase focuses on converting the application's core computational and external-facing logic to the new `async` paradigm._
-
-- [x] **Task 4: Convert `rotkehlchen/inquirer.py` to `async`**
-
-  - [x] **Goal:** Make all external price lookups non-blocking.
-  - [x] **Action:** Create an `AsyncInquirer` service. Port the methods from `Inquirer` to be `async def`.
-  - [x] Replace all calls to `requests` with `httpx` using the utility in `rotki2/utils/async_network.py`. This is a critical step for the new concurrency model.
-  - [x] **Created:** AsyncInquirer service with async price query methods
-  - [x] **Created:** Async versions of key oracles (Coingecko, Cryptocompare, Defillama)
-  - [x] **Note:** Full implementation would require converting all oracle methods and blockchain calls to async
-
-- [x] **Task 5: Convert `rotkehlchen/exchanges/*.py` to `async`**
-
-  - [x] **Goal:** Make all exchange API interactions non-blocking.
-  - [x] **Action:** Pick one exchange (e.g., Kraken). Create an `AsyncKraken` class. Convert its methods (`query_balances`, `query_trades`, etc.) to `async def` and use `httpx`.
-  - [x] Update the `ExchangeManager` to handle these new `async` exchange classes.
-  - [x] **Created:** AsyncExchangeInterface and AsyncExchangeWithExtras base classes
-  - [x] **Created:** AsyncKraken implementation as example
-  - [x] **Created:** AsyncExchangeManager for managing multiple exchanges
-  - [x] **Note:** Full implementation would require converting all supported exchanges
-
-- [x] **Task 6: Convert `rotkehlchen/accounting/accountant.py` to `async`**
-
-  - [x] **Goal:** Make the core accounting engine asynchronous.
-  - [x] **Action:** This is a major task. The `Accountant.process_history` method iterates through events and performs many calculations. Any I/O within this loop (e.g., fetching a historical price) must become `await`-able.
-  - [x] The `AsyncAccountant` will depend on the new async repositories for data access.
-  - [x] **Subtasks:**
-    - [x] Analyze `Accountant` class structure and identify all I/O operations
-    - [x] Create `AsyncAccountant` base class with async methods
-    - [x] Convert `process_history` to async, handling event iteration
-    - [x] Convert price fetching calls to use `AsyncInquirer`
-    - [x] Convert database queries to use async repositories
-    - [x] Update cost basis calculations to handle async operations
-    - [x] Implement async PnL report generation
-    - [x] Handle transaction effect processing asynchronously
-    - [x] Test with sample data to ensure calculations remain accurate
-  - [x] **Created:** AsyncAccountant with async process_history method
-  - [x] **Created:** AsyncAccountingPot for PnL calculations
-  - [x] **Created:** AsyncPriceHistorian for historical price queries
-  - [x] **Created:** AsyncEVMAccountingAggregator for protocol-specific logic
-
-- [x] **Task 7: Migrate the Task Manager**
-  - [x] **Goal:** Fully replace the `gevent`-based `TaskManager` with the new `AnyioTaskManager`.
-  - [x] **Action:** Go through all tasks scheduled in `rotkehlchen/tasks/manager.py` and re-implement them as `async` functions that are spawned by the `AnyioTaskManager`.
-  - [x] **Subtasks:**
-    - [x] Analyze current `TaskManager` and list all scheduled tasks
-    - [x] Create `AsyncTaskManager` using anyio task groups
-    - [x] Convert periodic tasks (price updates, balance queries, etc.) to async
-    - [x] Implement task scheduling with proper intervals
-    - [x] Add task lifecycle management (start, stop, cancel, status)
-    - [x] Convert user-triggered tasks to async (history processing, report generation)
-    - [x] Implement task result storage and retrieval
-    - [x] Add error handling and retry logic for failed tasks
-    - [x] Test task concurrency and resource management
-  - [x] **Created:** AsyncTaskManager with 30 task scheduling methods
-  - [x] **Created:** AsyncTaskService for service layer integration
-  - [x] **Created:** Task utilities and result storage helpers
-  - [x] **Implemented:** 4 tasks fully, 26 with scheduling framework
-  - [x] **Documentation:** Complete migration guide in ASYNC_TASK_MIGRATION.md
-
-#### Phase A3: Finalizing the Service Layer
-
-- [x] **Task 8: Review and Refactor All Services for Purity**
-  - [x] **Goal:** Ensure no service depends on the old `Rotkehlchen` god object.
-  - [x] **Action:** Audit every service in `rotki2/api/v2/services/`. Ensure they only use `Depends` to get other services or repositories. Replace any lingering dependencies on the old system.
-  - [x] **Subtasks:**
-    - [x] List all services and their current dependencies
-    - [x] Check for any `get_rotkehlchen` usage and remove it
-    - [x] Verify services use constructor injection only
-    - [x] Ensure no direct database access (must use repositories)
-    - [x] Check for proper separation of concerns
-    - [x] Remove any sync/blocking calls in async services
-    - [x] Document service interfaces and dependencies
-    - [x] Create dependency graph to visualize service relationships
-  - [x] **Found Issues:**
-    - Extensive imports from rotkehlchen instead of rotki2
-    - Some direct database access instead of repositories
-    - Mixed sync/async patterns with run_in_executor workarounds
-    - Some improper dependency injection
-  - [x] **Created:** CleanAuthService as example of proper patterns
-  - [x] **Created:** Common types and errors for rotki2
-- [ ] **Task 9: Write Integration Tests for Services**
-  - [ ] **Goal:** Test the business logic of each service independently of the API layer.
-  - [ ] **Action:** For each service, create a test file (e.g., `test_balance_service.py`). Use `pytest-asyncio`. Mock the repository dependencies to provide controlled data and assert that the service's business logic is correct.
-  - [ ] **Subtasks:**
-    - [ ] Set up pytest-asyncio test infrastructure
-    - [ ] Create integration tests for `AuthService` (login, logout, premium)
-    - [ ] Create integration tests for `SettingsService` (get, update, validate)
-    - [ ] Create integration tests for `BalancesService` (query all, by location, by asset)
-    - [ ] Create integration tests for `ExchangeService` (setup, edit, remove)
-    - [ ] Create integration tests for `HistoryService` (process, query, export)
-    - [ ] Create integration tests for `ReportsService` (generate, list, get)
-    - [ ] Create integration tests for `AsyncInquirer` (price queries, caching)
-    - [ ] Test error handling and edge cases for each service
-    - [ ] Ensure proper cleanup in test fixtures
+- **Phase 5: Cleanup & Verification**
+  - `[ ]` **Remove Old User/Asset Files:** Delete `rotkehlchen/data_handler.py` and user/asset-related methods from `rotkehlchen.py` and `rotkehlchen/api/rest.py`.
+  - `[ ]` **Write Integration Tests:** Create tests that cover the full user login -> settings change -> asset query flow.
