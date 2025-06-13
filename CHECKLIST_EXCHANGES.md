@@ -2,9 +2,6 @@
 
 ### 1. Prepare Project
 
-- [ ] Create a new branch for the exchange migration.
-- [ ] Ensure existing tests run (`make pytest`) to establish a baseline.
-
 ### 2. Drop Async Prefixes
 
 - [ ] Rename `AsyncExchangeInterface` to `ExchangeInterface` and adjust imports.
@@ -76,11 +73,5 @@
 - [ ] Document each new exchange module with examples of expected API responses.
 - [ ] Ensure docstrings include parameter types and return values.
 - [ ] Remove temporary prints or debugging logs.
-
-### 12. Finalize
-
-- [ ] Run the full test suite (`make pytest`).
-- [ ] Ensure `pre-commit` hooks pass (formatting, linting, type checks).
-- [ ] Open a pull request summarizing changes and link to relevant issues for remaining exchanges.
 
 This checklist provides concrete, sequential actions to migrate the `exchanges/` package to the new async architecture, replacing the old gevent-based code with modern async code while keeping the project consistent and testable.

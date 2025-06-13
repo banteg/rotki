@@ -17,8 +17,8 @@ from rotkehlchen.types import (
     Timestamp,
 )
 from rotkehlchen.utils.misc import combine_dicts
-from rotki2.exchanges.base import AsyncExchangeInterface
-from rotki2.exchanges.kraken import AsyncKraken
+from rotki2.exchanges.base import ExchangeInterface
+from rotki2.exchanges.kraken import Kraken
 
 if TYPE_CHECKING:
     from rotkehlchen.db.dbhandler import DBHandler
@@ -27,19 +27,19 @@ if TYPE_CHECKING:
 logger = RotkehlchenLogsAdapter(__name__)
 
 # Map of supported exchanges
-ASYNC_EXCHANGE_MAPPING = {
-    Location.KRAKEN: AsyncKraken,
+EXCHANGE_MAPPING = {
+    Location.KRAKEN: Kraken,
     # Add more exchanges as they are implemented
-    # Location.BINANCE: AsyncBinance,
-    # Location.COINBASE: AsyncCoinbase,
+    # Location.BINANCE: Binance,
+    # Location.COINBASE: Coinbase,
 }
 
 
-class AsyncExchangeManager:
-    """Manager for async exchange instances
+class ExchangeManager:
+    """Manager for exchange instances
     
-    This is the async version of ExchangeManager, handling multiple
-    exchange connections and providing unified interfaces.
+    Handles multiple exchange connections and provides unified interfaces.
+    All operations are async.
     """
     
     def __init__(
@@ -49,7 +49,7 @@ class AsyncExchangeManager:
     ):
         self.db = database
         self.msg_aggregator = msg_aggregator
-        self.connected_exchanges: dict[Location, list[AsyncExchangeInterface]] = {}
+        self.connected_exchanges: dict[Location, list[ExchangeInterface]] = {}
         
     async def setup_exchange(
         self,
@@ -65,8 +65,8 @@ class AsyncExchangeManager:
         
         Returns (success, message)
         """
-        if location not in ASYNC_EXCHANGE_MAPPING:
-            return False, f'Exchange {location} is not supported in async mode yet'
+        if location not in EXCHANGE_MAPPING:
+            return False, f'Exchange {location} is not supported yet'
         
         # Check if exchange with same name already exists
         if location in self.connected_exchanges:
@@ -75,7 +75,7 @@ class AsyncExchangeManager:
                     return False, f'Exchange {name} already exists'
         
         # Create exchange instance
-        exchange_class = ASYNC_EXCHANGE_MAPPING[location]
+        exchange_class = EXCHANGE_MAPPING[location]
         
         try:
             # Build exchange-specific kwargs
@@ -202,7 +202,7 @@ class AsyncExchangeManager:
         
         return True, ''
     
-    def get_exchange(self, name: str, location: Location) -> AsyncExchangeInterface | None:
+    def get_exchange(self, name: str, location: Location) -> ExchangeInterface | None:
         """Get a specific exchange instance"""
         if location not in self.connected_exchanges:
             return None
@@ -213,7 +213,7 @@ class AsyncExchangeManager:
         
         return None
     
-    def iterate_exchanges(self) -> list[AsyncExchangeInterface]:
+    def iterate_exchanges(self) -> list[ExchangeInterface]:
         """Iterate through all connected exchanges"""
         exchanges = []
         for location_exchanges in self.connected_exchanges.values():

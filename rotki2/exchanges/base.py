@@ -22,9 +22,10 @@ from rotkehlchen.types import (
     ExchangeAuthCredentials,
     Location,
     Timestamp,
+    Fee,
 )
 from rotkehlchen.user_messages import MessagesAggregator
-from rotkehlchen.utils.misc import ts_now
+from rotkehlchen.utils.misc import ts_now, ts_now_in_ms
 from rotki2.utils.async_http_client import AsyncHTTPClient
 
 if TYPE_CHECKING:
@@ -33,11 +34,11 @@ if TYPE_CHECKING:
 logger = RotkehlchenLogsAdapter(__name__)
 
 
-class AsyncExchangeInterface(ABC):
-    """Async base interface for exchanges
+class ExchangeInterface(ABC):
+    """Base interface for exchanges
     
-    This is the async version of ExchangeInterface, converting all I/O operations
-    to async while maintaining the same functionality.
+    All I/O operations are async. This is the base class that all
+    exchange implementations must inherit from.
     """
     
     def __init__(
@@ -63,6 +64,11 @@ class AsyncExchangeInterface(ABC):
         self.call_counter = 0
         self.last_query_ts = 0
         self._rate_limit_lock = asyncio.Lock()
+        
+        # Default rate limits (can be overridden by subclasses)
+        self.rate_limit_calls = 10  # calls per period
+        self.rate_limit_period = 60  # seconds
+        self.last_rate_limit_ts = ts_now_in_ms()
         
     @abstractmethod
     async def query_balances(self, **kwargs: Any) -> dict[Asset, Balance]:
@@ -93,6 +99,21 @@ class AsyncExchangeInterface(ABC):
         
         Returns (success, error_message)
         """
+    
+    def location_id(self) -> tuple[str, Location]:
+        """Returns unique location identifier for this exchange object"""
+        return (self.name, self.location)
+    
+    def reset_to_db_credentials(self) -> None:
+        """Resets the exchange credentials to the ones saved in the DB"""
+        credentials = self.db.get_exchange_credentials(
+            location=self.location,
+            name=self.name,
+        )
+        if credentials and self.location in credentials:
+            cred = credentials[self.location][0]
+            self.api_key = cred.api_key
+            self.secret = cred.api_secret
     
     async def first_connection(self) -> None:
         """Perform first connection initialization
@@ -144,20 +165,38 @@ class AsyncExchangeInterface(ABC):
         Can be overridden for exchange-specific rate limiting.
         """
         async with self._rate_limit_lock:
-            # Simple rate limiting - ensure minimum time between calls
-            now = ts_now()
-            time_since_last = now - self.last_query_ts
+            now_ms = ts_now_in_ms()
+            time_passed = (now_ms - self.last_rate_limit_ts) / 1000  # convert to seconds
             
-            # Default to 1 request per second
-            min_interval = 1.0
-            if time_since_last < min_interval:
-                await anyio.sleep(min_interval - time_since_last)
+            # Reduce counter based on time passed
+            if time_passed > self.rate_limit_period:
+                # Full period passed, reset counter
+                self.call_counter = 0
+                self.last_rate_limit_ts = now_ms
+            elif time_passed > 0:
+                # Partial period passed, reduce counter proportionally
+                reduction = int(time_passed / self.rate_limit_period * self.rate_limit_calls)
+                self.call_counter = max(0, self.call_counter - reduction)
+                if reduction > 0:
+                    self.last_rate_limit_ts = now_ms
             
-            self.last_query_ts = ts_now()
+            # If we're at the limit, wait
+            if self.call_counter >= self.rate_limit_calls:
+                wait_time = self.rate_limit_period - time_passed
+                if wait_time > 0:
+                    logger.debug(
+                        f'{self.name} rate limit reached ({self.call_counter}/{self.rate_limit_calls}), '
+                        f'waiting {wait_time:.2f}s'
+                    )
+                    await anyio.sleep(wait_time)
+                    self.call_counter = 0
+                    self.last_rate_limit_ts = ts_now_in_ms()
+            
             self.call_counter += 1
+            self.last_query_ts = ts_now()
 
 
-class AsyncExchangeWithExtras(AsyncExchangeInterface):
+class ExchangeWithExtras(ExchangeInterface):
     """Base class for exchanges that have extra configuration
     
     Such as Kraken with account types or Binance with selected markets.
@@ -172,7 +211,7 @@ class AsyncExchangeWithExtras(AsyncExchangeInterface):
         """Set exchange-specific extra configuration"""
         
 
-class AsyncExchangeWithoutApiSecret(ABC):
+class ExchangeWithoutApiSecret(ABC):
     """Base class for exchanges that don't require an API secret
     
     Some exchanges like some DEXes only need an address, not API credentials.

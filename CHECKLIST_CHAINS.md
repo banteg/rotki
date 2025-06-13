@@ -6,16 +6,16 @@ This checklist will guide you through migrating the legacy `chain/` package to o
 
 Build the reusable components for the service layer.
 
-- [ ] **Create Base Node Client:** In `rotki2/services/chains/common/node_client.py`, create a base class for interacting with RPC nodes using `httpx`.
+- [x] **Create Base Node Client:** In `rotki2/services/chains/common/node_client.py`, create a base class for interacting with RPC nodes using `httpx`.
 
   - It should accept an `httpx.AsyncClient` in its `__init__`.
   - It should have a `post` method that handles the basic JSON-RPC 2.0 structure, error handling, and retries.
 
-- [ ] **Create Base EVM Service:** In `rotki2/services/chains/common/evm_service.py`, create a `BaseEvmService` to hold logic shared across all EVM chains.
+- [x] **Create Base EVM Service:** In `rotki2/services/chains/common/evm_service.py`, create a `BaseEvmService` to hold logic shared across all EVM chains.
 
   - Initially, it can be a simple placeholder class. You will add shared logic here as you refactor multiple chains.
 
-- [ ] **Refactor Decoding Logic:**
+- [x] **Refactor Decoding Logic:**
   - Create a `DecodingService` in `rotki2/services/chains/common/decoding_service.py`.
   - The old `EVMTransactionDecoder` logic will live here.
   - The protocol-specific decoders (e.g., Uniswap, Aave) will be refactored into stateless helper functions or classes that this service calls. They will no longer hold state.
@@ -26,20 +26,20 @@ This is the main part of the work. **Complete all steps for one chain before mov
 
 #### **Step 2.1: Migrate Optimism**
 
-- [ ] **Create `OptimismNodeClient`:**
+- [x] **Create `OptimismNodeClient`:**
 
   - In `rotki2/services/chains/optimism/optimism_node_client.py`, create `OptimismNodeClient` that inherits from `BaseNodeClient`.
   - Migrate methods from the old `OptimismInquirer` (`rotkehlchen/chain/optimism/node_inquirer.py`).
   - Replace all `gevent`-based HTTP requests with `await self.http_client.post(...)`.
   - Remove all database interaction logic from this class. Its only job is to talk to the Optimism RPC node.
 
-- [ ] **Create `OptimismRepository`:**
+- [x] **Create `OptimismRepository`:**
 
   - In `rotki2/db/repositories/optimism_repository.py`, create the `OptimismRepository`.
   - It will take an `AsyncSession` in its `__init__`.
   - Migrate all Optimism-specific SQL queries from the old codebase, rewriting them using SQLAlchemy's async API (`await session.exec(...)`).
 
-- [ ] **Create `OptimismService`:**
+- [x] **Create `OptimismService`:**
 
   - In `rotki2/services/chains/optimism/optimism_service.py`, create the `OptimismService`.
   - The service's `__init__` will accept `node_client: OptimismNodeClient` and `repository: OptimismRepository`.
@@ -49,7 +49,7 @@ This is the main part of the work. **Complete all steps for one chain before mov
   - Replace direct RPC calls with `await self.node_client.*` methods.
   - The logic from `OptimismTransactionDecoder` and its protocol-specific sub-decoders will be integrated here or in a dedicated `OptimismDecodingService`.
 
-- [ ] **Create Dependency Injection Provider:**
+- [x] **Create Dependency Injection Provider:**
   - In a new file `rotki2/api/dependencies.py`, create a provider function to instantiate and yield the `OptimismService`.
   ```python
   # rotki2/api/dependencies.py

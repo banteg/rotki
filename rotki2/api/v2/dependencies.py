@@ -450,3 +450,38 @@ def get_async_names_service(
         ens_repository=ens_repository,
         addressbook_repository=addressbook_repository,
     )
+
+
+# Chain-specific dependencies
+async def get_optimism_service(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+    request: Request,
+) -> 'OptimismService':
+    """Get OptimismService instance"""
+    import httpx
+    from rotki2.db.repositories.optimism_repository import OptimismRepository
+    from rotki2.services.chains.common.decoding_service import DecodingService
+    from rotki2.services.chains.optimism import OptimismNodeClient, OptimismService
+    
+    # Get node URL from configuration or use default
+    # In production, this would come from user settings
+    node_url = "https://mainnet.optimism.io"
+    
+    # Create HTTP client
+    http_client = httpx.AsyncClient(timeout=30.0)
+    
+    # Create node client
+    node_client = OptimismNodeClient(http_client, node_url)
+    
+    # Create repository
+    repository = OptimismRepository(session)
+    
+    # Create decoding service (optional)
+    decoding_service = DecodingService(chain_id=10, chain_name="Optimism")
+    
+    # Create and return service
+    return OptimismService(
+        node_client=node_client,
+        repository=repository,
+        decoding_service=decoding_service,
+    )

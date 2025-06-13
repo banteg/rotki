@@ -1,4 +1,4 @@
-"""Async Kraken exchange implementation"""
+"""Kraken exchange implementation"""
 import base64
 import hashlib
 import hmac
@@ -37,7 +37,7 @@ from rotkehlchen.types import (
     Timestamp,
 )
 from rotkehlchen.utils.misc import ts_now_in_ms
-from rotki2.exchanges.base import AsyncExchangeInterface, AsyncExchangeWithExtras
+from rotki2.exchanges.base import ExchangeInterface, ExchangeWithExtras
 
 if TYPE_CHECKING:
     from rotkehlchen.db.dbhandler import DBHandler
@@ -49,11 +49,11 @@ KRAKEN_API_VERSION = '0'
 KRAKEN_BASE_URL = 'https://api.kraken.com'
 
 
-class AsyncKraken(AsyncExchangeInterface, AsyncExchangeWithExtras):
-    """Async implementation of Kraken exchange
+class Kraken(ExchangeInterface, ExchangeWithExtras):
+    """Kraken exchange implementation
     
-    This migrates the Kraken exchange logic to async while maintaining
-    the same functionality as the sync version.
+    All operations are async. Maintains compatibility with the
+    original Kraken exchange functionality.
     """
     
     def __init__(
