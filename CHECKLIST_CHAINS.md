@@ -171,18 +171,18 @@ Repeat the steps from 2.1 for every other chain in the `rotkehlchen/chain/` dire
 
 Deconstruct the central coordinator and replace it with a service that leverages the new, independent chain services.
 
-- [ ] **Create `ChainsAggregatorService`:**
+- [x] **Create `ChainsAggregatorService`:**
 
   - In `rotki2/services/chains/aggregator_service.py`.
   - Inject all the individual chain services into its `__init__` (e.g., `optimism_service: OptimismService`, `ethereum_service: EthereumService`, etc.).
 
-- [ ] **Refactor `query_balances`:**
+- [x] **Refactor `query_balances`:**
 
   - The `query_balances` method in the new service will no longer contain complex logic.
   - It will use `anyio.create_task_group()` to concurrently call the `get_balances` method on each injected chain service.
   - It will aggregate the results from all services into a single response structure.
 
-- [ ] **Refactor `modify_blockchain_accounts`:**
+- [x] **Refactor `modify_blockchain_accounts`:**
   - This method will now call the appropriate service based on the `blockchain` parameter (e.g., `self.bitcoin_service.add_account(...)`).
 
 ### **Phase 4: Finalization & API Integration**

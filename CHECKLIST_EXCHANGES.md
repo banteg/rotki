@@ -47,17 +47,17 @@
 - [x] Implement error handling and proper translation to API responses.
 - [ ] Cover the service with integration tests.
 
-### 7. Adjust API Routers
+### 7. Adjust API Routers ✅
 
-- [ ] Ensure `rotki2/api/v2/routers/exchanges.py` invokes methods from `ExchangeService` correctly.
-- [ ] Remove references to `SUPPORTED_EXCHANGES` from v1; rely on the manager's mapping.
-- [ ] Update endpoints that still return dummy data or placeholders.
+- [x] Ensure `rotki2/api/v2/routers/exchanges.py` invokes methods from `ExchangeService` correctly.
+- [x] Remove references to `SUPPORTED_EXCHANGES` from v1; rely on the manager's mapping.
+- [x] Update endpoints that still return dummy data or placeholders.
 
-### 8. Database Integration
+### 8. Database Integration ✅
 
-- [ ] Map any exchange-specific settings (e.g., Binance selected pairs) to SQLModel models in `rotki2/db/models/user`.
-- [ ] Implement repository methods for saving/editing credentials and extras.
-- [ ] Write migrations if new tables are needed for exchange data.
+- [x] Map any exchange-specific settings (e.g., Binance selected pairs) to SQLModel models in `rotki2/db/models/exchanges`.
+- [x] Implement repository methods for saving/editing credentials and extras.
+- [x] Write migrations if new tables are needed for exchange data.
 
 ### 9. Remove Old Exchange Code
 

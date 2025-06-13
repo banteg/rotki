@@ -553,3 +553,18 @@ async def get_polygon_service(
         repository=repository,
         decoding_service=decoding_service,
     )
+
+
+async def get_chains_aggregator_service(
+    ethereum_service: Annotated['EthereumService', Depends(get_ethereum_service)],
+    optimism_service: Annotated['OptimismService', Depends(get_optimism_service)],
+    polygon_service: Annotated['PolygonService', Depends(get_polygon_service)],
+) -> 'ChainsAggregatorService':
+    """Get ChainsAggregatorService instance"""
+    from rotki2.services.chains.aggregator_service import ChainsAggregatorService
+    
+    return ChainsAggregatorService(
+        ethereum_service=ethereum_service,
+        optimism_service=optimism_service,
+        polygon_service=polygon_service,
+    )
