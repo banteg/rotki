@@ -63,11 +63,21 @@ ARCHITECTURE_RULES = {
             'sqlmodel',
             'sqlalchemy',
             'rotkehlchen.db.models',
+            'rotkehlchen.api.v2.repositories.base',  # Allow importing base repository
             'rotkehlchen.types',
             'rotkehlchen.errors',
             'rotkehlchen.constants',
             'rotkehlchen.logging',
             'rotkehlchen.utils',
+            # Domain models and value objects
+            'rotkehlchen.assets',  # For Asset, AssetWithOracles, AssetType
+            'rotkehlchen.fval',  # For financial calculations
+            'rotkehlchen.accounting.structures',  # For Balance and other structures
+            'rotkehlchen.db.filtering',  # For query filters
+            'rotkehlchen.db.constants',  # For database constants
+            'rotkehlchen.globaldb',  # For GlobalDBHandler wrapper
+            'rotkehlchen.history',  # For history event structures
+            'rotkehlchen.inquirer',  # For price lookups (needed by balance_source)
         },
         'forbidden_patterns': {
             'services': 'Repositories must not import services',
