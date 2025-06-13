@@ -64,26 +64,26 @@ Repeat the steps from 2.1 for every other chain in the `rotkehlchen/chain/` dire
 
 ##### **Ethereum Migration**
 
-- [ ] **Create `EthereumNodeClient`:**
+- [x] **Create `EthereumNodeClient`:**
   - In `rotki2/services/chains/ethereum/ethereum_node_client.py`
   - Inherit from `BaseNodeClient`
   - Include ENS support methods
   - Include ETH2 deposit tracking
   - Archive node check constants
 
-- [ ] **Create `EthereumRepository`:**
+- [x] **Create `EthereumRepository`:**
   - In `rotki2/db/repositories/ethereum_repository.py`
   - Handle ETH2 deposit data
   - ENS name mappings
   - Transaction and receipt storage
 
-- [ ] **Create `EthereumService`:**
+- [x] **Create `EthereumService`:**
   - In `rotki2/services/chains/ethereum/ethereum_service.py`
   - ENS reverse lookup functionality
   - ETH2 deposit tracking
   - Integration with multiple node providers
 
-- [ ] **Update DI provider:**
+- [x] **Update DI provider:**
   - Add `get_ethereum_service` to dependencies.py
 
 ##### **Polygon PoS Migration**

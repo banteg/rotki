@@ -485,3 +485,37 @@ async def get_optimism_service(
         repository=repository,
         decoding_service=decoding_service,
     )
+
+
+async def get_ethereum_service(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+    request: Request,
+) -> 'EthereumService':
+    """Get EthereumService instance"""
+    import httpx
+    from rotki2.db.repositories.ethereum_repository import EthereumRepository
+    from rotki2.services.chains.common.decoding_service import DecodingService
+    from rotki2.services.chains.ethereum import EthereumNodeClient, EthereumService
+    
+    # Get node URL from configuration or use default
+    # In production, this would come from user settings or RPC node management
+    node_url = "https://eth-mainnet.g.alchemy.com/v2/demo"
+    
+    # Create HTTP client
+    http_client = httpx.AsyncClient(timeout=30.0)
+    
+    # Create node client
+    node_client = EthereumNodeClient(http_client, node_url)
+    
+    # Create repository
+    repository = EthereumRepository(session)
+    
+    # Create decoding service (optional)
+    decoding_service = DecodingService(chain_id=1, chain_name="Ethereum")
+    
+    # Create and return service
+    return EthereumService(
+        node_client=node_client,
+        repository=repository,
+        decoding_service=decoding_service,
+    )
