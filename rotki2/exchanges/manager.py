@@ -18,6 +18,9 @@ from rotkehlchen.types import (
 )
 from rotkehlchen.utils.misc import combine_dicts
 from rotki2.exchanges.base import ExchangeInterface
+from rotki2.exchanges.binance import Binance
+from rotki2.exchanges.bitfinex import Bitfinex
+from rotki2.exchanges.coinbase import Coinbase
 from rotki2.exchanges.kraken import Kraken
 
 if TYPE_CHECKING:
@@ -28,10 +31,26 @@ logger = RotkehlchenLogsAdapter(__name__)
 
 # Map of supported exchanges
 EXCHANGE_MAPPING = {
+    Location.BINANCE: Binance,
+    Location.BINANCEUS: Binance,
+    Location.BITFINEX: Bitfinex,
+    Location.COINBASE: Coinbase,
     Location.KRAKEN: Kraken,
-    # Add more exchanges as they are implemented
-    # Location.BINANCE: Binance,
-    # Location.COINBASE: Coinbase,
+    # TODO: Add remaining exchanges as they are implemented:
+    # Location.BITCOINDE: Bitcoinde,
+    # Location.BITMEX: Bitmex,
+    # Location.BITPANDA: Bitpanda,
+    # Location.BITSTAMP: Bitstamp,
+    # Location.BYBIT: Bybit,
+    # Location.COINBASEPRIME: CoinbasePrime,
+    # Location.GEMINI: Gemini,
+    # Location.HTX: HTX,
+    # Location.ICONOMI: Iconomi,
+    # Location.INDEPENDENTRESERVE: IndependentReserve,
+    # Location.KUCOIN: Kucoin,
+    # Location.OKX: OKX,
+    # Location.POLONIEX: Poloniex,
+    # Location.WOO: Woo,
 }
 
 
@@ -90,6 +109,15 @@ class ExchangeManager:
             # Add exchange-specific parameters
             if location == Location.KRAKEN and 'kraken_account_type' in kwargs:
                 exchange_kwargs['kraken_account_type'] = kwargs['kraken_account_type']
+            elif location in (Location.BINANCE, Location.BINANCEUS):
+                if 'binance_markets' in kwargs:
+                    exchange_kwargs['binance_markets'] = kwargs['binance_markets']
+                # Set correct URI for Binance US
+                if location == Location.BINANCEUS:
+                    from rotki2.exchanges.binance import BINANCEUS_BASE_URL
+                    exchange_kwargs['uri'] = BINANCEUS_BASE_URL
+            elif location in (Location.KUCOIN, Location.OKX, Location.COINBASEPRIME) and 'passphrase' in kwargs:
+                exchange_kwargs['passphrase'] = kwargs['passphrase']
             
             # Create instance
             exchange = exchange_class(**exchange_kwargs)

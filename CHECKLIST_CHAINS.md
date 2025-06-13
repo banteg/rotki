@@ -60,65 +60,112 @@ This is the main part of the work. **Complete all steps for one chain before mov
 
 #### **Step 2.2: Repeat for All Other Chains**
 
-Repeat the steps from 4.1 for every other chain in the `rotkehlchen/chain/` directory.
+Repeat the steps from 2.1 for every other chain in the `rotkehlchen/chain/` directory.
 
-- [ ] **Migrate Ethereum:**
+##### **Ethereum Migration**
 
-  - `EthereumInquirer` -> `EthereumNodeClient`
-  - `EthereumManager` -> `EthereumService`
-  - `EthereumTransactions` -> `EthereumRepository` (or part of `EthereumService`)
-  - Update DI provider.
+- [ ] **Create `EthereumNodeClient`:**
+  - In `rotki2/services/chains/ethereum/ethereum_node_client.py`
+  - Inherit from `BaseNodeClient`
+  - Include ENS support methods
+  - Include ETH2 deposit tracking
+  - Archive node check constants
 
-- [ ] **Migrate Polygon PoS:**
+- [ ] **Create `EthereumRepository`:**
+  - In `rotki2/db/repositories/ethereum_repository.py`
+  - Handle ETH2 deposit data
+  - ENS name mappings
+  - Transaction and receipt storage
 
-  - `PolygonPOSInquirer` -> `PolygonPosNodeClient`
-  - `PolygonPOSManager` -> `PolygonPosService`
-  - Update DI provider.
+- [ ] **Create `EthereumService`:**
+  - In `rotki2/services/chains/ethereum/ethereum_service.py`
+  - ENS reverse lookup functionality
+  - ETH2 deposit tracking
+  - Integration with multiple node providers
 
-- [ ] **Migrate Arbitrum One:**
+- [ ] **Update DI provider:**
+  - Add `get_ethereum_service` to dependencies.py
 
-  - `ArbitrumOneInquirer` -> `ArbitrumOneNodeClient`
-  - `ArbitrumOneManager` -> `ArbitrumOneService`
-  - Update DI provider.
+##### **Polygon PoS Migration**
 
-- [ ] **Migrate Base:**
+- [ ] **Create `PolygonPosNodeClient`:**
+  - In `rotki2/services/chains/polygon/polygon_node_client.py`
+  - Inherit from `BaseNodeClient`
+  - Polygon-specific constants
 
-  - `BaseInquirer` -> `BaseNodeClient`
-  - `BaseManager` -> `BaseService`
-  - Update DI provider.
+- [ ] **Create `PolygonRepository`:**
+  - In `rotki2/db/repositories/polygon_repository.py`
+  - Standard EVM repository functionality
+
+- [ ] **Create `PolygonService`:**
+  - In `rotki2/services/chains/polygon/polygon_service.py`
+  - Bridge transaction handling
+
+- [ ] **Update DI provider**
+
+##### **Arbitrum One Migration**
+
+- [ ] **Create `ArbitrumNodeClient`:**
+  - In `rotki2/services/chains/arbitrum/arbitrum_node_client.py`
+  - Inherit from L2 with L1 fees base (like Optimism)
+  - Arbitrum-specific constants
+
+- [ ] **Create `ArbitrumRepository`:**
+  - In `rotki2/db/repositories/arbitrum_repository.py`
+  - Include L1 fee tracking
+
+- [ ] **Create `ArbitrumService`:**
+  - In `rotki2/services/chains/arbitrum/arbitrum_service.py`
+  - L1 fee calculations
+  - Nitro upgrade handling
+
+- [ ] **Update DI provider**
+
+##### **Base Migration**
+
+- [ ] **Create `BaseNodeClient`:**
+  - In `rotki2/services/chains/base/base_node_client.py`
+  - Inherit from L2 with L1 fees base
+  - Base-specific constants
+
+- [ ] **Create `BaseRepository`:**
+  - In `rotki2/db/repositories/base_repository.py`
+
+- [ ] **Create `BaseService`:**
+  - In `rotki2/services/chains/base/base_service.py`
+
+- [ ] **Update DI provider**
+
+##### **Other EVM Chains**
 
 - [ ] **Migrate Gnosis:**
-
-  - `GnosisInquirer` -> `GnosisNodeClient`
-  - `GnosisManager` -> `GnosisService`
-  - Update DI provider.
+  - Create node client, repository, service
+  - Include xDAI bridge support
 
 - [ ] **Migrate Scroll:**
-
-  - `ScrollInquirer` -> `ScrollNodeClient`
-  - `ScrollManager` -> `ScrollService`
-  - Update DI provider.
+  - Create node client, repository, service  
+  - L2 with L1 fees support
 
 - [ ] **Migrate Binance Smart Chain:**
+  - Create node client, repository, service
+  - BSC-specific token list
 
-  - `BinanceSCInquirer` -> `BinanceScNodeClient`
-  - `BinanceSCManager` -> `BinanceScService`
-  - Update DI provider.
+##### **Non-EVM Chains**
 
 - [ ] **Migrate Bitcoin:**
-
-  - `XpubManager` and other logic -> `BitcoinService` and `BitcoinNodeClient`.
-  - The client will talk to block explorers like Blockstream.
-  - The service will handle address derivation and balance aggregation.
+  - `BitcoinNodeClient` using block explorers
+  - `BitcoinRepository` for xpub data
+  - `BitcoinService` for address derivation
 
 - [ ] **Migrate Substrate (Kusama, Polkadot):**
-
-  - `SubstrateManager` -> `SubstrateService`.
-  - The service will use an async-compatible Substrate library or `httpx` to talk to nodes.
+  - `SubstrateClient` using httpx
+  - `SubstrateRepository`
+  - `SubstrateService`
 
 - [ ] **Migrate ZKSync Lite:**
-  - `ZksyncLiteManager` -> `ZksyncLiteService`.
-  - The service will use `httpx` to query the zkSync Lite API.
+  - `ZksyncLiteClient` using httpx
+  - `ZksyncLiteRepository`
+  - `ZksyncLiteService`
 
 ### **Phase 3: Refactor the `ChainsAggregator`**
 

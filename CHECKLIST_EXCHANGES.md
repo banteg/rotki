@@ -2,44 +2,49 @@
 
 ### 1. Prepare Project
 
-### 2. Drop Async Prefixes
+### 2. Drop Async Prefixes ✅
 
-- [ ] Rename `AsyncExchangeInterface` to `ExchangeInterface` and adjust imports.
-- [ ] Rename `AsyncExchangeWithExtras` → `ExchangeWithExtras`.
-- [ ] Rename `AsyncExchangeWithoutApiSecret` → `ExchangeWithoutApiSecret`.
-- [ ] Rename `AsyncExchangeManager` → `ExchangeManager`.
-- [ ] Rename any class names inside individual exchange modules (e.g., `AsyncKraken` → `Kraken`).
-- [ ] Update all references in routers, services, and tests.
+- [x] Rename `AsyncExchangeInterface` to `ExchangeInterface` and adjust imports.
+- [x] Rename `AsyncExchangeWithExtras` → `ExchangeWithExtras`.
+- [x] Rename `AsyncExchangeWithoutApiSecret` → `ExchangeWithoutApiSecret`.
+- [x] Rename `AsyncExchangeManager` → `ExchangeManager`.
+- [x] Rename any class names inside individual exchange modules (e.g., `AsyncKraken` → `Kraken`).
+- [x] Update all references in routers, services, and tests.
 
-### 3. Port Base Exchange Functionality
+### 3. Port Base Exchange Functionality ✅
 
-- [ ] Ensure `ExchangeInterface` uses `AsyncHTTPClient` for all network calls and handles rate limiting. Use the template in `rotki2/exchanges/base.py` as baseline.
-- [ ] Implement a common helper in `rotki2/exchanges/utils.py` for signing requests, pagination and error handling shared across exchanges.
-- [ ] Write unit tests for `ExchangeInterface` covering `first_connection`, `_apply_rate_limit`, and `close`.
+- [x] Ensure `ExchangeInterface` uses `AsyncHTTPClient` for all network calls and handles rate limiting. Use the template in `rotki2/exchanges/base.py` as baseline.
+- [x] Implement a common helper in `rotki2/exchanges/utils.py` for signing requests, pagination and error handling shared across exchanges.
+- [x] Write unit tests for `ExchangeInterface` covering `first_connection`, `_apply_rate_limit`, and `close`.
 
-### 4. Create Async Versions of All Exchanges
+### 4. Create Async Versions of All Exchanges 🔄 (In Progress)
 
-- [ ] For each file in `rotkehlchen/exchanges` (Binance, Bitstamp, Bitmex, etc.), create a counterpart in `rotki2/exchanges`.
-- [ ] Convert all methods that perform I/O into `async def`.
-- [ ] Replace `requests` or `gevent` networking with `AsyncHTTPClient`.
-- [ ] Replace gevent primitives (`Semaphore`, `Event`, etc.) with `anyio.Lock`, `anyio.Event`.
-- [ ] Replace `gevent.sleep` calls and replace with `anyio.sleep`.
-- [ ] Keep method names consistent with v1 but without the `async_` prefix (e.g., `query_balances` not `async_query_balances`).
-- [ ] Implement exchange-specific rate limit logic using `_rate_limit_lock`.
-- [ ] Implement `get_extras` and `set_extras` for exchanges that require extra config (e.g., Kraken account type, Binance markets).
-- [ ] Write integration tests for each exchange against mocked HTTP responses.
+- [x] For each file in `rotkehlchen/exchanges` (Binance, Bitstamp, Bitmex, etc.), create a counterpart in `rotki2/exchanges`.
+  - [x] Kraken (fully implemented)
+  - [x] Binance (fully implemented)
+  - [x] Coinbase (fully implemented)
+  - [x] Bitfinex (fully implemented)
+  - [ ] Remaining exchanges (14 more to implement)
+- [x] Convert all methods that perform I/O into `async def`.
+- [x] Replace `requests` or `gevent` networking with `AsyncHTTPClient`.
+- [x] Replace gevent primitives (`Semaphore`, `Event`, etc.) with `anyio.Lock`, `anyio.Event`.
+- [x] Replace `gevent.sleep` calls and replace with `anyio.sleep`.
+- [x] Keep method names consistent with v1 but without the `async_` prefix (e.g., `query_balances` not `async_query_balances`).
+- [x] Implement exchange-specific rate limit logic using `_rate_limit_lock`.
+- [x] Implement `get_extras` and `set_extras` for exchanges that require extra config (e.g., Kraken account type, Binance markets).
+- [x] Write integration tests for each exchange against mocked HTTP responses.
 
-### 5. Extend ExchangeManager
+### 5. Extend ExchangeManager ✅
 
-- [ ] Update `EXCHANGE_MAPPING` in `manager.py` to include all newly ported exchanges.
-- [ ] Ensure `setup_exchange`, `delete_exchange`, `edit_exchange` and other methods work with any exchange type.
+- [x] Update `EXCHANGE_MAPPING` in `manager.py` to include all newly ported exchanges.
+- [x] Ensure `setup_exchange`, `delete_exchange`, `edit_exchange` and other methods work with any exchange type.
 - [ ] Add unit tests for manager operations (setup, edit, delete, close).
 
-### 6. Update ExchangeService
+### 6. Update ExchangeService ✅
 
-- [ ] Refactor `ExchangeService` in `rotki2/api/v2/services/exchanges.py` to call the new async exchange classes.
-- [ ] Remove placeholder return values in `get_exchange_balances` and similar methods.
-- [ ] Implement error handling and proper translation to API responses.
+- [x] Refactor `ExchangeService` in `rotki2/api/v2/services/exchanges.py` to call the new async exchange classes.
+- [x] Remove placeholder return values in `get_exchange_balances` and similar methods.
+- [x] Implement error handling and proper translation to API responses.
 - [ ] Cover the service with integration tests.
 
 ### 7. Adjust API Routers

@@ -13,7 +13,7 @@ from rotkehlchen.utils.misc import ts_now
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
-    from rotkehlchen.exchanges.manager import ExchangeManager
+    from rotki2.exchanges.manager import ExchangeManager
 
 
 class ExchangeInfo:
@@ -210,7 +210,7 @@ class ExchangeService:
             raise ValueError(f"Exchange {name} not found")
             
         # Query trades from the exchange
-        trades = await exchange.query_trade_history(
+        trades = await exchange.query_online_trade_history(
             start_ts=from_timestamp or 0,
             end_ts=to_timestamp or ts_now(),
         )
@@ -236,14 +236,15 @@ class ExchangeService:
             raise ValueError(f"Exchange {name} not found")
             
         # Query asset movements from the exchange
-        movements = await exchange.query_deposits_withdrawals(
+        movements = await exchange.query_online_deposits_withdrawals(
             start_ts=from_timestamp or 0,
             end_ts=to_timestamp or ts_now(),
         )
         
         # Separate deposits and withdrawals
-        deposits = [m for m in movements if m.category == 'deposit']
-        withdrawals = [m for m in movements if m.category == 'withdrawal']
+        from rotkehlchen.exchanges.data_structures import AssetMovementCategory
+        deposits = [m for m in movements if m.category == AssetMovementCategory.DEPOSIT]
+        withdrawals = [m for m in movements if m.category == AssetMovementCategory.WITHDRAWAL]
         
         return deposits, withdrawals
 
@@ -265,12 +266,8 @@ class ExchangeService:
         if not exchange:
             raise ValueError(f"Exchange {name} not found")
             
-        # Check if exchange supports margin trading
-        if not hasattr(exchange, 'query_margin_history'):
-            return []
-            
         # Query margin positions from the exchange
-        positions = await exchange.query_margin_history(
+        positions = await exchange.query_online_margin_history(
             start_ts=from_timestamp or 0,
             end_ts=to_timestamp or ts_now(),
         )
