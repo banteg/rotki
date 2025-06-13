@@ -189,7 +189,7 @@ Deconstruct the central coordinator and replace it with a service that leverages
 
 Expose the new services through the FastAPI layer.
 
-- [ ] **Create Chain API Endpoints:**
+- [x] **Create Chain API Endpoints:**
 
   - In `rotki2/api/v2/routers/`, create router files like `chains.py`.
   - Add endpoints like `GET /chains/{chain_name}/balance/{address}`.

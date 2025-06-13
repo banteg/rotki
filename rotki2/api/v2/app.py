@@ -18,6 +18,7 @@ from rotki2.api.v2.routers import (
     blockchain,
     cache,
     calendar,
+    chains,
     data,
     defi,
     eth2,
@@ -157,6 +158,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(assets.router, prefix='/api/v2/assets', tags=['assets'])
     app.include_router(balances.router, prefix='/api/v2/balances', tags=['balances'])
     app.include_router(blockchain.router, prefix='/api/v2/blockchain', tags=['blockchain'])
+    app.include_router(chains.router, prefix='/api/v2/chains', tags=['chains'])
     app.include_router(exchanges.router, prefix='/api/v2/exchanges', tags=['exchanges'])
     app.include_router(history.router, prefix='/api/v2/history', tags=['history'])
     app.include_router(statistics.router, prefix='/api/v2/statistics', tags=['statistics'])
