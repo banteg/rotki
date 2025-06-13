@@ -1,7 +1,7 @@
 """Snapshots router for managing database snapshots"""
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, UploadFile, status
 from pydantic import BaseModel
 
 from rotkehlchen.api.v2.dependencies import require_logged_in_user
@@ -19,6 +19,18 @@ class SnapshotsResponse(BaseModel):
 
 class SnapshotRequest(BaseModel):
     """Request model for creating a snapshot"""
+    name: str | None = None
+    description: str | None = None
+
+
+class SnapshotImportRequest(BaseModel):
+    """Request model for importing snapshot via file path"""
+    path: str
+    password: str | None = None
+
+
+class SnapshotEditRequest(BaseModel):
+    """Request model for editing snapshot metadata"""
     name: str | None = None
     description: str | None = None
 
@@ -69,7 +81,7 @@ async def get_snapshot(
     snapshots: Annotated[SnapshotsService, Depends(get_snapshots_service)],
     timestamp: int = Path(..., description="Timestamp of the snapshot"),
 ) -> SnapshotsResponse:
-    """Get a specific snapshot by timestamp"""
+    """Get a DB snapshot - Compatible with v1 GET /api/1/snapshots/<int:timestamp>"""
     snapshot = snapshots.get_snapshot(Timestamp(timestamp))
     
     if not snapshot:
@@ -87,7 +99,7 @@ async def delete_snapshot(
     snapshots: Annotated[SnapshotsService, Depends(get_snapshots_service)],
     timestamp: int = Path(..., description="Timestamp of the snapshot"),
 ) -> SnapshotsResponse:
-    """Delete a snapshot"""
+    """Delete a DB snapshot - Compatible with v1 DELETE /api/1/snapshots/<int:timestamp>"""
     success = snapshots.delete_snapshot(Timestamp(timestamp))
     
     if not success:
@@ -126,4 +138,94 @@ async def restore_snapshot(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f'Failed to restore snapshot: {str(e)}',
+        ) from e
+
+# v1 compatibility endpoints
+@router.put("/")
+async def import_snapshot_via_path(
+    request_data: SnapshotImportRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[SnapshotsService, Depends(get_snapshots_service)],
+) -> SnapshotsResponse:
+    """Import a DB snapshot via file paths - Compatible with v1 PUT /api/1/snapshots"""
+    try:
+        result = service.import_snapshot_from_path(
+            path=request_data.path,
+            password=request_data.password,
+        )
+        
+        return SnapshotsResponse(
+            result=result,
+            message="Snapshot imported successfully",
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except FileNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+
+
+@router.post("/")
+async def import_snapshot_via_upload(
+    file: UploadFile = File(...),
+    password: str | None = Form(None),
+    _: Annotated[str, Depends(require_logged_in_user)] = None,
+    service: Annotated[SnapshotsService, Depends(get_snapshots_service)] = None,
+) -> SnapshotsResponse:
+    """Import a DB snapshot via file upload - Compatible with v1 POST /api/1/snapshots"""
+    try:
+        # Read file content
+        content = await file.read()
+        
+        result = service.import_snapshot_from_upload(
+            content=content,
+            filename=file.filename,
+            password=password,
+        )
+        
+        return SnapshotsResponse(
+            result=result,
+            message="Snapshot imported successfully",
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.patch("/{timestamp}")
+async def edit_snapshot(
+    timestamp: int,
+    request_data: SnapshotEditRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[SnapshotsService, Depends(get_snapshots_service)],
+) -> SnapshotsResponse:
+    """Edit a DB snapshot - Compatible with v1 PATCH /api/1/snapshots/<int:timestamp>"""
+    try:
+        result = service.edit_snapshot(
+            timestamp=Timestamp(timestamp),
+            name=request_data.name,
+            description=request_data.description,
+        )
+        
+        if result:
+            return SnapshotsResponse(
+                result={"success": True},
+                message="Snapshot updated successfully",
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Snapshot with timestamp {timestamp} not found",
+            )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         ) from e

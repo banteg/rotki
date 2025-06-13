@@ -270,3 +270,81 @@ async def purge_exchange_data(
         result={'success': True},
         message=f'Exchange data purged for {location}',
     )
+
+
+# Binance-specific endpoints
+@router.get('/binance/pairs')
+async def get_binance_pairs(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
+) -> ExchangeResponse:
+    """Get all available Binance pairs - Compatible with v1 GET /api/1/exchanges/binance/pairs"""
+    pairs = exchange_service.get_binance_pairs()
+    
+    return ExchangeResponse(result={'pairs': pairs})
+
+
+@router.get('/binance/pairs/{name}')
+async def get_user_binance_pairs(
+    name: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
+) -> ExchangeResponse:
+    """Get user-configured Binance pairs - Compatible with v1 GET /api/1/exchanges/binance/pairs/<name>"""
+    user_pairs = exchange_service.get_user_binance_pairs(name)
+    
+    return ExchangeResponse(result={'pairs': user_pairs})
+
+
+@router.post('/{location}/savings')
+async def get_exchange_savings_history(
+    location: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
+    from_timestamp: int = 0,
+    to_timestamp: int = 2147483647,
+) -> ExchangeResponse:
+    """Get exchange savings history - Compatible with v1 POST /api/1/exchanges/<location>/savings"""
+    try:
+        location_enum = Location(location)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'Invalid exchange location: {location}',
+        )
+    
+    history = exchange_service.get_exchange_savings_history(
+        location=location_enum,
+        from_timestamp=from_timestamp,
+        to_timestamp=to_timestamp,
+    )
+    
+    return ExchangeResponse(result=history)
+
+
+@router.post('/events/query')
+async def query_exchange_events(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
+    location: str,
+    from_timestamp: int = 0,
+    to_timestamp: int = 2147483647,
+    event_type: str | None = None,
+) -> ExchangeResponse:
+    """Query history events for an exchange - Compatible with v1 POST /api/1/exchanges/events/query"""
+    try:
+        location_enum = Location(location)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'Invalid exchange location: {location}',
+        )
+    
+    events = exchange_service.query_exchange_events(
+        location=location_enum,
+        from_timestamp=from_timestamp,
+        to_timestamp=to_timestamp,
+        event_type=event_type,
+    )
+    
+    return ExchangeResponse(result={'events': events})

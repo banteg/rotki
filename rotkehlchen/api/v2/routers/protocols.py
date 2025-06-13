@@ -32,7 +32,7 @@ async def get_protocol_refresh_status(
     _: Annotated[str, Depends(require_logged_in_user)],
     service: Annotated[ProtocolsService, Depends(get_protocols_service)],
 ) -> ProtocolsResponse:
-    """Get protocol data refresh status"""
+    """Get a list of protocols with refreshable cache - Compatible with v1 GET /api/1/protocols/data/refresh"""
     status = service.get_refresh_status()
     
     return ProtocolsResponse(result=status)
@@ -44,7 +44,7 @@ async def refresh_protocol_data(
     _: Annotated[str, Depends(require_logged_in_user)],
     service: Annotated[ProtocolsService, Depends(get_protocols_service)],
 ) -> ProtocolsResponse:
-    """Refresh protocol data"""
+    """Refresh data for a DeFi protocol cache - Compatible with v1 POST /api/1/protocols/data/refresh"""
     try:
         result = service.refresh_protocol_data(
             protocols=request_data.protocols,

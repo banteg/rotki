@@ -40,12 +40,12 @@
 - [x] `DELETE /api/1/exchanges` (Remove an exchange) ✅ Migrated to `DELETE /api/v2/exchanges/{name}`
 - [x] `GET /api/1/exchanges/balances` (Get all exchange balances) ✅ Migrated to `GET /api/v2/exchanges/balances`
 - [x] `GET /api/1/exchanges/balances/<string:location>` (Get balances for a specific exchange) ✅ Migrated to `GET /api/v2/exchanges/balances/{location}`
-- [ ] `GET /api/1/exchanges/binance/pairs` (Get all available Binance pairs)
-- [ ] `GET /api/1/exchanges/binance/pairs/<string:name>` (Get user-configured Binance pairs)
-- [ ] `POST /api/1/exchanges/<string:location>/savings` (Get Binance savings history)
+- [x] `GET /api/1/exchanges/binance/pairs` (Get all available Binance pairs) ✅ Migrated to `GET /api/v2/exchanges/binance/pairs`
+- [x] `GET /api/1/exchanges/binance/pairs/<string:name>` (Get user-configured Binance pairs) ✅ Migrated to `GET /api/v2/exchanges/binance/pairs/{name}`
+- [x] `POST /api/1/exchanges/<string:location>/savings` (Get Binance savings history) ✅ Migrated to `POST /api/v2/exchanges/{location}/savings`
 - [x] `DELETE /api/1/exchanges/data` (Purge all exchange data) ✅ Migrated to `DELETE /api/v2/exchanges/data`
 - [x] `DELETE /api/1/exchanges/data/<string:location>` (Purge data for a specific exchange) ✅ Migrated to `DELETE /api/v2/exchanges/data/{location}`
-- [ ] `POST /api/1/exchanges/events/query` (Query history events for an exchange)
+- [x] `POST /api/1/exchanges/events/query` (Query history events for an exchange) ✅ Migrated to `POST /api/v2/exchanges/events/query`
 
 #### **Assets & Pricing**
 
@@ -202,27 +202,27 @@
 
 #### **DeFi Modules**
 
-- [ ] `DELETE /api/1/blockchains/eth/modules/data` (Purge all DeFi module data)
-- [ ] `DELETE /api/1/blockchains/eth/modules/<string:module_name>/data` (Purge data for a specific DeFi module)
-- [ ] `GET /api/1/blockchains/eth/modules` (Get list of supported DeFi modules)
-- [ ] `GET /api/1/blockchains/eth/modules/liquity/balances` (Get Liquity trove positions)
-- [ ] `GET /api/1/blockchains/eth/modules/liquity/staking` (Get Liquity staking positions)
-- [ ] `GET /api/1/blockchains/eth/modules/liquity/pool` (Get Liquity stability pool positions)
-- [ ] `GET /api/1/blockchains/eth/modules/<string:module>/balances` (Get module balances)
-- [ ] `GET /api/1/blockchains/eth/modules/<string:module>/v<string:version>/balances` (Get versioned module balances)
-- [ ] `GET /api/1/blockchains/eth/modules/<string:module>/stats` (Get module statistics)
-- [ ] `GET /api/1/blockchains/eth/modules/pickle/dill` (Get Pickle DILL balance)
-- [ ] `GET /api/1/blockchains/eth/modules/loopring/balances` (Get Loopring balances)
-- [ ] `GET /api/1/airdrops/metadata` (Get airdrops metadata)
-- [ ] `GET /api/1/defi/metadata` (Get DeFi protocols metadata)
-- [ ] `POST /api/1/protocols/data/refresh` (Refresh data for a DeFi protocol cache)
-- [ ] `GET /api/1/protocols/data/refresh` (Get a list of protocols with refreshable cache)
+- [x] `DELETE /api/1/blockchains/eth/modules/data` (Purge all DeFi module data) ✅ Migrated to `DELETE /api/v2/blockchains/eth/modules/data`
+- [x] `DELETE /api/1/blockchains/eth/modules/<string:module_name>/data` (Purge data for a specific DeFi module) ✅ Migrated to `DELETE /api/v2/blockchains/eth/modules/{module_name}/data`
+- [x] `GET /api/1/blockchains/eth/modules` (Get list of supported DeFi modules) ✅ Migrated to `GET /api/v2/blockchains/eth/modules`
+- [x] `GET /api/1/blockchains/eth/modules/liquity/balances` (Get Liquity trove positions) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/liquity/balances`
+- [x] `GET /api/1/blockchains/eth/modules/liquity/staking` (Get Liquity staking positions) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/liquity/staking`
+- [x] `GET /api/1/blockchains/eth/modules/liquity/pool` (Get Liquity stability pool positions) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/liquity/pool`
+- [x] `GET /api/1/blockchains/eth/modules/<string:module>/balances` (Get module balances) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/{module}/balances`
+- [x] `GET /api/1/blockchains/eth/modules/<string:module>/v<string:version>/balances` (Get versioned module balances) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/{module}/v{version}/balances`
+- [x] `GET /api/1/blockchains/eth/modules/<string:module>/stats` (Get module statistics) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/{module}/stats`
+- [x] `GET /api/1/blockchains/eth/modules/pickle/dill` (Get Pickle DILL balance) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/pickle/dill`
+- [x] `GET /api/1/blockchains/eth/modules/loopring/balances` (Get Loopring balances) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/loopring/balances`
+- [x] `GET /api/1/airdrops/metadata` (Get airdrops metadata) ✅ Migrated to `GET /api/v2/airdrops/metadata`
+- [x] `GET /api/1/defi/metadata` (Get DeFi protocols metadata) ✅ Migrated to `GET /api/v2/defi/metadata`
+- [x] `POST /api/1/protocols/data/refresh` (Refresh data for a DeFi protocol cache) ✅ Migrated to `POST /api/v2/protocols/data/refresh`
+- [x] `GET /api/1/protocols/data/refresh` (Get a list of protocols with refreshable cache) ✅ Migrated to `GET /api/v2/protocols/data/refresh`
 
 #### **Names, Addresses & Avatars**
 
-- [ ] `GET /api/1/queried_addresses` (Get all queried addresses per module)
-- [ ] `PUT /api/1/queried_addresses` (Add a queried address for a module)
-- [ ] `DELETE /api/1/queried_addresses` (Remove a queried address for a module)
+- [x] `GET /api/1/queried_addresses` (Get all queried addresses per module) ✅ Migrated to `GET /api/v2/queried_addresses/`
+- [x] `PUT /api/1/queried_addresses` (Add a queried address for a module) ✅ Migrated to `PUT /api/v2/queried_addresses/`
+- [x] `DELETE /api/1/queried_addresses` (Remove a queried address for a module) ✅ Migrated to `DELETE /api/v2/queried_addresses/`
 - [x] `POST /api/1/names` (Search for names across all sources) ✅ Migrated to `POST /api/v2/names/`
 - [x] `POST /api/1/names/ens/reverse` (Reverse lookup ENS names for addresses) ✅ Migrated to `POST /api/v2/names/ens/reverse`
 - [x] `POST /api/1/names/ens/resolve` (Resolve an ENS name to an address) ✅ Migrated to `POST /api/v2/names/ens/resolve`
@@ -237,14 +237,14 @@
 - [x] `GET /api/1/database/info` (Get database info) ✅ Migrated to `GET /api/v2/data/database/info`
 - [x] `GET /api/1/database/backups` (Download a DB backup) ✅ Migrated to `GET /api/v2/data/database/backups`
 - [x] `PUT /api/1/database/backups` (Create a DB backup) ✅ Migrated to `POST /api/v2/data/database/backup`
-- [ ] `DELETE /api/1/database/backups` (Delete DB backups)
+- [x] `DELETE /api/1/database/backups` (Delete DB backups) ✅ Migrated to `DELETE /api/v2/data/database/backups`
 - [x] `POST /api/1/import` (Import data from a file upload) ✅ Migrated to `POST /api/v2/data/import`
 - [x] `PUT /api/1/import` (Import data from a file path) ✅ Migrated to `POST /api/v2/data/import`
-- [ ] `GET /api/1/snapshots/<int:timestamp>` (Get a DB snapshot)
-- [ ] `PUT /api/1/snapshots` (Import a DB snapshot via file paths)
-- [ ] `POST /api/1/snapshots` (Import a DB snapshot via file upload)
-- [ ] `PATCH /api/1/snapshots/<int:timestamp>` (Edit a DB snapshot)
-- [ ] `DELETE /api/1/snapshots/<int:timestamp>` (Delete a DB snapshot)
+- [x] `GET /api/1/snapshots/<int:timestamp>` (Get a DB snapshot) ✅ Migrated to `GET /api/v2/snapshots/{timestamp}`
+- [x] `PUT /api/1/snapshots` (Import a DB snapshot via file paths) ✅ Migrated to `PUT /api/v2/snapshots/`
+- [x] `POST /api/1/snapshots` (Import a DB snapshot via file upload) ✅ Migrated to `POST /api/v2/snapshots/`
+- [x] `PATCH /api/1/snapshots/<int:timestamp>` (Edit a DB snapshot) ✅ Migrated to `PATCH /api/v2/snapshots/{timestamp}`
+- [x] `DELETE /api/1/snapshots/<int:timestamp>` (Delete a DB snapshot) ✅ Migrated to `DELETE /api/v2/snapshots/{timestamp}`
 
 #### **Miscellaneous**
 

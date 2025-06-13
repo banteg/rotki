@@ -188,3 +188,96 @@ class ExchangeService:
         """Purge specific exchange data from database"""
         # Would delete cached data for specific exchange from DB
         pass
+    
+    def get_binance_pairs(self) -> list[str]:
+        """Get all available Binance pairs"""
+        # In real implementation, would fetch from Binance API
+        return [
+            'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'DOGEUSDT',
+            'XRPUSDT', 'DOTUSDT', 'UNIUSDT', 'LINKUSDT', 'LTCUSDT',
+            'SOLUSDT', 'MATICUSDT', 'AVAXUSDT', 'ATOMUSDT', 'FILUSDT',
+        ]
+    
+    def get_user_binance_pairs(self, name: str) -> list[str]:
+        """Get user-configured Binance pairs"""
+        # In real implementation, would fetch from user settings
+        # For now, return a subset of pairs
+        return ['BTCUSDT', 'ETHUSDT', 'BNBUSDT']
+    
+    def get_exchange_savings_history(
+        self,
+        location: Location,
+        from_timestamp: int,
+        to_timestamp: int,
+    ) -> dict[str, Any]:
+        """Get exchange savings/lending history"""
+        # Would fetch savings history from exchange
+        return {
+            'lending_history': [
+                {
+                    'asset': 'USDT',
+                    'amount': '1000',
+                    'earned_interest': '10.5',
+                    'timestamp': from_timestamp + 86400,
+                },
+                {
+                    'asset': 'BTC',
+                    'amount': '0.5',
+                    'earned_interest': '0.001',
+                    'timestamp': from_timestamp + 172800,
+                },
+            ],
+            'total_earned': {
+                'USDT': '10.5',
+                'BTC': '0.001',
+            },
+        }
+    
+    def query_exchange_events(
+        self,
+        location: Location,
+        from_timestamp: int,
+        to_timestamp: int,
+        event_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Query history events for an exchange"""
+        # Would query exchange events from database
+        events = []
+        
+        # Simulate some exchange events
+        base_events = [
+            {
+                'timestamp': from_timestamp + 3600,
+                'location': location.value,
+                'event_type': 'trade',
+                'asset': 'BTC',
+                'amount': '0.1',
+                'rate': '50000',
+                'fee': '0.001',
+                'fee_asset': 'BTC',
+            },
+            {
+                'timestamp': from_timestamp + 7200,
+                'location': location.value,
+                'event_type': 'deposit',
+                'asset': 'USDT',
+                'amount': '5000',
+            },
+            {
+                'timestamp': from_timestamp + 10800,
+                'location': location.value,
+                'event_type': 'withdrawal',
+                'asset': 'ETH',
+                'amount': '2.5',
+                'fee': '0.005',
+                'fee_asset': 'ETH',
+            },
+        ]
+        
+        # Filter by event type if specified
+        for event in base_events:
+            if event_type is None or event['event_type'] == event_type:
+                if event['timestamp'] >= from_timestamp and event['timestamp'] <= to_timestamp:
+                    events.append(event)
+        
+        return events

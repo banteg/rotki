@@ -157,3 +157,22 @@ async def restore_backup(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f'Restore failed: {str(e)}',
         ) from e
+
+# v1 compatibility endpoint
+@router.delete("/database/backups")
+async def delete_database_backups(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[DataService, Depends(get_data_service)],
+) -> DataResponse:
+    """Delete DB backups - Compatible with v1 DELETE /api/1/database/backups"""
+    try:
+        deleted_count = service.delete_all_backups()
+        return DataResponse(
+            result={"deleted": deleted_count},
+            message=f"Deleted {deleted_count} backup files",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete backups: {str(e)}",
+        ) from e

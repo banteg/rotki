@@ -26,7 +26,7 @@ async def get_airdrop_metadata(
     _: Annotated[str, Depends(require_logged_in_user)],
     service: Annotated[AirdropsService, Depends(get_airdrops_service)],
 ) -> AirdropsResponse:
-    """Get metadata for all supported airdrops"""
+    """Get metadata for all supported airdrops - Compatible with v1 GET /api/1/airdrops/metadata"""
     metadata = service.get_all_airdrop_metadata()
     
     return AirdropsResponse(result={'airdrops': metadata})
