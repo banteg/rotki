@@ -44,7 +44,7 @@ async def login(
 ) -> LoginResponse:
     """Login with username and password"""
     try:
-        user_data = auth_service.authenticate_user(request.username, request.password)
+        user_data = await auth_service.authenticate_user(request.username, request.password)
         return LoginResponse(result=user_data)
     except AuthenticationError as e:
         raise HTTPException(
@@ -61,7 +61,7 @@ async def create_api_key(
 ) -> APIKeyResponse:
     """Generate a new API key for the current user"""
     try:
-        api_key_data = auth_service.generate_api_key(current_user, request.name)
+        api_key_data = await auth_service.generate_api_key(current_user, request.name)
         return APIKeyResponse(
             result=api_key_data,
             message='API key generated successfully. Store it securely as it will not be shown again.',
@@ -79,7 +79,7 @@ async def list_api_keys(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> APIKeyResponse:
     """List all API keys for the current user"""
-    api_keys = auth_service.list_api_keys(current_user)
+    api_keys = await auth_service.list_api_keys(current_user)
     return APIKeyResponse(result={'api_keys': api_keys})
 
 
@@ -91,7 +91,7 @@ async def revoke_api_key(
 ) -> APIKeyResponse:
     """Revoke an API key by ID"""
     # TODO: Verify the key belongs to the current user
-    success = auth_service.revoke_api_key_by_id(key_id)
+    success = await auth_service.revoke_api_key_by_id(key_id)
 
     if not success:
         raise HTTPException(

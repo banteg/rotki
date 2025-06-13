@@ -2,7 +2,7 @@
 
 Handles all accounting rules-related async database operations.
 """
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import delete as sa_delete
 from sqlalchemy.exc import IntegrityError
@@ -294,3 +294,199 @@ class AccountingRuleRepository(AsyncBaseRepository[AccountingRule]):
         
         results = await self.session.execute(statement)
         return results.scalars().all()
+    
+    async def get_accounting_rules_and_properties(self) -> dict[str, Any]:
+        """Get all accounting rules and their linked properties in export format.
+        
+        Returns:
+            Dict with accounting rules and linked rule properties
+        """
+        # Get all rules
+        rules_statement = select(AccountingRule)
+        rules_result = await self.session.execute(rules_statement)
+        rules = rules_result.scalars().all()
+        
+        # Get all linked properties
+        links_statement = select(LinkedRuleProperty)
+        links_result = await self.session.execute(links_statement)
+        links = links_result.scalars().all()
+        
+        # Convert to export format
+        accounting_rules = []
+        for rule in rules:
+            accounting_rules.append({
+                'identifier': rule.identifier,
+                'type': rule.type,
+                'subtype': rule.subtype,
+                'counterparty': rule.counterparty,
+                'taxable': rule.taxable,
+                'count_entire_amount_spend': rule.count_entire_amount_spend,
+                'count_cost_basis_pnl': rule.count_cost_basis_pnl,
+                'accounting_treatment': rule.accounting_treatment,
+            })
+        
+        linked_properties = []
+        for link in links:
+            linked_properties.append({
+                'identifier': link.identifier,
+                'accounting_rule': link.accounting_rule,
+                'property_name': link.property_name,
+                'setting_name': link.setting_name,
+            })
+        
+        return {
+            'accounting_rules': accounting_rules,
+            'linked_rule_properties': linked_properties,
+        }
+    
+    async def query_missing_accounting_rules(
+        self,
+        event_types: list[HistoryEventType] | None = None,
+        event_subtypes: list[HistoryEventSubType] | None = None,
+        counterparties: list[str] | None = None,
+    ) -> list[tuple[HistoryEventType, HistoryEventSubType, str | None]]:
+        """Query which event combinations are missing accounting rules.
+        
+        This determines which events won't be processed in accounting because
+        they lack rules.
+        
+        Args:
+            event_types: Optional list of event types to check
+            event_subtypes: Optional list of event subtypes to check
+            counterparties: Optional list of counterparties to check
+            
+        Returns:
+            List of (type, subtype, counterparty) tuples that need rules
+        """
+        # Build filter conditions
+        conditions = []
+        params = {}
+        
+        if event_types:
+            type_strings = [t.serialize() for t in event_types]
+            conditions.append("he.type IN :types")
+            params['types'] = tuple(type_strings)
+        
+        if event_subtypes:
+            subtype_strings = [s.serialize() for s in event_subtypes]
+            conditions.append("he.subtype IN :subtypes")
+            params['subtypes'] = tuple(subtype_strings)
+        
+        if counterparties:
+            # Handle EVM events with counterparties
+            conditions.append("(eei.counterparty IN :counterparties OR eei.counterparty IS NULL)")
+            params['counterparties'] = tuple(counterparties)
+        
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        
+        # Query for unique type/subtype/counterparty combinations in history events
+        query = text(f"""
+            SELECT DISTINCT 
+                he.type,
+                he.subtype,
+                COALESCE(eei.counterparty, :no_counterparty) as counterparty
+            FROM history_events he
+            LEFT JOIN evm_events_info eei ON he.identifier = eei.identifier
+            {where_clause}
+        """)
+        params['no_counterparty'] = NO_ACCOUNTING_COUNTERPARTY
+        
+        result = await self.session.execute(query, params)
+        event_combinations = result.fetchall()
+        
+        # Get existing rules
+        rules_query = text("""
+            SELECT DISTINCT type, subtype, counterparty
+            FROM accounting_rules
+        """)
+        rules_result = await self.session.execute(rules_query)
+        existing_rules = {(row[0], row[1], row[2]) for row in rules_result.fetchall()}
+        
+        # Find missing rules
+        missing_rules = []
+        events_to_consume = await self._events_to_consume()
+        
+        for type_str, subtype_str, counterparty_str in event_combinations:
+            # Check if this combination has a rule
+            if (type_str, subtype_str, counterparty_str) not in existing_rules:
+                # Check if it's an event that should be consumed by special treatment
+                event_type = HistoryEventType.deserialize(type_str)
+                event_subtype = HistoryEventSubType.deserialize(subtype_str)
+                counterparty = None if counterparty_str == NO_ACCOUNTING_COUNTERPARTY else counterparty_str
+                
+                if (event_type, event_subtype) not in events_to_consume:
+                    missing_rules.append((event_type, event_subtype, counterparty))
+        
+        return missing_rules
+    
+    async def _events_to_consume(self) -> set[tuple[HistoryEventType, HistoryEventSubType]]:
+        """Get event type/subtype combinations that are consumed by special treatments.
+        
+        Returns:
+            Set of (type, subtype) tuples that don't need explicit rules
+        """
+        # These events are handled by special accounting treatments
+        events = set()
+        
+        # Check for swap accounting treatment
+        swap_query = text("""
+            SELECT 1 FROM accounting_rules
+            WHERE accounting_treatment = 'swap'
+            LIMIT 1
+        """)
+        swap_result = await self.session.execute(swap_query)
+        if swap_result.scalar():
+            # Swap events are consumed by swap treatment
+            events.add((HistoryEventType.TRADE, HistoryEventSubType.SPEND))
+            events.add((HistoryEventType.TRADE, HistoryEventSubType.RECEIVE))
+        
+        # Check for gas accounting treatment
+        gas_query = text("""
+            SELECT 1 FROM accounting_rules
+            WHERE type = :type AND subtype = :subtype
+            AND accounting_treatment IS NOT NULL
+            LIMIT 1
+        """)
+        gas_params = {
+            'type': HistoryEventType.SPEND.serialize(),
+            'subtype': HistoryEventSubType.FEE.serialize(),
+        }
+        gas_result = await self.session.execute(gas_query, gas_params)
+        if gas_result.scalar():
+            # Gas fees might be consumed by special treatment
+            events.add((HistoryEventType.SPEND, HistoryEventSubType.FEE))
+        
+        return events
+    
+    async def add_linked_setting(
+        self,
+        rule_id: int,
+        property_name: LINKABLE_ACCOUNTING_PROPERTIES,
+        setting_name: LINKABLE_ACCOUNTING_SETTINGS_NAME,
+    ) -> None:
+        """Add a single linked setting to a rule.
+        
+        Args:
+            rule_id: The accounting rule identifier
+            property_name: The property to link
+            setting_name: The setting name to link to
+        """
+        # Check if rule exists
+        rule = await self.get(rule_id)
+        if not rule:
+            raise InputError(f'Rule with id {rule_id} does not exist')
+        
+        # Add linked property
+        linked_property = LinkedRuleProperty(
+            accounting_rule=rule_id,
+            property_name=property_name,
+            setting_name=setting_name,
+        )
+        self.session.add(linked_property)
+        
+        try:
+            await self.session.commit()
+        except IntegrityError as e:
+            raise InputError(
+                f'Linked property {property_name} already exists for rule {rule_id}'
+            ) from e

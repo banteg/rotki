@@ -2,7 +2,7 @@
 
 Handles all database operations related to users and authentication.
 """
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select, text
 from sqlmodel import col
@@ -152,3 +152,73 @@ class UserRepository(AsyncBaseRepository[UserAccount]):
         await self.session.commit()
         await self.session.refresh(user)
         return user
+    
+    async def update_premium_credentials(
+        self,
+        username: str,
+        api_key: str | None,
+        api_secret: str | None,
+    ) -> bool:
+        """Update premium credentials for a user."""
+        user = await self.find_by_username(username)
+        if user is None:
+            return False
+            
+        user.premium_api_key = api_key
+        user.premium_api_secret = api_secret
+        self.session.add(user)
+        await self.session.commit()
+        return True
+    
+    async def delete_premium_credentials(self, username: str) -> bool:
+        """Delete premium credentials for a user."""
+        return await self.update_premium_credentials(username, None, None)
+    
+    async def get_premium_credentials(self, username: str) -> tuple[str | None, str | None]:
+        """Get premium credentials for a user.
+        
+        Returns:
+            Tuple of (api_key, api_secret)
+        """
+        user = await self.find_by_username(username)
+        if user is None:
+            return (None, None)
+        return (user.premium_api_key, user.premium_api_secret)
+    
+    async def change_password(self, username: str, new_password_hash: str) -> bool:
+        """Change user password.
+        
+        Note: This only updates the password hash in the database.
+        The actual SQLCipher database rekey must be handled separately.
+        """
+        user = await self.find_by_username(username)
+        if user is None:
+            return False
+            
+        user.password = new_password_hash
+        self.session.add(user)
+        await self.session.commit()
+        return True
+    
+    async def delete_user(self, username: str) -> bool:
+        """Delete a user account and all associated data."""
+        user = await self.find_by_username(username)
+        if user is None:
+            return False
+            
+        # Delete all API keys for the user
+        api_keys = await self.get_user_api_keys(username)
+        for api_key in api_keys:
+            await self.session.delete(api_key)
+            
+        # Delete the user account
+        await self.session.delete(user)
+        await self.session.commit()
+        return True
+    
+    async def get_user_by_api_key(self, api_key_hash: str) -> UserAccount | None:
+        """Get user associated with an API key."""
+        api_key = await self.find_api_key_by_hash(api_key_hash)
+        if api_key is None:
+            return None
+        return await self.find_by_username(api_key.username)

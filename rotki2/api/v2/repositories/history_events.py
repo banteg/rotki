@@ -847,3 +847,433 @@ class HistoryEventsRepository:
         
         result = await self.session.exec(query)
         return list(result.all())
+    
+    async def reset_eth_staking_data(
+        self,
+        validator_indices: set[int] | None = None,
+    ) -> None:
+        """Reset Ethereum staking events and clear cache data.
+        
+        Args:
+            validator_indices: Optional set of validator indices to reset.
+                             If None, resets all staking data.
+        """
+        # Delete from eth staking events info
+        if validator_indices:
+            await self.session.execute(
+                text("""
+                    DELETE FROM eth_staking_events_info
+                    WHERE validator_index IN :indices
+                """),
+                {'indices': tuple(validator_indices)}
+            )
+            # Delete corresponding history events
+            await self.session.execute(
+                text("""
+                    DELETE FROM history_events
+                    WHERE identifier IN (
+                        SELECT identifier FROM eth_staking_events_info
+                        WHERE validator_index IN :indices
+                    )
+                """),
+                {'indices': tuple(validator_indices)}
+            )
+            # Clear validator cache
+            await self.session.execute(
+                text("""
+                    DELETE FROM eth_validators_data_cache
+                    WHERE validator_index IN :indices
+                """),
+                {'indices': tuple(validator_indices)}
+            )
+        else:
+            # Reset all staking data
+            await self.session.execute(text("""
+                DELETE FROM history_events
+                WHERE identifier IN (
+                    SELECT identifier FROM eth_staking_events_info
+                )
+            """))
+            await self.session.execute(text("DELETE FROM eth_staking_events_info"))
+            await self.session.execute(text("DELETE FROM eth_validators_data_cache"))
+        
+        await self.session.commit()
+    
+    async def reset_evm_events_for_redecode(
+        self,
+        tx_hashes: list[EVMTxHash] | None = None,
+        chain_id: ChainID | None = None,
+    ) -> None:
+        """Reset EVM events for re-decoding while preserving customized events.
+        
+        Args:
+            tx_hashes: Optional list of transaction hashes to reset.
+                      If None, resets based on chain_id.
+            chain_id: Optional chain ID to filter events.
+                     Required if tx_hashes is None.
+        """
+        # Get customized event identifiers to preserve
+        customized_ids = await self.get_customized_event_identifiers(chain_id)
+        
+        if tx_hashes:
+            # Delete events for specific transactions, excluding customized
+            hex_hashes = [h.hex() for h in tx_hashes]
+            await self.session.execute(
+                text("""
+                    DELETE FROM history_events
+                    WHERE identifier IN (
+                        SELECT he.identifier
+                        FROM history_events he
+                        INNER JOIN evm_events_info eei ON he.identifier = eei.identifier
+                        WHERE eei.tx_hash IN :hashes
+                        AND he.identifier NOT IN :customized
+                    )
+                """),
+                {'hashes': tuple(hex_hashes), 'customized': tuple(customized_ids or [0])}
+            )
+        elif chain_id:
+            # Delete all events for chain, excluding customized
+            location = chain_id.to_blockchain().value
+            await self.session.execute(
+                text("""
+                    DELETE FROM history_events
+                    WHERE location = :location
+                    AND identifier IN (
+                        SELECT identifier FROM evm_events_info
+                    )
+                    AND identifier NOT IN :customized
+                """),
+                {'location': location, 'customized': tuple(customized_ids or [0])}
+            )
+        
+        await self.session.commit()
+    
+    async def delete_events_by_tx_hash(
+        self,
+        tx_hashes: list[EVMTxHash],
+        force_delete: bool = False,
+    ) -> None:
+        """Delete events by transaction hash.
+        
+        Args:
+            tx_hashes: List of transaction hashes
+            force_delete: If True, deletes even customized events
+        
+        May raise:
+            InputError: If trying to delete the last event of a transaction
+        """
+        hex_hashes = [h.hex() for h in tx_hashes]
+        
+        if not force_delete:
+            # Check if any events are customized
+            customized = await self.session.execute(
+                text("""
+                    SELECT COUNT(*)
+                    FROM history_events he
+                    INNER JOIN evm_events_info eei ON he.identifier = eei.identifier
+                    INNER JOIN history_events_mappings hem ON he.identifier = hem.parent_identifier
+                    WHERE eei.tx_hash IN :hashes
+                    AND hem.name = :key AND hem.value = :value
+                """),
+                {
+                    'hashes': tuple(hex_hashes),
+                    'key': HISTORY_MAPPING_KEY_STATE,
+                    'value': HISTORY_MAPPING_STATE_CUSTOMIZED,
+                }
+            )
+            if customized.scalar() > 0:
+                return  # Don't delete customized events
+        
+        # Check we're not deleting the last event of a transaction
+        for tx_hash in tx_hashes:
+            count_result = await self.session.execute(
+                text("""
+                    SELECT COUNT(*)
+                    FROM history_events he
+                    INNER JOIN evm_events_info eei ON he.identifier = eei.identifier
+                    WHERE eei.tx_hash = :hash
+                """),
+                {'hash': tx_hash.hex()}
+            )
+            if count_result.scalar() == 1 and not force_delete:
+                raise InputError(
+                    f'Cannot delete the last event of transaction {tx_hash.hex()}. '
+                    f'Use force_delete=True to override.'
+                )
+        
+        # Delete the events
+        await self.session.execute(
+            text("""
+                DELETE FROM history_events
+                WHERE identifier IN (
+                    SELECT he.identifier
+                    FROM history_events he
+                    INNER JOIN evm_events_info eei ON he.identifier = eei.identifier
+                    WHERE eei.tx_hash IN :hashes
+                )
+            """),
+            {'hashes': tuple(hex_hashes)}
+        )
+        
+        await self.session.commit()
+    
+    async def get_amount_and_value_stats(
+        self,
+        filter_query: HistoryEventFilterQuery,
+        group_by_location: bool = True,
+        group_by_asset: bool = True,
+    ) -> dict[str, Any]:
+        """Get amount and USD value statistics.
+        
+        Args:
+            filter_query: Filter for events
+            group_by_location: Whether to group by location
+            group_by_asset: Whether to group by asset
+            
+        Returns:
+            Dict with statistics grouped as requested
+        """
+        filter_str, bindings = filter_query.prepare(with_pagination=False)
+        
+        # Build GROUP BY clause
+        group_fields = []
+        select_fields = []
+        if group_by_location:
+            group_fields.append('location')
+            select_fields.append('location')
+        if group_by_asset:
+            group_fields.append('asset')
+            select_fields.append('asset')
+        
+        if not group_fields:
+            # No grouping - return totals
+            query = text(f"""
+                SELECT 
+                    COUNT(*) as count,
+                    SUM(CAST(amount AS REAL)) as total_amount,
+                    SUM(CAST(usd_value AS REAL)) as total_usd_value
+                FROM history_events
+                {filter_str}
+            """)
+        else:
+            group_clause = f"GROUP BY {', '.join(group_fields)}"
+            query = text(f"""
+                SELECT 
+                    {', '.join(select_fields)},
+                    COUNT(*) as count,
+                    SUM(CAST(amount AS REAL)) as total_amount,
+                    SUM(CAST(usd_value AS REAL)) as total_usd_value
+                FROM history_events
+                {filter_str}
+                {group_clause}
+            """)
+        
+        result = await self.session.execute(query, bindings)
+        rows = result.fetchall()
+        
+        if not group_fields:
+            row = rows[0] if rows else (0, 0, 0)
+            return {
+                'count': row[0],
+                'total_amount': str(row[1] or 0),
+                'total_usd_value': str(row[2] or 0),
+            }
+        
+        # Build nested structure based on grouping
+        stats = {}
+        for row in rows:
+            idx = 0
+            current = stats
+            
+            if group_by_location:
+                location = row[idx]
+                if location not in current:
+                    current[location] = {} if group_by_asset else {
+                        'count': 0,
+                        'total_amount': '0',
+                        'total_usd_value': '0',
+                    }
+                current = current[location]
+                idx += 1
+            
+            if group_by_asset:
+                asset = row[idx]
+                idx += 1
+                current[asset] = {
+                    'count': row[idx],
+                    'total_amount': str(row[idx + 1] or 0),
+                    'total_usd_value': str(row[idx + 2] or 0),
+                }
+            elif not group_by_location:
+                # Only asset grouping
+                current[row[0]] = {
+                    'count': row[1],
+                    'total_amount': str(row[2] or 0),
+                    'total_usd_value': str(row[3] or 0),
+                }
+        
+        return stats
+    
+    async def get_hidden_event_ids(self) -> list[int]:
+        """Get identifiers of events that should be hidden.
+        
+        Returns:
+            List of event identifiers marked as hidden
+        """
+        # Events are hidden by having 'hidden' = 1 in mappings
+        query = text("""
+            SELECT parent_identifier
+            FROM history_events_mappings
+            WHERE name = 'hidden' AND value = 1
+        """)
+        
+        result = await self.session.execute(query)
+        return [row[0] for row in result.fetchall()]
+    
+    async def edit_event_extra_data(
+        self,
+        identifier: int,
+        extra_data: str | None,
+    ) -> None:
+        """Edit only the extra_data field without marking as customized.
+        
+        Args:
+            identifier: Event identifier
+            extra_data: New extra data value (JSON string or None)
+        """
+        await self.session.execute(
+            text("""
+                UPDATE history_events
+                SET extra_data = :extra_data
+                WHERE identifier = :identifier
+            """),
+            {'identifier': identifier, 'extra_data': extra_data}
+        )
+        await self.session.commit()
+    
+    async def query_wrap_stats(
+        self,
+        from_ts: Timestamp,
+        to_ts: Timestamp,
+    ) -> dict[str, Any]:
+        """Generate year-end wrap statistics.
+        
+        Args:
+            from_ts: Start timestamp
+            to_ts: End timestamp
+            
+        Returns:
+            Dict with various statistics for the period
+        """
+        # Most active day
+        active_day_query = text("""
+            SELECT 
+                DATE(timestamp, 'unixepoch') as day,
+                COUNT(*) as event_count
+            FROM history_events
+            WHERE timestamp >= :from_ts AND timestamp <= :to_ts
+            GROUP BY day
+            ORDER BY event_count DESC
+            LIMIT 1
+        """)
+        
+        # Top protocols
+        top_protocols_query = text("""
+            SELECT 
+                eei.counterparty,
+                COUNT(*) as count
+            FROM history_events he
+            INNER JOIN evm_events_info eei ON he.identifier = eei.identifier
+            WHERE he.timestamp >= :from_ts AND he.timestamp <= :to_ts
+            AND eei.counterparty IS NOT NULL
+            GROUP BY eei.counterparty
+            ORDER BY count DESC
+            LIMIT 5
+        """)
+        
+        # Asset distribution
+        asset_stats_query = text("""
+            SELECT 
+                asset,
+                SUM(CAST(usd_value AS REAL)) as total_value
+            FROM history_events
+            WHERE timestamp >= :from_ts AND timestamp <= :to_ts
+            AND usd_value IS NOT NULL
+            GROUP BY asset
+            ORDER BY total_value DESC
+            LIMIT 10
+        """)
+        
+        # Location distribution
+        location_stats_query = text("""
+            SELECT 
+                location,
+                COUNT(*) as count
+            FROM history_events
+            WHERE timestamp >= :from_ts AND timestamp <= :to_ts
+            GROUP BY location
+            ORDER BY count DESC
+        """)
+        
+        params = {'from_ts': from_ts, 'to_ts': to_ts}
+        
+        # Execute all queries
+        active_day_result = await self.session.execute(active_day_query, params)
+        active_day = active_day_result.fetchone()
+        
+        protocols_result = await self.session.execute(top_protocols_query, params)
+        top_protocols = [
+            {'protocol': row[0], 'count': row[1]}
+            for row in protocols_result.fetchall()
+        ]
+        
+        assets_result = await self.session.execute(asset_stats_query, params)
+        top_assets = [
+            {'asset': row[0], 'total_value': str(row[1])}
+            for row in assets_result.fetchall()
+        ]
+        
+        locations_result = await self.session.execute(location_stats_query, params)
+        location_distribution = {
+            row[0]: row[1]
+            for row in locations_result.fetchall()
+        }
+        
+        return {
+            'most_active_day': {
+                'date': active_day[0] if active_day else None,
+                'event_count': active_day[1] if active_day else 0,
+            },
+            'top_protocols': top_protocols,
+            'top_assets': top_assets,
+            'location_distribution': location_distribution,
+            'period': {
+                'from': from_ts,
+                'to': to_ts,
+            },
+        }
+    
+    async def get_entries_assets_history_events(
+        self,
+        filter_query: HistoryEventFilterQuery,
+    ) -> list[str]:
+        """Get unique assets from filtered history events.
+        
+        Args:
+            filter_query: Filter for events
+            
+        Returns:
+            List of unique asset identifiers
+        """
+        filter_str, bindings = filter_query.prepare(with_pagination=False)
+        
+        query = text(f"""
+            SELECT DISTINCT asset
+            FROM history_events
+            {filter_str}
+            AND asset IS NOT NULL
+            ORDER BY asset
+        """)
+        
+        result = await self.session.execute(query, bindings)
+        return [row[0] for row in result.fetchall()]

@@ -4,7 +4,7 @@ import secrets
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
 
-from sqlmodel import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from rotki2.api.v2.repositories.user import UserRepository
 from rotki2.api.v2.services.database import DatabaseService
@@ -22,38 +22,47 @@ class AuthService:
     def __init__(
         self,
         db_service: DatabaseService,
-        session: Session | None = None,
+        session: AsyncSession,
         premium_service: 'PremiumService | None' = None,
         settings_service: 'SettingsService | None' = None,
     ):
         self.db = db_service
-        self.session = session or db_service.get_session()
+        self.session = session
         self.user_repo = UserRepository(self.session)
         self.premium_service = premium_service
         self.settings_service = settings_service
         self.user_is_logged_in = False
         self.username: str | None = None
 
-    def authenticate_user(self, username: str, password: str) -> dict[str, Any]:
+    async def authenticate_user(self, username: str, password: str) -> dict[str, Any]:
         """Authenticate user with username and password"""
         # In Rotkehlchen, authentication happens at the database level
         # The password is used to decrypt the SQLCipher database
         # If we can connect to the user's database, they are authenticated
 
         try:
-            # Try to get user settings which will verify the password
-            settings = self.db.get_settings()
+            # Verify password hash
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            is_valid = await self.user_repo.verify_password(username, password_hash)
+            
+            if not is_valid:
+                raise AuthenticationError('Invalid username or password')
+
+            # Get user info
+            user = await self.user_repo.find_by_username(username)
+            if not user:
+                raise AuthenticationError('Invalid username or password')
 
             return {
                 'username': username,
-                'premium_sync_enabled': settings.premium_sync_enabled,
-                'premium': settings.premium is not None,
+                'premium_sync_enabled': user.premium_api_key is not None,
+                'premium': user.premium_api_key is not None,
             }
         except Exception as e:
             # Database connection failed - wrong password
             raise AuthenticationError('Invalid username or password') from e
 
-    def authenticate_api_key(self, api_key: str) -> str | None:
+    async def authenticate_api_key(self, api_key: str) -> str | None:
         """Authenticate using API key"""
         if not api_key or len(api_key) < 32:
             raise AuthenticationError('Invalid API key format')
@@ -63,7 +72,7 @@ class AuthService:
 
         # Look up the API key in the database
         try:
-            api_key_record = self.user_repo.find_api_key_by_hash(key_hash)
+            api_key_record = await self.user_repo.find_api_key_by_hash(key_hash)
 
             if not api_key_record:
                 raise AuthenticationError('Invalid API key')
@@ -75,7 +84,7 @@ class AuthService:
             # Update last used timestamp
             api_key_record.last_used = datetime.now()
             self.session.add(api_key_record)
-            self.session.commit()
+            await self.session.commit()
 
             return api_key_record.username
         except Exception:
@@ -83,7 +92,7 @@ class AuthService:
             # This is a temporary fallback until the schema is updated
             raise AuthenticationError('API key authentication not available')
 
-    def generate_api_key(self, username: str, name: str | None = None) -> dict[str, Any]:
+    async def generate_api_key(self, username: str, name: str | None = None) -> dict[str, Any]:
         """Generate new API key for user"""
         # In rotkehlchen, users are identified by their database existence
         # For now, we'll assume the user exists if we can access the database
@@ -96,7 +105,7 @@ class AuthService:
         key_hash = self._hash_api_key(api_key)
 
         # Store the API key hash in the database
-        api_key_record = self.user_repo.create_api_key(
+        api_key_record = await self.user_repo.create_api_key(
             username=username,
             key_hash=key_hash,
             name=name or f"API Key {datetime.now().strftime('%Y-%m-%d')}",
@@ -109,26 +118,26 @@ class AuthService:
             'created_at': api_key_record.created_at.isoformat(),
         }
 
-    def revoke_api_key(self, api_key: str) -> bool:
+    async def revoke_api_key(self, api_key: str) -> bool:
         """Revoke an API key"""
         # Hash the API key to find it
         key_hash = self._hash_api_key(api_key)
 
         # Find the API key
-        api_key_record = self.user_repo.find_api_key_by_hash(key_hash)
+        api_key_record = await self.user_repo.find_api_key_by_hash(key_hash)
         if not api_key_record:
             return False
 
         # Delete the API key
-        return self.user_repo.delete_api_key(api_key_record.id)
+        return await self.user_repo.delete_api_key(api_key_record.id)
 
-    def revoke_api_key_by_id(self, key_id: int) -> bool:
+    async def revoke_api_key_by_id(self, key_id: int) -> bool:
         """Revoke an API key by its ID"""
-        return self.user_repo.delete_api_key(key_id)
+        return await self.user_repo.delete_api_key(key_id)
 
-    def list_api_keys(self, username: str) -> list[dict[str, Any]]:
+    async def list_api_keys(self, username: str) -> list[dict[str, Any]]:
         """List all API keys for a user"""
-        api_keys = self.user_repo.get_user_api_keys(username)
+        api_keys = await self.user_repo.get_user_api_keys(username)
 
         return [
             {

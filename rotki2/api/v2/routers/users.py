@@ -10,6 +10,7 @@ from rotki2.api.v2.dependencies import (
     get_auth_service,
     get_database_service,
     get_rotkehlchen,
+    require_logged_in_user,
 )
 from rotki2.api.v2.services.auth import AuthService
 from rotki2.api.v2.services.database import DatabaseService
@@ -64,14 +65,12 @@ async def get_users(
 @router.post('/')
 async def create_user(
     user_data: UserCreateRequest,
-    db_service: Annotated[DatabaseService, Depends(get_database_service)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    rotkehlchen: Annotated['Rotkehlchen', Depends(get_rotkehlchen)],
 ) -> UserResponse:
     """Create a new user"""
-    # Get data directory from settings
-    settings = db_service.get_settings()
-    data_dir = Path(settings.data_directory)
-    users_dir = data_dir / 'users'
+    # Get data directory
+    users_dir = rotkehlchen.data_dir / 'users'
     user_dir = users_dir / user_data.name
 
     # Check if user already exists
@@ -81,26 +80,41 @@ async def create_user(
             detail=f'User {user_data.name} already exists',
         )
 
-    # Create user directory
     try:
-        user_dir.mkdir(parents=True, exist_ok=False)
+        # Use unlock_user with create_new=True to create the user
+        from rotkehlchen.types import PremiumCredentials
+        
+        premium_credentials = None
+        if user_data.premium_api_key and user_data.premium_api_secret:
+            premium_credentials = PremiumCredentials(
+                api_key=user_data.premium_api_key,
+                api_secret=user_data.premium_api_secret,
+            )
+        
+        user_info = await auth_service.unlock_user(
+            user=user_data.name,
+            password=user_data.password,
+            create_new=True,
+            sync_approval='unknown',
+            premium_credentials=premium_credentials,
+            resume_from_backup=False,
+            initial_settings=user_data.initial_settings,
+            sync_database=True,
+        )
 
-        # TODO: Initialize user database with password encryption
-        # This requires creating a new DBHandler instance with the user's password
-        # and running the database creation scripts
-
-        # For now, return success
         return UserResponse(
             result={
-                'name': user_data.name,
-                'settings': user_data.initial_settings or {},
+                'username': user_info['username'],
+                'premium': user_info.get('premium', False),
+                'settings': user_info.get('settings', {}),
             },
             message='User created successfully',
         )
     except Exception as e:
         # Clean up directory if creation failed
         if user_dir.exists():
-            os.rmdir(user_dir)
+            import shutil
+            shutil.rmtree(user_dir, ignore_errors=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f'Failed to create user: {e!s}',
@@ -111,18 +125,26 @@ async def create_user(
 async def login_user(
     login_data: UserLoginRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    rotkehlchen: Annotated['Rotkehlchen', Depends(get_rotkehlchen)],
 ) -> UserResponse:
     """Login a user"""
     try:
-        user_info = auth_service.authenticate_user(
-            username=login_data.name,
+        # Use the unlock_user method which handles both login and user creation
+        user_info = await auth_service.unlock_user(
+            user=login_data.name,
             password=login_data.password,
+            create_new=False,
+            sync_approval=login_data.sync_approval,
+            premium_credentials=None,
+            resume_from_backup=False,
+            sync_database=True,
         )
 
         return UserResponse(
             result={
                 'username': user_info['username'],
-                'premium_sync_enabled': user_info.get('premium_sync_enabled', False),
+                'premium': user_info.get('premium', False),
+                'settings': user_info.get('settings', {}),
             },
         )
     except Exception as e:
@@ -135,8 +157,10 @@ async def login_user(
 @router.post('/logout')
 async def logout_user(
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    current_user: Annotated[str, Depends(require_logged_in_user)],
 ) -> UserResponse:
     """Logout current user"""
+    await auth_service.logout()
     return UserResponse(
         result={'success': True},
         message='User logged out successfully',
