@@ -2,6 +2,10 @@
 
 from typing import TYPE_CHECKING, Any
 
+from sqlmodel import Session
+
+from rotkehlchen.api.v2.repositories.asset_ignore import AssetIgnoreRepository
+from rotkehlchen.api.v2.repositories.globaldb_asset import GlobalAssetRepository
 from rotkehlchen.assets.asset import (
     Asset,
     AssetWithOracles,
@@ -16,13 +20,10 @@ from rotkehlchen.db.filtering import AssetsFilterQuery, LevenshteinFilterQuery
 from rotkehlchen.db.search_assets import search_assets_levenshtein
 from rotkehlchen.errors.asset import UnknownAsset
 from rotkehlchen.errors.misc import InputError
-from rotkehlchen.api.v2.repositories.globaldb_asset import GlobalAssetRepository
-from rotkehlchen.api.v2.repositories.asset_ignore import AssetIgnoreRepository
 from rotkehlchen.globaldb.handler import GlobalDBHandler
 from rotkehlchen.history.price import PriceHistorian
 from rotkehlchen.inquirer import Inquirer
 from rotkehlchen.types import ChecksumEvmAddress, Price, Timestamp
-from sqlmodel import Session
 
 if TYPE_CHECKING:
     from rotkehlchen.db.dbhandler import DBHandler
@@ -67,7 +68,7 @@ class AssetsService:
         ignored_assets = None
         if ignored_assets_handling == 'exclude' and self.asset_ignore_repo:
             ignored_assets = self.asset_ignore_repo.get_ignored_assets()
-        
+
         # Use repository to get assets
         assets, total_count = self.asset_repo.get_all_assets(
             filter_query=filter_query,
@@ -105,7 +106,7 @@ class AssetsService:
         )
 
         return results
-    
+
     def search_assets_levenshtein(
         self,
         search_term: str,
@@ -143,7 +144,7 @@ class AssetsService:
         ignored_assets = None
         if ignored_assets_handling == 'exclude' and self.asset_ignore_repo:
             ignored_assets = self.asset_ignore_repo.get_ignored_assets()
-        
+
         # Use repository to search assets
         results = self.asset_repo.search_assets(
             filter_query=filter_query,
@@ -151,12 +152,11 @@ class AssetsService:
         )
 
         return results
-    
+
     def reset_asset_data(self) -> None:
         """Reset local asset data to defaults"""
         # Would reset asset database to defaults
-        pass
-    
+
     def replace_asset(self, source_identifier: str, target_identifier: str) -> None:
         """Replace/merge one asset with another"""
         # Check both assets exist
@@ -164,40 +164,37 @@ class AssetsService:
             raise ValueError(f'Source asset {source_identifier} not found')
         if not self.asset_repo.check_asset_exists(target_identifier):
             raise ValueError(f'Target asset {target_identifier} not found')
-        
+
         # Would merge assets in database
-        pass
-    
+
     def import_user_assets(self, file_path: str) -> int:
         """Import user-defined assets from a file"""
         # Would import assets from JSON file
         # For now, simulate
         return 5  # Number of imported assets
-    
+
     def get_custom_assets(self) -> list[dict[str, Any]]:
         """Get all custom assets"""
         # Would fetch custom assets from database
         return []
-    
+
     def get_custom_asset_types(self) -> list[str]:
         """Get all custom asset types"""
         return ['token', 'derivative', 'custom']
-    
+
     def add_manual_latest_price(self, asset: str, price: str) -> None:
         """Add a manual latest price for an asset"""
         if not self.asset_repo.check_asset_exists(asset):
             raise ValueError(f'Asset {asset} not found')
-        
+
         # Would store manual price in database
-        pass
-    
+
     def delete_manual_latest_price(self, asset: str) -> None:
         """Delete a manual latest price for an asset"""
         if not self.asset_repo.check_asset_exists(asset):
             raise ValueError(f'Asset {asset} not found')
-        
+
         # Would delete manual price from database
-        pass
 
     def get_asset_price(
         self,
@@ -250,7 +247,7 @@ class AssetsService:
             return {'identifier': asset_id}
         except InputError as e:
             raise InputError(f'Failed to add custom asset: {e!s}') from e
-    
+
     def edit_custom_asset(
         self,
         identifier: str,
@@ -262,7 +259,7 @@ class AssetsService:
         # Check if asset exists
         if not self.asset_repo.check_asset_exists(identifier):
             raise ValueError(f'Asset {identifier} not found')
-        
+
         # Update asset using repository
         self.asset_repo.update_asset(
             identifier=identifier,
@@ -270,18 +267,18 @@ class AssetsService:
             custom_asset_type=custom_asset_type,
             notes=notes,
         )
-        
+
         return {'identifier': identifier}
-    
+
     def delete_custom_asset(self, identifier: str) -> None:
         """Delete a custom asset"""
         # Check if asset exists
         if not self.asset_repo.check_asset_exists(identifier):
             raise ValueError(f'Asset {identifier} not found')
-        
+
         # Delete asset using repository
         self.asset_repo.delete_asset(identifier)
-        
+
         # Remove from user's owned assets if db handler is available
         if self.db is not None:
             with self.db.user_write() as cursor:
@@ -441,7 +438,7 @@ class AssetsService:
             asset_type=asset_type,
             chain_id=chain_id,
         )
-    
+
     def get_all_latest_prices(self) -> dict[str, Any]:
         """Get latest prices for all known assets"""
         # Would query price oracle for all assets
@@ -454,7 +451,7 @@ class AssetsService:
             },
             'last_updated': 1700000000,
         }
-    
+
     def get_historical_prices(
         self,
         asset: str,
@@ -474,7 +471,7 @@ class AssetsService:
                 {'timestamp': from_timestamp + 7200, 'price': '1900.00'},
             ],
         }
-    
+
     def get_asset_mappings(self) -> dict[str, Any]:
         """Get all asset mappings"""
         # Would retrieve asset mappings
@@ -486,7 +483,7 @@ class AssetsService:
             'location_mappings': {},
             'counterparty_mappings': {},
         }
-    
+
     def set_asset_mapping(
         self,
         asset: str,
@@ -495,8 +492,7 @@ class AssetsService:
     ) -> None:
         """Set an asset mapping"""
         # Would store asset mapping
-        pass
-    
+
     def check_for_updates(self) -> dict[str, Any]:
         """Check for asset database updates"""
         # Would check for updates
@@ -506,7 +502,7 @@ class AssetsService:
             'latest_version': 2,
             'assets_to_update': 50,
         }
-    
+
     def apply_updates(self) -> dict[str, Any]:
         """Apply asset database updates"""
         # Would apply updates
@@ -515,7 +511,7 @@ class AssetsService:
             'new_version': 2,
             'success': True,
         }
-    
+
     def add_manual_historical_price(
         self,
         asset: str,
@@ -526,10 +522,9 @@ class AssetsService:
         """Add a manual historical price for an asset"""
         if not self.asset_repo.check_asset_exists(asset):
             raise ValueError(f'Asset {asset} not found')
-        
+
         # Would store manual historical price in database
-        pass
-    
+
     def edit_manual_historical_price(
         self,
         asset: str,
@@ -540,10 +535,9 @@ class AssetsService:
         """Edit a manual historical price for an asset"""
         if not self.asset_repo.check_asset_exists(asset):
             raise ValueError(f'Asset {asset} not found')
-        
+
         # Would update manual historical price in database
-        pass
-    
+
     def delete_manual_historical_price(
         self,
         asset: str,
@@ -553,10 +547,9 @@ class AssetsService:
         """Delete a manual historical price for an asset"""
         if not self.asset_repo.check_asset_exists(asset):
             raise ValueError(f'Asset {asset} not found')
-        
+
         # Would delete manual historical price from database
-        pass
-    
+
     def get_manual_historical_prices(self) -> list[dict[str, Any]]:
         """Get all manual historical prices"""
         # Would fetch from database
@@ -574,23 +567,21 @@ class AssetsService:
                 'price': '45000.00',
             },
         ]
-    
+
     def upload_asset_icon(self, asset: str, icon_data: bytes) -> None:
         """Upload an icon for an asset"""
         if not self.asset_repo.check_asset_exists(asset):
             raise ValueError(f'Asset {asset} not found')
-        
+
         # Would save icon to storage
-        pass
-    
+
     def refresh_asset_icon(self, asset: str) -> None:
         """Refresh asset icon from remote source"""
         if not self.asset_repo.check_asset_exists(asset):
             raise ValueError(f'Asset {asset} not found')
-        
+
         # Would fetch and update icon from remote source
-        pass
-    
+
     def get_location_mappings(self, location: str | None = None) -> dict[str, list[str]]:
         """Get location asset mappings"""
         # Would fetch from database
@@ -601,22 +592,19 @@ class AssetsService:
             'binance': ['BNB', 'ETH', 'BTC'],
             'coinbase': ['ETH', 'BTC', 'USDC', 'USDT'],
         }
-    
+
     def add_location_mapping(self, location: str, assets: list[str]) -> None:
         """Add location asset mappings"""
         # Would store in database
-        pass
-    
+
     def update_location_mapping(self, location: str, assets: list[str]) -> None:
         """Update location asset mappings"""
         # Would update in database
-        pass
-    
+
     def delete_location_mapping(self, location: str, assets: list[str] | None = None) -> None:
         """Delete location asset mappings"""
         # Would delete from database
-        pass
-    
+
     def get_counterparty_mappings(self, counterparty: str | None = None) -> dict[str, list[str]]:
         """Get counterparty asset mappings"""
         # Would fetch from database
@@ -627,18 +615,15 @@ class AssetsService:
             'compound': ['COMP', 'cETH', 'cDAI'],
             'aave': ['AAVE', 'aETH', 'aUSDC'],
         }
-    
+
     def add_counterparty_mapping(self, counterparty: str, assets: list[str]) -> None:
         """Add counterparty asset mappings"""
         # Would store in database
-        pass
-    
+
     def update_counterparty_mapping(self, counterparty: str, assets: list[str]) -> None:
         """Update counterparty asset mappings"""
         # Would update in database
-        pass
-    
+
     def delete_counterparty_mapping(self, counterparty: str, assets: list[str] | None = None) -> None:
         """Delete counterparty asset mappings"""
         # Would delete from database
-        pass

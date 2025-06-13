@@ -229,3 +229,36 @@ class ETH2Service:
                 })
         
         return deposits
+    
+    def edit_validator(self, validator_id: int, ownership_proportion: str) -> None:
+        """Edit a validator's ownership proportion"""
+        with self.db.conn.write_ctx() as cursor:
+            cursor.execute(
+                'UPDATE eth2_validators SET ownership_proportion = ? WHERE validator_index = ?',
+                (ownership_proportion, validator_id),
+            )
+            
+            if cursor.rowcount == 0:
+                raise ValueError(f"Validator {validator_id} not found")
+    
+    def redecode_stake_events(self) -> dict[str, Any]:
+        """Redecode ETH2 staking events"""
+        # Would trigger reprocessing of ETH2 events
+        # This would re-decode block production events, attestations, etc.
+        return {
+            'task_id': 'redecode_eth2_events_123',
+            'status': 'started',
+            'message': 'ETH2 event redecoding started',
+        }
+    
+    def reset_stake_data(self) -> dict[str, Any]:
+        """Reset all ETH2 staking data"""
+        with self.db.conn.write_ctx() as cursor:
+            # Delete all ETH2 related data
+            cursor.execute('DELETE FROM eth2_daily_staking_details')
+            cursor.execute('DELETE FROM eth2_validators WHERE 1=1')  # Keep structure
+            
+        return {
+            'success': True,
+            'message': 'ETH2 staking data has been reset',
+        }

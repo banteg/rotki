@@ -1,7 +1,7 @@
 """History router for transaction history and events endpoints"""
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, UploadFile, File, Form
 from pydantic import BaseModel, Field
 
 from rotkehlchen.api.v2.dependencies import (
@@ -431,3 +431,159 @@ async def post_event_type_mappings(
 ) -> HistoryResponse:
     """Get mappings of event types to human-readable names (POST version)"""
     return await get_event_type_mappings(_, history_service)
+
+
+# v1 compatibility endpoints for history/debug
+@router.post('/debug')
+async def export_pnl_debug_data(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    directory_path: str,
+) -> HistoryResponse:
+    """Export PnL debug data - Compatible with v1 POST /api/1/history/debug"""
+    file_path = history_service.export_debug_data(directory_path)
+    
+    return HistoryResponse(
+        result={'file_path': file_path},
+        message='Debug data exported',
+    )
+
+
+@router.put('/debug')
+async def import_pnl_debug_data_path(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    filepath: str,
+) -> HistoryResponse:
+    """Import PnL debug data from file path - Compatible with v1 PUT /api/1/history/debug"""
+    result = history_service.import_debug_data(filepath)
+    
+    return HistoryResponse(
+        result=result,
+        message='Debug data imported',
+    )
+
+
+@router.patch('/debug')
+async def import_pnl_debug_data_upload(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    file: UploadFile = File(...),
+) -> HistoryResponse:
+    """Import PnL debug data from file upload - Compatible with v1 PATCH /api/1/history/debug"""
+    # Save uploaded file temporarily
+    import tempfile
+    import os
+    
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+    
+    try:
+        result = history_service.import_debug_data(tmp_path)
+        return HistoryResponse(
+            result=result,
+            message='Debug data imported',
+        )
+    finally:
+        os.unlink(tmp_path)
+
+
+# History events export endpoints
+@router.post('/events/export')
+async def export_history_events_to_dir(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    directory_path: str,
+) -> HistoryResponse:
+    """Export history events to a file in a directory - Compatible with v1 POST /api/1/history/events/export"""
+    file_path = history_service.export_events_to_directory(directory_path)
+    
+    return HistoryResponse(
+        result={'file_path': file_path},
+        message='History events exported',
+    )
+
+
+@router.put('/events/export')
+async def download_history_events_csv(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Download history events as CSV - Compatible with v1 PUT /api/1/history/events/export"""
+    csv_data = history_service.export_events_as_csv()
+    
+    return HistoryResponse(
+        result={'csv': csv_data},
+        message='History events exported as CSV',
+    )
+
+
+@router.get('/events/export/download')
+async def download_exported_history_csv(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    filepath: str,
+) -> HistoryResponse:
+    """Download an exported history events CSV - Compatible with v1 GET /api/1/history/events/export/download"""
+    # Would return file contents
+    return HistoryResponse(
+        result={'file': filepath},
+        message='File download initiated',
+    )
+
+
+# Skipped external events endpoints
+@router.get('/skipped_external_events')
+async def get_skipped_external_events(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Get summary of skipped events - Compatible with v1 GET /api/1/history/skipped_external_events"""
+    skipped = history_service.get_skipped_external_events()
+    
+    return HistoryResponse(result=skipped)
+
+
+@router.put('/skipped_external_events')
+async def export_skipped_events_to_dir(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    directory_path: str,
+) -> HistoryResponse:
+    """Export skipped events to a file - Compatible with v1 PUT /api/1/history/skipped_external_events"""
+    file_path = history_service.export_skipped_events(directory_path)
+    
+    return HistoryResponse(
+        result={'file_path': file_path},
+        message='Skipped events exported',
+    )
+
+
+@router.patch('/skipped_external_events')
+async def download_skipped_events_csv(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Download skipped events as CSV - Compatible with v1 PATCH /api/1/history/skipped_external_events"""
+    csv_data = history_service.download_skipped_events_csv()
+    
+    return HistoryResponse(
+        result={'csv': csv_data},
+        message='Skipped events CSV generated',
+    )
+
+
+@router.post('/skipped_external_events')
+async def reprocess_skipped_events(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Reprocess skipped events - Compatible with v1 POST /api/1/history/skipped_external_events"""
+    result = history_service.reprocess_skipped_events()
+    
+    return HistoryResponse(
+        result=result,
+        message='Skipped events reprocessing started',
+    )

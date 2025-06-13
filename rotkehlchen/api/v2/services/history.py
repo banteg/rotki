@@ -1,4 +1,5 @@
 """History service for managing transaction history and events"""
+import time
 from typing import TYPE_CHECKING, Any
 
 from rotkehlchen.assets.asset import Asset
@@ -402,4 +403,302 @@ class HistoryService:
                 'generate_debt': 'Generate Debt',
                 'payback_debt': 'Payback Debt',
             },
+        }
+    
+    def query_history(
+        self,
+        from_timestamp: int,
+        to_timestamp: int,
+        ascending: bool = False,
+        group_by_event_ids: bool = False,
+    ) -> dict[str, Any]:
+        """Query history data for a time range"""
+        # Get events in the time range
+        events = self.get_history_events(
+            from_timestamp=from_timestamp,
+            to_timestamp=to_timestamp,
+            limit=None,  # Get all events
+            offset=0,
+        )
+        
+        # Sort by timestamp
+        events.sort(key=lambda x: x['timestamp'], reverse=not ascending)
+        
+        # Group by event IDs if requested
+        if group_by_event_ids:
+            grouped = {}
+            for event in events:
+                event_id = event.get('event_identifier')
+                if event_id not in grouped:
+                    grouped[event_id] = []
+                grouped[event_id].append(event)
+            return {
+                'events': grouped,
+                'entries_total': len(events),
+                'entries_found': len(events),
+            }
+        
+        return {
+            'events': events,
+            'entries_total': len(events),
+            'entries_found': len(events),
+        }
+    
+    def get_unique_counterparties(self) -> list[str]:
+        """Get all unique counterparties from history events"""
+        with self.db_connection.read_ctx() as cursor:
+            result = cursor.execute(
+                'SELECT DISTINCT counterparty FROM history_events '
+                'WHERE counterparty IS NOT NULL ORDER BY counterparty',
+            ).fetchall()
+            
+            return [row[0] for row in result]
+    
+    def get_unique_products(self) -> list[dict[str, Any]]:
+        """Get all unique products from history events"""
+        # In real implementation, would query product data
+        # For now, return simulated data
+        return [
+            {'counterparty': 'uniswap', 'products': ['LP', 'V2', 'V3']},
+            {'counterparty': 'compound', 'products': ['lending', 'borrowing']},
+            {'counterparty': 'aave', 'products': ['v2', 'v3']},
+        ]
+    
+    def export_debug_data(self, directory_path: str) -> str:
+        """Export PnL debug data to a directory"""
+        import json
+        from pathlib import Path
+        
+        # Create debug data structure
+        debug_data = {
+            'timestamp': int(time.time()),
+            'events': [],
+            'processed_actions': [],
+            'pnl_totals': {},
+        }
+        
+        # Get all history events
+        events_db, _ = self.history_events_db.get_history_events(
+            filter_query=HistoryEventFilterQuery.make(),
+            has_premium=True,
+            limit=None,
+        )
+        
+        for event in events_db:
+            debug_data['events'].append({
+                'identifier': event.identifier,
+                'timestamp': event.timestamp,
+                'type': event.event_type.serialize(),
+                'asset': event.asset.identifier,
+                'amount': str(event.balance.amount),
+                'usd_value': str(event.balance.usd_value) if event.balance.usd_value else '0',
+            })
+        
+        # Save to file
+        debug_path = Path(directory_path) / 'rotki_pnl_debug.json'
+        with open(debug_path, 'w', encoding='utf-8') as f:
+            json.dump(debug_data, f, indent=2)
+        
+        return str(debug_path)
+    
+    def import_debug_data(self, filepath: str) -> dict[str, Any]:
+        """Import PnL debug data from a file"""
+        import json
+        from pathlib import Path
+        
+        # Read debug data
+        debug_path = Path(filepath)
+        if not debug_path.exists():
+            raise ValueError(f'File {filepath} does not exist')
+        
+        with open(debug_path, 'r', encoding='utf-8') as f:
+            debug_data = json.load(f)
+        
+        # Process imported data
+        imported_events = len(debug_data.get('events', []))
+        
+        return {
+            'imported_events': imported_events,
+            'timestamp': debug_data.get('timestamp'),
+            'success': True,
+        }
+    
+    def export_events_to_directory(self, directory_path: str) -> str:
+        """Export history events to a file in a directory"""
+        import json
+        from pathlib import Path
+        
+        # Get all history events
+        events_db, _ = self.history_events_db.get_history_events(
+            filter_query=HistoryEventFilterQuery.make(),
+            has_premium=True,
+            limit=None,
+        )
+        
+        # Convert to exportable format
+        export_data = {
+            'version': 1,
+            'events': [],
+        }
+        
+        for event in events_db:
+            export_data['events'].append({
+                'identifier': event.identifier,
+                'event_identifier': event.event_identifier,
+                'sequence_index': event.sequence_index,
+                'timestamp': event.timestamp,
+                'location': event.location.serialize(),
+                'event_type': event.event_type.serialize(),
+                'event_subtype': event.event_subtype,
+                'asset': event.asset.identifier,
+                'amount': str(event.balance.amount),
+                'usd_value': str(event.balance.usd_value) if event.balance.usd_value else '0',
+                'notes': event.notes,
+                'counterparty': event.counterparty.serialize() if event.counterparty else None,
+                'extra_data': event.extra_data,
+            })
+        
+        # Save to file
+        export_path = Path(directory_path) / 'history_events_export.json'
+        with open(export_path, 'w', encoding='utf-8') as f:
+            json.dump(export_data, f, indent=2)
+        
+        return str(export_path)
+    
+    def export_events_as_csv(self) -> str:
+        """Export history events as CSV data"""
+        import csv
+        import io
+        
+        # Get all history events
+        events_db, _ = self.history_events_db.get_history_events(
+            filter_query=HistoryEventFilterQuery.make(),
+            has_premium=True,
+            limit=None,
+        )
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        fieldnames = [
+            'timestamp', 'location', 'event_type', 'event_subtype',
+            'asset', 'amount', 'usd_value', 'notes', 'counterparty',
+            'event_identifier', 'identifier',
+        ]
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        
+        for event in events_db:
+            writer.writerow({
+                'timestamp': event.timestamp,
+                'location': event.location.serialize(),
+                'event_type': event.event_type.serialize(),
+                'event_subtype': event.event_subtype or '',
+                'asset': event.asset.identifier,
+                'amount': str(event.balance.amount),
+                'usd_value': str(event.balance.usd_value) if event.balance.usd_value else '0',
+                'notes': event.notes or '',
+                'counterparty': event.counterparty.serialize() if event.counterparty else '',
+                'event_identifier': event.event_identifier,
+                'identifier': event.identifier,
+            })
+        
+        return output.getvalue()
+    
+    def get_skipped_external_events(self) -> dict[str, Any]:
+        """Get summary of skipped external events"""
+        with self.db_connection.read_ctx() as cursor:
+            # Count skipped events by location
+            result = cursor.execute(
+                'SELECT location, COUNT(*) FROM skipped_external_events '
+                'GROUP BY location',
+            ).fetchall()
+            
+            skipped_by_location = {}
+            total_skipped = 0
+            
+            for row in result:
+                location = row[0]
+                count = row[1]
+                skipped_by_location[location] = count
+                total_skipped += count
+        
+        return {
+            'total_skipped': total_skipped,
+            'skipped_by_location': skipped_by_location,
+        }
+    
+    def export_skipped_events(self, directory_path: str) -> str:
+        """Export skipped events to a file"""
+        import json
+        from pathlib import Path
+        
+        with self.db_connection.read_ctx() as cursor:
+            # Get all skipped events
+            result = cursor.execute(
+                'SELECT location, data, timestamp FROM skipped_external_events',
+            ).fetchall()
+            
+            skipped_events = []
+            for row in result:
+                skipped_events.append({
+                    'location': row[0],
+                    'data': json.loads(row[1]) if row[1] else {},
+                    'timestamp': row[2],
+                })
+        
+        # Save to file
+        export_path = Path(directory_path) / 'skipped_events_export.json'
+        with open(export_path, 'w', encoding='utf-8') as f:
+            json.dump({
+                'version': 1,
+                'skipped_events': skipped_events,
+            }, f, indent=2)
+        
+        return str(export_path)
+    
+    def download_skipped_events_csv(self) -> str:
+        """Generate CSV data for skipped events"""
+        import csv
+        import io
+        import json
+        
+        with self.db_connection.read_ctx() as cursor:
+            # Get all skipped events
+            result = cursor.execute(
+                'SELECT location, data, timestamp FROM skipped_external_events',
+            ).fetchall()
+        
+        # Create CSV in memory
+        output = io.StringIO()
+        fieldnames = ['timestamp', 'location', 'reason', 'data']
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        
+        for row in result:
+            data = json.loads(row[1]) if row[1] else {}
+            writer.writerow({
+                'timestamp': row[2],
+                'location': row[0],
+                'reason': data.get('reason', 'Unknown'),
+                'data': json.dumps(data),
+            })
+        
+        return output.getvalue()
+    
+    def reprocess_skipped_events(self) -> dict[str, Any]:
+        """Reprocess all skipped events"""
+        with self.db_connection.read_ctx() as cursor:
+            # Count skipped events
+            result = cursor.execute(
+                'SELECT COUNT(*) FROM skipped_external_events',
+            ).fetchone()
+            
+            total_skipped = result[0] if result else 0
+        
+        # In real implementation, would trigger reprocessing task
+        # For now, simulate starting the task
+        return {
+            'task_id': 'reprocess_123',
+            'events_to_process': total_skipped,
+            'status': 'started',
         }

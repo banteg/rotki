@@ -1,7 +1,7 @@
 """Assets router for asset management endpoints"""
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
 
 from rotkehlchen.api.v2.dependencies import require_logged_in_user
@@ -158,7 +158,7 @@ async def add_custom_asset(
         asset = assets_service.add_custom_asset(
             identifier=asset_data.identifier,
             name=asset_data.name,
-            notes=f"Symbol: {asset_data.symbol}",
+            notes=f'Symbol: {asset_data.symbol}',
             custom_asset_type=asset_data.asset_type.value,
         )
 
@@ -184,7 +184,7 @@ async def edit_custom_asset(
         asset = assets_service.edit_custom_asset(
             identifier=asset_data.identifier,
             name=asset_data.name,
-            notes=f"Symbol: {asset_data.symbol}",
+            notes=f'Symbol: {asset_data.symbol}',
             custom_asset_type=asset_data.asset_type.value,
         )
 
@@ -213,7 +213,7 @@ async def delete_custom_asset(
     """Delete a custom asset - Compatible with v1 DELETE /api/1/assets/all"""
     try:
         assets_service.delete_custom_asset(identifier)
-        
+
         return AssetResponse(
             result={'success': True},
             message=f'Custom asset {identifier} deleted successfully',
@@ -304,7 +304,7 @@ async def modify_ignored_assets(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='Invalid action. Must be "add" or "remove"',
         )
-    
+
     return AssetResponse(
         result={'success': True},
         message=f'Successfully {action}ed {len(assets)} assets',
@@ -338,7 +338,7 @@ async def modify_ignored_whitelist(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='Invalid action. Must be "add" or "remove"',
         )
-    
+
     return AssetResponse(
         result={'success': True},
         message=f'Successfully {action}ed {len(assets)} assets to/from whitelist',
@@ -389,7 +389,7 @@ async def get_all_latest_prices(
 ) -> AssetResponse:
     """Get latest prices for all known assets"""
     prices = assets_service.get_all_latest_prices()
-    
+
     return AssetResponse(result=prices)
 
 
@@ -426,7 +426,7 @@ async def get_historical_prices(
         to_timestamp=to_timestamp,
         target_asset=target_asset,
     )
-    
+
     return AssetResponse(result=prices)
 
 
@@ -438,7 +438,7 @@ async def post_historical_prices(
 ) -> AssetResponse:
     """Get historical prices for multiple assets"""
     results = {}
-    
+
     for asset in request_data.assets:
         prices = assets_service.get_historical_prices(
             asset=asset,
@@ -447,7 +447,7 @@ async def post_historical_prices(
             target_asset=request_data.target_asset,
         )
         results[asset] = prices
-    
+
     return AssetResponse(result=results)
 
 
@@ -465,7 +465,7 @@ async def get_asset_mappings(
 ) -> AssetResponse:
     """Get all asset mappings"""
     mappings = assets_service.get_asset_mappings()
-    
+
     return AssetResponse(result=mappings)
 
 
@@ -481,7 +481,7 @@ async def modify_asset_mappings(
         target_asset=mapping_data.target_asset,
         mapping_type=mapping_data.mapping_type,
     )
-    
+
     return AssetResponse(
         result={'success': True},
         message='Asset mapping updated',
@@ -495,7 +495,7 @@ async def check_asset_updates(
 ) -> AssetResponse:
     """Check for asset database updates"""
     updates = assets_service.check_for_updates()
-    
+
     return AssetResponse(result=updates)
 
 
@@ -506,7 +506,7 @@ async def apply_asset_updates(
 ) -> AssetResponse:
     """Apply asset database updates"""
     result = assets_service.apply_updates()
-    
+
     return AssetResponse(
         result=result,
         message='Asset updates applied',
@@ -564,7 +564,7 @@ async def replace_asset(
     """Replace/merge one asset with another - Compatible with v1 PUT /api/1/assets/replace"""
     try:
         assets_service.replace_asset(source_identifier, target_identifier)
-        
+
         return AssetResponse(
             result={'success': True},
             message=f'Successfully replaced {source_identifier} with {target_identifier}',
@@ -583,7 +583,7 @@ async def reset_asset_data(
 ) -> AssetResponse:
     """Reset local asset data to defaults - Compatible with v1 DELETE /api/1/assets/updates"""
     assets_service.reset_asset_data()
-    
+
     return AssetResponse(
         result={'success': True},
         message='Asset data reset to defaults',
@@ -599,7 +599,7 @@ async def import_user_assets(
     """Import user-defined assets from a file - Compatible with v1 PUT /api/1/assets/user"""
     try:
         count = assets_service.import_user_assets(file_path)
-        
+
         return AssetResponse(
             result={'imported': count},
             message=f'Successfully imported {count} assets',
@@ -618,7 +618,7 @@ async def get_custom_assets(
 ) -> AssetResponse:
     """Get all custom assets - Compatible with v1 GET /api/1/assets/custom"""
     custom_assets = assets_service.get_custom_assets()
-    
+
     return AssetResponse(result={'assets': custom_assets})
 
 
@@ -659,7 +659,7 @@ async def get_custom_asset_types(
 ) -> AssetResponse:
     """Get all custom asset types - Compatible with v1 GET /api/1/assets/custom/types"""
     types = assets_service.get_custom_asset_types()
-    
+
     return AssetResponse(result={'types': types})
 
 
@@ -673,7 +673,7 @@ async def add_manual_latest_price(
     """Add a manual latest price - Compatible with v1 PUT /api/1/assets/prices/latest"""
     try:
         assets_service.add_manual_latest_price(asset, price)
-        
+
         return AssetResponse(
             result={'success': True},
             message='Manual latest price added',
@@ -694,7 +694,7 @@ async def delete_manual_latest_price(
     """Delete a manual latest price - Compatible with v1 DELETE /api/1/assets/prices/latest"""
     try:
         assets_service.delete_manual_latest_price(asset)
-        
+
         return AssetResponse(
             result={'success': True},
             message='Manual latest price deleted',
@@ -713,7 +713,7 @@ async def get_manual_historical_prices(
 ) -> AssetResponse:
     """Get all stored manual historical prices - Compatible with v1 GET /api/1/assets/prices/historical"""
     prices = assets_service.get_manual_historical_prices()
-    
+
     return AssetResponse(result={'prices': prices})
 
 
@@ -729,7 +729,7 @@ async def add_manual_historical_price(
     """Add a manual historical price - Compatible with v1 PUT /api/1/assets/prices/historical"""
     try:
         assets_service.add_manual_historical_price(asset, timestamp, price, target_asset)
-        
+
         return AssetResponse(
             result={'success': True},
             message='Manual historical price added',
@@ -753,7 +753,7 @@ async def edit_manual_historical_price(
     """Edit a manual historical price - Compatible with v1 PATCH /api/1/assets/prices/historical"""
     try:
         assets_service.edit_manual_historical_price(asset, timestamp, price, target_asset)
-        
+
         return AssetResponse(
             result={'success': True},
             message='Manual historical price updated',
@@ -776,7 +776,7 @@ async def delete_manual_historical_price(
     """Delete a manual historical price - Compatible with v1 DELETE /api/1/assets/prices/historical"""
     try:
         assets_service.delete_manual_historical_price(asset, timestamp, target_asset)
-        
+
         return AssetResponse(
             result={'success': True},
             message='Manual historical price deleted',
@@ -801,7 +801,7 @@ async def upload_asset_icon(
         # Read file content
         icon_data = await file.read()
         assets_service.upload_asset_icon(asset, icon_data)
-        
+
         return AssetResponse(
             result={'success': True},
             message=f'Icon uploaded for asset {asset}',
@@ -833,7 +833,7 @@ async def refresh_asset_icon(
     """Refresh an asset icon from remote source - Compatible with v1 PATCH /api/1/assets/icon/modify"""
     try:
         assets_service.refresh_asset_icon(asset)
-        
+
         return AssetResponse(
             result={'success': True},
             message=f'Icon refreshed for asset {asset}',
@@ -854,7 +854,7 @@ async def query_location_mappings(
 ) -> AssetResponse:
     """Query location asset mappings - Compatible with v1 POST /api/1/assets/locationmappings"""
     mappings = assets_service.get_location_mappings(location)
-    
+
     return AssetResponse(result={'mappings': mappings})
 
 
@@ -868,7 +868,7 @@ async def add_location_mappings(
     """Add location asset mappings - Compatible with v1 PUT /api/1/assets/locationmappings"""
     try:
         assets_service.add_location_mapping(location, assets)
-        
+
         return AssetResponse(
             result={'success': True},
             message=f'Added {len(assets)} asset mappings for location {location}',
@@ -890,7 +890,7 @@ async def update_location_mappings(
     """Update location asset mappings - Compatible with v1 PATCH /api/1/assets/locationmappings"""
     try:
         assets_service.update_location_mapping(location, assets)
-        
+
         return AssetResponse(
             result={'success': True},
             message=f'Updated asset mappings for location {location}',
@@ -912,7 +912,7 @@ async def delete_location_mappings(
     """Delete location asset mappings - Compatible with v1 DELETE /api/1/assets/locationmappings"""
     try:
         assets_service.delete_location_mapping(location, assets)
-        
+
         return AssetResponse(
             result={'success': True},
             message=f'Deleted asset mappings for location {location}',
@@ -933,7 +933,7 @@ async def query_counterparty_mappings(
 ) -> AssetResponse:
     """Query counterparty asset mappings - Compatible with v1 POST /api/1/assets/counterpartymappings"""
     mappings = assets_service.get_counterparty_mappings(counterparty)
-    
+
     return AssetResponse(result={'mappings': mappings})
 
 
@@ -947,7 +947,7 @@ async def add_counterparty_mappings(
     """Add counterparty asset mappings - Compatible with v1 PUT /api/1/assets/counterpartymappings"""
     try:
         assets_service.add_counterparty_mapping(counterparty, assets)
-        
+
         return AssetResponse(
             result={'success': True},
             message=f'Added {len(assets)} asset mappings for counterparty {counterparty}',
@@ -969,7 +969,7 @@ async def update_counterparty_mappings(
     """Update counterparty asset mappings - Compatible with v1 PATCH /api/1/assets/counterpartymappings"""
     try:
         assets_service.update_counterparty_mapping(counterparty, assets)
-        
+
         return AssetResponse(
             result={'success': True},
             message=f'Updated asset mappings for counterparty {counterparty}',
@@ -991,7 +991,7 @@ async def delete_counterparty_mappings(
     """Delete counterparty asset mappings - Compatible with v1 DELETE /api/1/assets/counterpartymappings"""
     try:
         assets_service.delete_counterparty_mapping(counterparty, assets)
-        
+
         return AssetResponse(
             result={'success': True},
             message=f'Deleted asset mappings for counterparty {counterparty}',

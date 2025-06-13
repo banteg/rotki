@@ -137,3 +137,100 @@ async def get_stake_deposits(
     """Get ETH2 stake deposits"""
     deposits = service.get_stake_deposits(address=address)
     return ETH2Response(result=deposits)
+
+
+# v1 compatibility endpoints
+@router.put('/validators')
+async def add_validator_v1(
+    validator_index: int | None = None,
+    public_key: str | None = None,
+    ownership_proportion: str = "1.0",
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[ETH2Service, Depends(get_eth2_service)],
+) -> ETH2Response:
+    """Add an ETH2 validator - Compatible with v1 PUT /api/1/blockchains/eth2/validators"""
+    request = ValidatorRequest(
+        validator_index=validator_index,
+        public_key=public_key,
+        ownership_proportion=ownership_proportion,
+    )
+    return await add_validator(request, _, service)
+
+
+@router.patch('/validators')
+async def edit_validator(
+    validator_id: int,
+    ownership_proportion: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[ETH2Service, Depends(get_eth2_service)],
+) -> ETH2Response:
+    """Edit an ETH2 validator - Compatible with v1 PATCH /api/1/blockchains/eth2/validators"""
+    try:
+        service.edit_validator(validator_id, ownership_proportion)
+        return ETH2Response(
+            result={'success': True},
+            message='Validator updated successfully',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+
+
+@router.delete('/validators')
+async def delete_validator_v1(
+    validator_id: int,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[ETH2Service, Depends(get_eth2_service)],
+) -> ETH2Response:
+    """Delete an ETH2 validator - Compatible with v1 DELETE /api/1/blockchains/eth2/validators"""
+    return await remove_validator(validator_id, _, service)
+
+
+@router.put('/stake/performance')
+async def get_stake_performance_v1(
+    from_timestamp: Timestamp = 0,
+    to_timestamp: Timestamp | None = None,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[ETH2Service, Depends(get_eth2_service)],
+) -> ETH2Response:
+    """Get ETH2 staking performance - Compatible with v1 PUT /api/1/blockchains/eth2/stake/performance"""
+    return await get_stake_performance(_, service, from_timestamp, to_timestamp)
+
+
+@router.post('/stake/dailystats')
+async def get_daily_stats_v1(
+    from_timestamp: Timestamp = 0,
+    to_timestamp: Timestamp | None = None,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[ETH2Service, Depends(get_eth2_service)],
+) -> ETH2Response:
+    """Get ETH2 daily staking statistics - Compatible with v1 POST /api/1/blockchains/eth2/stake/dailystats"""
+    return await get_daily_stats(_, service, from_timestamp, to_timestamp)
+
+
+@router.put('/stake/events')
+async def redecode_stake_events(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[ETH2Service, Depends(get_eth2_service)],
+) -> ETH2Response:
+    """Redecode ETH2 block production events - Compatible with v1 PUT /api/1/blockchains/eth2/stake/events"""
+    result = service.redecode_stake_events()
+    return ETH2Response(
+        result=result,
+        message='ETH2 stake events reprocessing started',
+    )
+
+
+@router.delete('/stake/events')
+async def reset_stake_data(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[ETH2Service, Depends(get_eth2_service)],
+) -> ETH2Response:
+    """Reset ETH2 staking data - Compatible with v1 DELETE /api/1/blockchains/eth2/stake/events"""
+    result = service.reset_stake_data()
+    return ETH2Response(
+        result=result,
+        message='ETH2 staking data reset',
+    )

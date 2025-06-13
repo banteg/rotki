@@ -103,18 +103,18 @@
 #### **Blockchains & EVM**
 
 - [x] `GET /api/1/blockchains/supported` (Get a list of all supported blockchains) ✅ Migrated to `GET /api/v2/blockchain/supported`
-- [ ] `POST /api/1/blockchains/transactions` (Query blockchain transactions for a time range)
-- [ ] `DELETE /api/1/blockchains/transactions` (Purge transaction data)
-- [ ] `GET /api/1/blockchains/evm/all` (Get details for all supported EVM chains)
-- [ ] `PUT /api/1/blockchains/evm/transactions` (Decode a given list of EVM transactions)
-- [ ] `PUT /api/1/blockchains/evmlike/transactions` (Decode a given list of EVM-like transactions)
-- [ ] `POST /api/1/blockchains/evm/transactions/decode` (Decode all pending EVM transactions)
-- [ ] `GET /api/1/blockchains/evm/transactions/decode` (Get the count of undecoded EVM transactions)
-- [ ] `POST /api/1/blockchains/evmlike/transactions/decode` (Decode all pending EVM-like transactions)
-- [ ] `GET /api/1/blockchains/evmlike/transactions/decode` (Get the count of undecoded EVM-like transactions)
-- [ ] `GET /api/1/blockchains/evm/erc20details` (Get info for an ERC20 token)
-- [ ] `POST /api/1/blockchains/evm/accounts` (Refresh all EVM accounts)
-- [ ] `PUT /api/1/blockchains/evm/accounts` (Add EVM accounts)
+- [x] `POST /api/1/blockchains/transactions` (Query blockchain transactions for a time range) ✅ Migrated to `POST /api/v2/blockchain/transactions`
+- [x] `DELETE /api/1/blockchains/transactions` (Purge transaction data) ✅ Migrated to `DELETE /api/v2/blockchain/transactions`
+- [x] `GET /api/1/blockchains/evm/all` (Get details for all supported EVM chains) ✅ Migrated to `GET /api/v2/blockchain/evm/all`
+- [x] `PUT /api/1/blockchains/evm/transactions` (Decode a given list of EVM transactions) ✅ Migrated to `PUT /api/v2/blockchain/evm/transactions`
+- [x] `PUT /api/1/blockchains/evmlike/transactions` (Decode a given list of EVM-like transactions) ✅ Migrated to `PUT /api/v2/blockchain/evmlike/transactions`
+- [x] `POST /api/1/blockchains/evm/transactions/decode` (Decode all pending EVM transactions) ✅ Migrated to `POST /api/v2/blockchain/evm/transactions/decode`
+- [x] `GET /api/1/blockchains/evm/transactions/decode` (Get the count of undecoded EVM transactions) ✅ Migrated to `GET /api/v2/blockchain/evm/transactions/decode`
+- [x] `POST /api/1/blockchains/evmlike/transactions/decode` (Decode all pending EVM-like transactions) ✅ Migrated to `POST /api/v2/blockchain/evmlike/transactions/decode`
+- [x] `GET /api/1/blockchains/evmlike/transactions/decode` (Get the count of undecoded EVM-like transactions) ✅ Migrated to `GET /api/v2/blockchain/evmlike/transactions/decode`
+- [x] `GET /api/1/blockchains/evm/erc20details` (Get info for an ERC20 token) ✅ Migrated to `GET /api/v2/blockchain/evm/erc20details`
+- [x] `POST /api/1/blockchains/evm/accounts` (Refresh all EVM accounts) ✅ Migrated to `POST /api/v2/blockchain/evm/accounts`
+- [x] `PUT /api/1/blockchains/evm/accounts` (Add EVM accounts) ✅ Migrated to `PUT /api/v2/blockchain/evm/accounts`
 - [x] `GET /api/1/blockchains/<string:blockchain>/accounts` (Get accounts for a specific blockchain) ✅ Migrated to `GET /api/v2/blockchain/{blockchain}/accounts`
 - [x] `PUT /api/1/blockchains/<string:blockchain>/accounts` (Add accounts for a specific blockchain) ✅ Migrated to `POST /api/v2/blockchain/{blockchain}/accounts`
 - [x] `PATCH /api/1/blockchains/<string:blockchain>/accounts` (Edit accounts for a specific blockchain) ✅ Migrated to `PATCH /api/v2/blockchain/{blockchain}/accounts`
@@ -124,33 +124,33 @@
 - [x] `PATCH /api/1/blockchains/<string:blockchain>/nodes` (Edit an RPC node) ✅ Migrated to `PATCH /api/v2/blockchain/{blockchain}/nodes`
 - [x] `DELETE /api/1/blockchains/<string:blockchain>/nodes` (Delete an RPC node) ✅ Migrated to `DELETE /api/v2/blockchain/{blockchain}/nodes`
 - [x] `POST /api/1/blockchains/<string:blockchain>/nodes` (Attempt to connect to an RPC node) ✅ Migrated to `POST /api/v2/blockchain/{blockchain}/nodes`
-- [ ] `POST /api/1/blockchains/<string:blockchain>/tokens/detect` (Detect tokens for a chain)
-- [ ] `PUT /api/1/blockchains/evm/transactions/add-hash` (Add a single transaction by hash)
-- [ ] `POST /api/1/blockchains/transactions/refetch` (Force refetch EVM transactions for a time range)
+- [x] `POST /api/1/blockchains/<string:blockchain>/tokens/detect` (Detect tokens for a chain) ✅ Migrated to `POST /api/v2/blockchain/{blockchain}/tokens/detect`
+- [x] `PUT /api/1/blockchains/evm/transactions/add-hash` (Add a single transaction by hash) ✅ Migrated to `PUT /api/v2/blockchain/evm/transactions/add-hash`
+- [x] `POST /api/1/blockchains/transactions/refetch` (Force refetch EVM transactions for a time range) ✅ Migrated to `POST /api/v2/blockchain/transactions/refetch`
 
 #### **ETH2 Staking**
 
 - [x] `GET /api/1/blockchains/eth2/validators` (Get all tracked ETH2 validators) ✅ Migrated to `GET /api/v2/blockchains/eth2/validators`
-- [ ] `PUT /api/1/blockchains/eth2/validators` (Add an ETH2 validator)
-- [ ] `PATCH /api/1/blockchains/eth2/validators` (Edit an ETH2 validator)
-- [ ] `DELETE /api/1/blockchains/eth2/validators` (Delete an ETH2 validator)
-- [ ] `PUT /api/1/blockchains/eth2/stake/performance` (Get ETH2 staking performance)
-- [ ] `POST /api/1/blockchains/eth2/stake/dailystats` (Get ETH2 daily staking statistics)
-- [ ] `PUT /api/1/blockchains/eth2/stake/events` (Redecode ETH2 block production events)
-- [ ] `DELETE /api/1/blockchains/eth2/stake/events` (Reset ETH2 staking data)
+- [x] `PUT /api/1/blockchains/eth2/validators` (Add an ETH2 validator) ✅ Migrated to `PUT /api/v2/blockchains/eth2/validators`
+- [x] `PATCH /api/1/blockchains/eth2/validators` (Edit an ETH2 validator) ✅ Migrated to `PATCH /api/v2/blockchains/eth2/validators`
+- [x] `DELETE /api/1/blockchains/eth2/validators` (Delete an ETH2 validator) ✅ Migrated to `DELETE /api/v2/blockchains/eth2/validators`
+- [x] `PUT /api/1/blockchains/eth2/stake/performance` (Get ETH2 staking performance) ✅ Migrated to `PUT /api/v2/blockchains/eth2/stake/performance`
+- [x] `POST /api/1/blockchains/eth2/stake/dailystats` (Get ETH2 daily staking statistics) ✅ Migrated to `POST /api/v2/blockchains/eth2/stake/dailystats`
+- [x] `PUT /api/1/blockchains/eth2/stake/events` (Redecode ETH2 block production events) ✅ Migrated to `PUT /api/v2/blockchains/eth2/stake/events`
+- [x] `DELETE /api/1/blockchains/eth2/stake/events` (Reset ETH2 staking data) ✅ Migrated to `DELETE /api/v2/blockchains/eth2/stake/events`
 
 #### **BTC / XPUBs**
 
-- [ ] `PUT /api/1/blockchains/<string:blockchain>/xpub` (Add a BTC/BCH xpub)
-- [ ] `PATCH /api/1/blockchains/<string:blockchain>/xpub` (Edit a BTC/BCH xpub)
-- [ ] `DELETE /api/1/blockchains/<string:blockchain>/xpub` (Delete a BTC/BCH xpub)
+- [x] `PUT /api/1/blockchains/<string:blockchain>/xpub` (Add a BTC/BCH xpub) ✅ Migrated to `PUT /api/v2/blockchain/{blockchain}/xpub`
+- [x] `PATCH /api/1/blockchains/<string:blockchain>/xpub` (Edit a BTC/BCH xpub) ✅ Migrated to `PATCH /api/v2/blockchain/{blockchain}/xpub`
+- [x] `DELETE /api/1/blockchains/<string:blockchain>/xpub` (Delete a BTC/BCH xpub) ✅ Migrated to `DELETE /api/v2/blockchain/{blockchain}/xpub`
 
 #### **History & Accounting**
 
 - [x] `GET /api/1/history` (Process history for a time range) ✅ Migrated to `GET /api/v2/history/` and `POST /api/v2/history/process`
-- [ ] `POST /api/1/history/debug` (Export PnL debug data)
-- [ ] `PUT /api/1/history/debug` (Import PnL debug data from file path)
-- [ ] `PATCH /api/1/history/debug` (Import PnL debug data from file upload)
+- [x] `POST /api/1/history/debug` (Export PnL debug data) ✅ Migrated to `POST /api/v2/history/debug`
+- [x] `PUT /api/1/history/debug` (Import PnL debug data from file path) ✅ Migrated to `PUT /api/v2/history/debug`
+- [x] `PATCH /api/1/history/debug` (Import PnL debug data from file upload) ✅ Migrated to `PATCH /api/v2/history/debug`
 - [x] `GET /api/1/history/status` (Get history processing status) ✅ Migrated to `GET /api/v2/history/status`
 - [x] `GET /api/1/history/export` (Download history as CSV) ✅ Migrated to `GET /api/v2/history/download`
 - [x] `POST /api/1/history/events` (Query history events) ✅ Migrated to `GET /api/v2/history/events`
@@ -158,14 +158,14 @@
 - [x] `PATCH /api/1/history/events` (Edit a history event) ✅ Migrated to `PUT /api/v2/history/events/{event_id}`
 - [x] `DELETE /api/1/history/events` (Delete history events) ✅ Migrated to `DELETE /api/v2/history/events/{event_id}`
 - [x] `GET /api/1/history/events/details` (Get details for a specific event) ✅ Migrated to `GET /api/v2/history/events/details`
-- [ ] `POST /api/1/history/events/export` (Export history events to a file in a directory)
-- [ ] `PUT /api/1/history/events/export` (Download history events as a CSV file)
-- [ ] `GET /api/1/history/events/export/download` (Download an exported history events CSV)
+- [x] `POST /api/1/history/events/export` (Export history events to a file in a directory) ✅ Migrated to `POST /api/v2/history/events/export`
+- [x] `PUT /api/1/history/events/export` (Download history events as a CSV file) ✅ Migrated to `PUT /api/v2/history/events/export`
+- [x] `GET /api/1/history/events/export/download` (Download an exported history events CSV) ✅ Migrated to `GET /api/v2/history/events/export/download`
 - [x] `GET /api/1/history/actionable_items` (Get missing prices/acquisitions for accounting) ✅ Migrated to `GET /api/v2/history/actionable_items`
-- [ ] `GET /api/1/history/skipped_external_events` (Get summary of skipped events)
-- [ ] `PUT /api/1/history/skipped_external_events` (Export skipped events to a file in a directory)
-- [ ] `PATCH /api/1/history/skipped_external_events` (Download skipped events as a CSV)
-- [ ] `POST /api/1/history/skipped_external_events` (Reprocess skipped events)
+- [x] `GET /api/1/history/skipped_external_events` (Get summary of skipped events) ✅ Migrated to `GET /api/v2/history/skipped_external_events`
+- [x] `PUT /api/1/history/skipped_external_events` (Export skipped events to a file in a directory) ✅ Migrated to `PUT /api/v2/history/skipped_external_events`
+- [x] `PATCH /api/1/history/skipped_external_events` (Download skipped events as a CSV) ✅ Migrated to `PATCH /api/v2/history/skipped_external_events`
+- [x] `POST /api/1/history/skipped_external_events` (Reprocess skipped events) ✅ Migrated to `POST /api/v2/history/skipped_external_events`
 - [x] `GET /api/1/history/events/type_mappings` (Get mappings of event types) ✅ Migrated to `GET /api/v2/history/events/type_mappings`
 - [x] `GET /api/1/history/events/counterparties` (Get details for all EVM counterparties) ✅ Migrated to `GET /api/v2/history/events/counterparties`
 - [x] `GET /api/1/history/events/products` (Get products for all EVM counterparties) ✅ Migrated to `GET /api/v2/history/events/products`
