@@ -1,7 +1,7 @@
 """Exchanges router for exchange management endpoints"""
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, field_validator
 
 from rotki2.api.v2.dependencies import (
@@ -10,8 +10,7 @@ from rotki2.api.v2.dependencies import (
 )
 from rotki2.api.v2.services.database import DatabaseService
 from rotki2.api.v2.services.exchanges import ExchangeService
-from rotkehlchen.exchanges.constants import SUPPORTED_EXCHANGES
-from rotkehlchen.types import Location
+from rotkehlchen.types import ApiKey, ApiSecret, Location
 from rotkehlchen.utils.misc import ts_now
 
 router = APIRouter()
@@ -37,8 +36,11 @@ class ExchangeCredentialsRequest(BaseModel):
     @classmethod
     def validate_location(cls, v: str) -> str:
         """Validate exchange location"""
-        if v not in SUPPORTED_EXCHANGES:
-            raise ValueError(f'Unsupported exchange: {v}')
+        # Try to convert to Location enum to validate
+        try:
+            Location(v)
+        except ValueError:
+            raise ValueError(f'Invalid exchange location: {v}')
         return v
 
 
@@ -63,7 +65,12 @@ def get_exchange_service(
     db_service: Annotated[DatabaseService, Depends(get_database_service)],
 ) -> ExchangeService:
     """Get exchange service instance"""
-    return ExchangeService(db_service)
+    # TODO: Pass exchange_manager once it's part of app state
+    return ExchangeService(
+        session=db_service.session,
+        db_service=db_service,
+        exchange_manager=None,  # Will be injected from app state
+    )
 
 
 @router.get('/')
@@ -97,14 +104,14 @@ async def add_exchange(
 ) -> ExchangeResponse:
     """Add new exchange credentials"""
     try:
-        result = exchange_service.add_exchange(
+        result = await exchange_service.setup_exchange(
             name=exchange_data.name,
             location=Location(exchange_data.location),
-            api_key=exchange_data.api_key,
-            api_secret=exchange_data.api_secret,
+            api_key=ApiKey(exchange_data.api_key),
+            api_secret=ApiSecret(exchange_data.api_secret),
             passphrase=exchange_data.passphrase,
             kraken_account_type=exchange_data.kraken_account_type,
-            binance_markets=exchange_data.binance_markets,
+            binance_selected_trade_pairs=exchange_data.binance_markets,
         )
 
         return ExchangeResponse(
@@ -125,12 +132,25 @@ async def remove_exchange(
     exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
 ) -> ExchangeResponse:
     """Remove exchange credentials"""
-    success = exchange_service.remove_exchange(name)
-
-    if not success:
+    # Need to determine location from name
+    exchanges = exchange_service.get_configured_exchanges()
+    exchange = next((e for e in exchanges if e.name == name), None)
+    
+    if not exchange:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Exchange not found',
+        )
+    
+    success, msg = await exchange_service.remove_exchange(
+        name=name,
+        location=Location(exchange.location),
+    )
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg or 'Failed to remove exchange',
         )
 
     return ExchangeResponse(
@@ -146,7 +166,7 @@ async def get_all_exchange_balances(
     ignore_cache: bool = False,
 ) -> ExchangeResponse:
     """Get balances from all configured exchanges"""
-    balances = exchange_service.get_all_exchange_balances(ignore_cache=ignore_cache)
+    balances = await exchange_service.get_all_exchange_balances(ignore_cache=ignore_cache)
 
     return ExchangeResponse(result=balances)
 
@@ -214,16 +234,19 @@ async def edit_exchange(
 ) -> ExchangeResponse:
     """Edit exchange credentials - Compatible with v1 PATCH /api/1/exchanges"""
     try:
-        exchange_service.edit_exchange(
+        success, msg = await exchange_service.edit_exchange(
             name=edit_data.name,
-            location=edit_data.location,
+            location=Location(edit_data.location),
             new_name=edit_data.new_name,
-            api_key=edit_data.api_key,
-            api_secret=edit_data.api_secret,
+            api_key=ApiKey(edit_data.api_key) if edit_data.api_key else None,
+            api_secret=ApiSecret(edit_data.api_secret) if edit_data.api_secret else None,
             passphrase=edit_data.passphrase,
             kraken_account_type=edit_data.kraken_account_type,
-            binance_markets=edit_data.binance_markets,
+            binance_selected_trade_pairs=edit_data.binance_markets,
         )
+        
+        if not success:
+            raise ValueError(msg)
 
         return ExchangeResponse(
             result={'success': True},
@@ -280,7 +303,7 @@ async def get_binance_pairs(
     exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
 ) -> ExchangeResponse:
     """Get all available Binance pairs - Compatible with v1 GET /api/1/exchanges/binance/pairs"""
-    pairs = exchange_service.get_binance_pairs()
+    pairs = await exchange_service.get_binance_pairs()
 
     return ExchangeResponse(result={'pairs': pairs})
 
@@ -292,7 +315,7 @@ async def get_user_binance_pairs(
     exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
 ) -> ExchangeResponse:
     """Get user-configured Binance pairs - Compatible with v1 GET /api/1/exchanges/binance/pairs/<name>"""
-    user_pairs = exchange_service.get_user_binance_pairs(name)
+    user_pairs = await exchange_service.get_user_binance_pairs(name)
 
     return ExchangeResponse(result={'pairs': user_pairs})
 

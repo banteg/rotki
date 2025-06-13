@@ -88,20 +88,20 @@ Repeat the steps from 2.1 for every other chain in the `rotkehlchen/chain/` dire
 
 ##### **Polygon PoS Migration**
 
-- [ ] **Create `PolygonPosNodeClient`:**
+- [x] **Create `PolygonPosNodeClient`:**
   - In `rotki2/services/chains/polygon/polygon_node_client.py`
   - Inherit from `BaseNodeClient`
   - Polygon-specific constants
 
-- [ ] **Create `PolygonRepository`:**
+- [x] **Create `PolygonRepository`:**
   - In `rotki2/db/repositories/polygon_repository.py`
   - Standard EVM repository functionality
 
-- [ ] **Create `PolygonService`:**
+- [x] **Create `PolygonService`:**
   - In `rotki2/services/chains/polygon/polygon_service.py`
   - Bridge transaction handling
 
-- [ ] **Update DI provider**
+- [x] **Update DI provider**
 
 ##### **Arbitrum One Migration**
 

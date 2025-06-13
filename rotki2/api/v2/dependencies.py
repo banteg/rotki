@@ -519,3 +519,37 @@ async def get_ethereum_service(
         repository=repository,
         decoding_service=decoding_service,
     )
+
+
+async def get_polygon_service(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+    request: Request,
+) -> 'PolygonService':
+    """Get PolygonService instance"""
+    import httpx
+    from rotki2.db.repositories.polygon_repository import PolygonRepository
+    from rotki2.services.chains.common.decoding_service import DecodingService
+    from rotki2.services.chains.polygon import PolygonNodeClient, PolygonService
+    
+    # Get node URL from configuration or use default
+    # In production, this would come from user settings
+    node_url = "https://polygon-rpc.com"
+    
+    # Create HTTP client
+    http_client = httpx.AsyncClient(timeout=30.0)
+    
+    # Create node client
+    node_client = PolygonNodeClient(http_client, node_url)
+    
+    # Create repository
+    repository = PolygonRepository(session)
+    
+    # Create decoding service (optional)
+    decoding_service = DecodingService(chain_id=137, chain_name="Polygon PoS")
+    
+    # Create and return service
+    return PolygonService(
+        node_client=node_client,
+        repository=repository,
+        decoding_service=decoding_service,
+    )

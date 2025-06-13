@@ -20,6 +20,7 @@ from rotkehlchen.utils.misc import combine_dicts
 from rotki2.exchanges.base import ExchangeInterface
 from rotki2.exchanges.binance import Binance
 from rotki2.exchanges.bitfinex import Bitfinex
+from rotki2.exchanges.bitstamp import Bitstamp
 from rotki2.exchanges.coinbase import Coinbase
 from rotki2.exchanges.kraken import Kraken
 
@@ -34,13 +35,13 @@ EXCHANGE_MAPPING = {
     Location.BINANCE: Binance,
     Location.BINANCEUS: Binance,
     Location.BITFINEX: Bitfinex,
+    Location.BITSTAMP: Bitstamp,
     Location.COINBASE: Coinbase,
     Location.KRAKEN: Kraken,
     # TODO: Add remaining exchanges as they are implemented:
     # Location.BITCOINDE: Bitcoinde,
     # Location.BITMEX: Bitmex,
     # Location.BITPANDA: Bitpanda,
-    # Location.BITSTAMP: Bitstamp,
     # Location.BYBIT: Bybit,
     # Location.COINBASEPRIME: CoinbasePrime,
     # Location.GEMINI: Gemini,
