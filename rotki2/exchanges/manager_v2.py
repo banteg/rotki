@@ -52,7 +52,13 @@ LEGACY_EXCHANGE_MAPPING = {
 }
 
 # Exchanges that have been migrated to the new architecture
-MIGRATED_EXCHANGES = {Location.OKX}
+MIGRATED_EXCHANGES = {
+    Location.OKX,
+    Location.KRAKEN,
+    Location.BINANCE,
+    Location.BINANCEUS,
+    Location.COINBASE,
+}
 
 
 class ExchangeManagerV2:

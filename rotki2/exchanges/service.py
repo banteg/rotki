@@ -285,12 +285,19 @@ class ExchangeServiceFactory:
         )
 
 
-# Register OKX adapters
+# Register exchange adapters
 from rotki2.exchanges.adapters.okx.client import OkxApiClient
 from rotki2.exchanges.adapters.okx.mapper import OkxDataMapper
+from rotki2.exchanges.adapters.kraken.client import KrakenApiClient
+from rotki2.exchanges.adapters.kraken.mapper import KrakenDataMapper
+from rotki2.exchanges.adapters.binance.client import BinanceApiClient
+from rotki2.exchanges.adapters.binance.mapper import BinanceDataMapper
+from rotki2.exchanges.adapters.coinbase.client import CoinbaseApiClient
+from rotki2.exchanges.adapters.coinbase.mapper import CoinbaseDataMapper
 
-ExchangeServiceFactory.register(
-    Location.OKX,
-    OkxApiClient,
-    OkxDataMapper,
-)
+# Register all exchange adapters
+ExchangeServiceFactory.register(Location.OKX, OkxApiClient, OkxDataMapper)
+ExchangeServiceFactory.register(Location.KRAKEN, KrakenApiClient, KrakenDataMapper)
+ExchangeServiceFactory.register(Location.BINANCE, BinanceApiClient, BinanceDataMapper)
+ExchangeServiceFactory.register(Location.BINANCEUS, BinanceApiClient, BinanceDataMapper)
+ExchangeServiceFactory.register(Location.COINBASE, CoinbaseApiClient, CoinbaseDataMapper)
