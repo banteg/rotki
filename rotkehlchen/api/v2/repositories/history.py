@@ -16,7 +16,6 @@ from rotkehlchen.db.constants import (
     HISTORY_MAPPING_STATE_CUSTOMIZED,
 )
 from rotkehlchen.db.models.user.history import (
-    EthStakingEventInfo,
     EvmEventInfo,
     HistoryEvent,
     HistoryEventMapping,
