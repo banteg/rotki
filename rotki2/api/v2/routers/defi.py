@@ -4,12 +4,17 @@ from typing import TYPE_CHECKING, Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from rotki2.api.v2.dependencies import (
-    get_chains_aggregator,
-    get_db_connection,
+    get_async_history_events_repository,
+    get_async_session,
     require_logged_in_user,
 )
-from rotki2.api.v2.services.defi import DeFiService
+from rotki2.api.v2.services.defi.aave import AsyncAaveService
+from rotki2.api.v2.services.defi.compound import AsyncCompoundService
+from rotki2.api.v2.services.defi.liquity import AsyncLiquityService
+from rotki2.api.v2.services.defi.uniswap import AsyncUniswapService
 from rotkehlchen.chain.evm.types import string_to_evm_address
 from rotkehlchen.db.drivers.gevent import DBConnection
 from rotkehlchen.errors.misc import InputError
@@ -17,6 +22,7 @@ from rotkehlchen.premium.premium import premium_create_and_verify
 
 if TYPE_CHECKING:
     from rotkehlchen.chain.aggregator import ChainsAggregator
+    from rotki2.api.v2.repositories.history_events import HistoryEventsRepository
 
 router = APIRouter()
 
@@ -32,26 +38,96 @@ class AddressListRequest(BaseModel):
     addresses: list[str] | None = None
 
 
-def get_defi_service(
-    db_connection: Annotated[DBConnection, Depends(get_db_connection)],
-    chains_aggregator: Annotated['ChainsAggregator', Depends(get_chains_aggregator)],
-) -> DeFiService:
-    """Get DeFi service instance"""
-    premium = premium_create_and_verify(db_connection)
-    return DeFiService(
-        db_connection=db_connection,
-        chains_aggregator=chains_aggregator,
-        premium=premium,
+def get_aave_service(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+    history_repo: Annotated['HistoryEventsRepository', Depends(get_async_history_events_repository)],
+    version: int = 3,
+) -> AsyncAaveService:
+    """Get Aave service instance"""
+    return AsyncAaveService(
+        session=session,
+        history_repo=history_repo,
+        version=version,
+    )
+
+
+def get_compound_service(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+    history_repo: Annotated['HistoryEventsRepository', Depends(get_async_history_events_repository)],
+    version: int = 3,
+) -> AsyncCompoundService:
+    """Get Compound service instance"""
+    return AsyncCompoundService(
+        session=session,
+        history_repo=history_repo,
+        version=version,
+    )
+
+
+def get_uniswap_service(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+    history_repo: Annotated['HistoryEventsRepository', Depends(get_async_history_events_repository)],
+    version: int = 3,
+) -> AsyncUniswapService:
+    """Get Uniswap service instance"""
+    return AsyncUniswapService(
+        session=session,
+        history_repo=history_repo,
+        version=version,
+    )
+
+
+def get_liquity_service(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+    history_repo: Annotated['HistoryEventsRepository', Depends(get_async_history_events_repository)],
+) -> AsyncLiquityService:
+    """Get Liquity service instance"""
+    return AsyncLiquityService(
+        session=session,
+        history_repo=history_repo,
     )
 
 
 @router.get('/metadata')
 async def get_defi_metadata(
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[DeFiService, Depends(get_defi_service)],
 ) -> DeFiResponse:
     """Get metadata for all supported DeFi protocols"""
-    protocols = service.get_defi_metadata()
+    # Static metadata for supported protocols
+    protocols = [
+        {
+            'identifier': 'aave',
+            'name': 'Aave',
+            'description': 'Decentralized lending protocol',
+            'url': 'https://aave.com',
+            'version': '3',
+            'icon': 'defi/aave.svg',
+        },
+        {
+            'identifier': 'compound',
+            'name': 'Compound',
+            'description': 'Algorithmic money market protocol',
+            'url': 'https://compound.finance',
+            'version': '3',
+            'icon': 'defi/compound.svg',
+        },
+        {
+            'identifier': 'uniswap',
+            'name': 'Uniswap',
+            'description': 'Decentralized exchange protocol',
+            'url': 'https://uniswap.org',
+            'version': '3',
+            'icon': 'defi/uniswap.svg',
+        },
+        {
+            'identifier': 'liquity',
+            'name': 'Liquity',
+            'description': 'Decentralized borrowing protocol',
+            'url': 'https://liquity.org',
+            'version': '1',
+            'icon': 'defi/liquity.svg',
+        },
+    ]
     return DeFiResponse(result=protocols)
 
 
@@ -663,3 +739,191 @@ async def get_gnosis_pay_spending(
             'message': 'Gnosis Pay spending endpoint - implementation pending',
         },
     )
+
+
+# New async DeFi protocol endpoints
+
+@router.get('/protocols/aave/balances')
+async def get_aave_balances(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[AsyncAaveService, Depends(get_aave_service)],
+    addresses: list[str] = Query(None),
+) -> DeFiResponse:
+    """Get Aave lending and borrowing balances"""
+    if not addresses:
+        return DeFiResponse(result={})
+    
+    # Parse addresses
+    parsed_addresses = [string_to_evm_address(addr) for addr in addresses]
+    
+    balances = await service.get_balances(parsed_addresses)
+    
+    # Convert to API format
+    result = {}
+    for address, assets in balances.items():
+        result[address] = {
+            asset.identifier: {
+                'amount': str(balance.amount),
+                'usd_value': str(balance.usd_value),
+            }
+            for asset, balance in assets.items()
+        }
+    
+    return DeFiResponse(result=result)
+
+
+@router.get('/protocols/aave/positions')
+async def get_aave_positions(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[AsyncAaveService, Depends(get_aave_service)],
+    addresses: list[str] = Query(None),
+) -> DeFiResponse:
+    """Get detailed Aave positions"""
+    if not addresses:
+        return DeFiResponse(result={})
+    
+    parsed_addresses = [string_to_evm_address(addr) for addr in addresses]
+    positions = await service.get_positions(parsed_addresses)
+    
+    return DeFiResponse(result=positions)
+
+
+@router.get('/protocols/aave/stats')
+async def get_aave_stats(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[AsyncAaveService, Depends(get_aave_service)],
+) -> DeFiResponse:
+    """Get Aave protocol statistics"""
+    stats = await service.get_protocol_stats()
+    return DeFiResponse(result=stats)
+
+
+@router.get('/protocols/compound/balances')
+async def get_compound_balances(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[AsyncCompoundService, Depends(get_compound_service)],
+    addresses: list[str] = Query(None),
+) -> DeFiResponse:
+    """Get Compound supply and borrow balances"""
+    if not addresses:
+        return DeFiResponse(result={})
+    
+    parsed_addresses = [string_to_evm_address(addr) for addr in addresses]
+    balances = await service.get_balances(parsed_addresses)
+    
+    # Convert to API format
+    result = {}
+    for address, assets in balances.items():
+        result[address] = {
+            asset.identifier: {
+                'amount': str(balance.amount),
+                'usd_value': str(balance.usd_value),
+            }
+            for asset, balance in assets.items()
+        }
+    
+    return DeFiResponse(result=result)
+
+
+@router.get('/protocols/compound/positions')
+async def get_compound_positions(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[AsyncCompoundService, Depends(get_compound_service)],
+    addresses: list[str] = Query(None),
+) -> DeFiResponse:
+    """Get detailed Compound positions"""
+    if not addresses:
+        return DeFiResponse(result={})
+    
+    parsed_addresses = [string_to_evm_address(addr) for addr in addresses]
+    positions = await service.get_positions(parsed_addresses)
+    
+    return DeFiResponse(result=positions)
+
+
+@router.get('/protocols/uniswap/positions')
+async def get_uniswap_positions(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[AsyncUniswapService, Depends(get_uniswap_service)],
+    addresses: list[str] = Query(None),
+) -> DeFiResponse:
+    """Get Uniswap LP positions"""
+    if not addresses:
+        return DeFiResponse(result={})
+    
+    parsed_addresses = [string_to_evm_address(addr) for addr in addresses]
+    positions = await service.get_positions(parsed_addresses)
+    
+    return DeFiResponse(result=positions)
+
+
+@router.get('/protocols/uniswap/fees')
+async def get_uniswap_fees(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[AsyncUniswapService, Depends(get_uniswap_service)],
+    address: str,
+    from_timestamp: int = Query(0, ge=0),
+    to_timestamp: int = Query(2147483647, ge=0),
+) -> DeFiResponse:
+    """Get fees earned from Uniswap LP positions"""
+    parsed_address = string_to_evm_address(address)
+    fees = await service.get_fees_earned(
+        address=parsed_address,
+        from_timestamp=from_timestamp,
+        to_timestamp=to_timestamp,
+    )
+    
+    return DeFiResponse(result=fees)
+
+
+@router.get('/protocols/liquity/balances')
+async def get_liquity_balances(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[AsyncLiquityService, Depends(get_liquity_service)],
+    addresses: list[str] = Query(None),
+) -> DeFiResponse:
+    """Get Liquity balances (troves, stability pool, staking)"""
+    if not addresses:
+        return DeFiResponse(result={})
+    
+    parsed_addresses = [string_to_evm_address(addr) for addr in addresses]
+    balances = await service.get_balances(parsed_addresses)
+    
+    # Convert to API format
+    result = {}
+    for address, assets in balances.items():
+        result[address] = {
+            asset.identifier: {
+                'amount': str(balance.amount),
+                'usd_value': str(balance.usd_value),
+            }
+            for asset, balance in assets.items()
+        }
+    
+    return DeFiResponse(result=result)
+
+
+@router.get('/protocols/liquity/positions')
+async def get_liquity_positions(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[AsyncLiquityService, Depends(get_liquity_service)],
+    addresses: list[str] = Query(None),
+) -> DeFiResponse:
+    """Get detailed Liquity positions"""
+    if not addresses:
+        return DeFiResponse(result={})
+    
+    parsed_addresses = [string_to_evm_address(addr) for addr in addresses]
+    positions = await service.get_positions(parsed_addresses)
+    
+    return DeFiResponse(result=positions)
+
+
+@router.get('/protocols/liquity/stats')
+async def get_liquity_stats(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[AsyncLiquityService, Depends(get_liquity_service)],
+) -> DeFiResponse:
+    """Get Liquity protocol statistics"""
+    stats = await service.get_protocol_stats()
+    return DeFiResponse(result=stats)

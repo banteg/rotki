@@ -5,13 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from rotki2.api.v2.dependencies import (
-    get_chains_aggregator,
-    get_data_handler,
-    get_db_connection,
-    get_rotkehlchen,
+    get_async_names_service,
     require_logged_in_user,
 )
-from rotki2.api.v2.services.names import NamesService
+from rotki2.api.v2.services.async_names import AsyncNamesService
 from rotkehlchen.chain.evm.types import string_to_evm_address
 from rotkehlchen.db.drivers.gevent import DBConnection
 from rotkehlchen.db.filtering import AddressbookFilterQuery
@@ -72,26 +69,13 @@ class SearchNamesRequest(BaseModel):
     addresses: list[dict[str, Any]]
 
 
-def get_names_service(
-    db_connection: Annotated[DBConnection, Depends(get_db_connection)],
-    chains_aggregator: Annotated['ChainsAggregator', Depends(get_chains_aggregator)],
-    data_handler: Annotated['DataHandler', Depends(get_data_handler)],
-    rotkehlchen: Annotated['Rotkehlchen', Depends(get_rotkehlchen)],
-) -> NamesService:
-    """Get names service instance"""
-    return NamesService(
-        db_connection=db_connection,
-        chains_aggregator=chains_aggregator,
-        data_handler=data_handler,
-        addressbook_prioritizer=rotkehlchen.addressbook_prioritizer,
-    )
 
 
 @router.post('/ens/reverse')
 async def reverse_ens_lookup(
     request: ReverseEnsRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[NamesService, Depends(get_names_service)],
+    service: Annotated[AsyncNamesService, Depends(get_async_names_service)],
 ) -> NamesResponse:
     """Perform reverse ENS lookup for Ethereum addresses"""
     # TODO: Implement async query support
@@ -111,7 +95,7 @@ async def reverse_ens_lookup(
         ) from e
 
     try:
-        result = service.reverse_ens_lookup(
+        result = await service.reverse_ens_lookup(
             ethereum_addresses=addresses,
             ignore_cache=request.ignore_cache,
         )
@@ -132,7 +116,7 @@ async def reverse_ens_lookup(
 async def resolve_ens_name(
     request: ResolveEnsRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[NamesService, Depends(get_names_service)],
+    service: Annotated[AsyncNamesService, Depends(get_async_names_service)],
 ) -> NamesResponse:
     """Resolve ENS name to Ethereum address"""
     # TODO: Implement async query support
@@ -143,7 +127,7 @@ async def resolve_ens_name(
         )
 
     try:
-        address = service.resolve_ens_names(
+        address = await service.resolve_ens_names(
             name=request.name,
             ignore_cache=request.ignore_cache,
         )
@@ -164,11 +148,11 @@ async def resolve_ens_name(
 async def get_ens_avatar(
     ens_name: str,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[NamesService, Depends(get_names_service)],
+    service: Annotated[AsyncNamesService, Depends(get_async_names_service)],
 ) -> NamesResponse:
     """Get ENS avatar URL"""
     try:
-        avatar_url = service.get_ens_avatar(ens_name=ens_name)
+        avatar_url = await service.get_ens_avatar(ens_name=ens_name)
         return NamesResponse(result={'avatar_url': avatar_url})
     except ValueError as e:
         raise HTTPException(
@@ -186,7 +170,7 @@ async def get_ens_avatar(
 async def search_names(
     request: SearchNamesRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[NamesService, Depends(get_names_service)],
+    service: Annotated[AsyncNamesService, Depends(get_async_names_service)],
 ) -> NamesResponse:
     """Search for names everywhere (ENS, addressbook, etc.)"""
     # Convert request format to OptionalChainAddress
@@ -199,7 +183,7 @@ async def search_names(
         chain_addresses.append(chain_address)
 
     try:
-        results = service.search_names_everywhere(addresses=chain_addresses)
+        results = await service.search_names_everywhere(addresses=chain_addresses)
         return NamesResponse(result=results)
     except ValueError as e:
         raise HTTPException(
@@ -218,7 +202,7 @@ async def get_addressbook_entries(
     book_type: str,
     filter_request: AddressbookFilterRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[NamesService, Depends(get_names_service)],
+    service: Annotated[AsyncNamesService, Depends(get_async_names_service)],
 ) -> NamesResponse:
     """Get addressbook entries"""
     # Parse book type
@@ -240,7 +224,7 @@ async def get_addressbook_entries(
     )
 
     try:
-        result = service.get_addressbook_entries(
+        result = await service.get_addressbook_entries(
             book_type=book_type_enum,
             filter_query=filter_query,
         )
@@ -257,7 +241,7 @@ async def add_addressbook_entries(
     book_type: str,
     request: AddressbookRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[NamesService, Depends(get_names_service)],
+    service: Annotated[AsyncNamesService, Depends(get_async_names_service)],
 ) -> NamesResponse:
     """Add entries to addressbook"""
     # Parse book type
@@ -273,7 +257,7 @@ async def add_addressbook_entries(
     entries = [entry.model_dump() for entry in request.entries]
 
     try:
-        result = service.add_addressbook_entries(
+        result = await service.add_addressbook_entries(
             book_type=book_type_enum,
             entries=entries,
         )
@@ -295,7 +279,7 @@ async def update_addressbook_entries(
     book_type: str,
     request: AddressbookRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[NamesService, Depends(get_names_service)],
+    service: Annotated[AsyncNamesService, Depends(get_async_names_service)],
 ) -> NamesResponse:
     """Update addressbook entries"""
     # Parse book type
@@ -311,7 +295,7 @@ async def update_addressbook_entries(
     entries = [entry.model_dump() for entry in request.entries]
 
     try:
-        result = service.update_addressbook_entries(
+        result = await service.update_addressbook_entries(
             book_type=book_type_enum,
             entries=entries,
         )
@@ -338,7 +322,7 @@ async def delete_addressbook_entries(
     book_type: str,
     request: DeleteAddressbookRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[NamesService, Depends(get_names_service)],
+    service: Annotated[AsyncNamesService, Depends(get_async_names_service)],
 ) -> NamesResponse:
     """Delete addressbook entries"""
     # Parse book type
@@ -360,7 +344,7 @@ async def delete_addressbook_entries(
         chain_addresses.append(chain_address)
 
     try:
-        result = service.delete_addressbook_entries(
+        result = await service.delete_addressbook_entries(
             book_type=book_type_enum,
             chain_addresses=chain_addresses,
         )

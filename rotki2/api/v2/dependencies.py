@@ -438,3 +438,15 @@ def get_async_reports_service(
         accountant=accountant,
         notifier=notifier,
     )
+
+
+def get_async_names_service(
+    ens_repository: Annotated['ENSRepository', Depends(get_async_ens_repository)],
+    addressbook_repository: Annotated['AddressBookRepository', Depends(get_async_addressbook_repository)],
+) -> 'AsyncNamesService':
+    """Get AsyncNamesService instance"""
+    from rotki2.api.v2.services.async_names import AsyncNamesService
+    return AsyncNamesService(
+        ens_repository=ens_repository,
+        addressbook_repository=addressbook_repository,
+    )

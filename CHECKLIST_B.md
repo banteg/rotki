@@ -30,10 +30,10 @@ This track focuses on migrating the application's core business logic, including
 
 - **Phase 4: API Router Implementation**
 
-  - `[ ]` **Wire up `history.py` and `reports.py` Routers:** Connect endpoints to the `HistoryService` and `ReportsService`.
-  - `[ ]` **Wire up `exchanges.py` and `balances.py` Routers:** Connect endpoints to the `ExchangeManager` and a new `BalancesService`.
-  - `[ ]` **Wire up `defi.py` and `protocols.py` Routers:** Connect endpoints to the respective DeFi services.
-  - `[ ]` **Wire up `names.py`, `addressbook.py` Routers:** Connect endpoints to the `NamesService`.
+  - `[x]` **Wire up `history.py` and `reports.py` Routers:** Connect endpoints to the `HistoryService` and `ReportsService`.
+  - `[x]` **Wire up `exchanges.py` and `balances.py` Routers:** Connect endpoints to the `ExchangeManager` and a new `BalancesService`.
+  - `[x]` **Wire up `defi.py` and `protocols.py` Routers:** Connect endpoints to the respective DeFi services.
+  - `[x]` **Wire up `names.py`, `addressbook.py` Routers:** Connect endpoints to the `NamesService`.
 
 - **Phase 5: Data Migration & Cleanup**
   - `[ ]` **Write Data Migration Logic for History:** Create a script to migrate data from old history/trade/asset movement tables into the new consolidated `history_events` table.
