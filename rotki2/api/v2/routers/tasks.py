@@ -1,4 +1,5 @@
 """Tasks router for managing background tasks"""
+import time
 from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,14 +7,13 @@ from pydantic import BaseModel
 
 from rotki2.api.v2.dependencies import (
     get_rotkehlchen,
-    get_task_manager,
     require_logged_in_user,
 )
 from rotkehlchen.types import Timestamp
 
 if TYPE_CHECKING:
     from rotkehlchen.rotkehlchen import Rotkehlchen
-    from rotkehlchen.tasks.manager import TaskManager
+    from rotki2.api.v2.services.tasks import AsyncTaskService
 
 router = APIRouter()
 
@@ -42,43 +42,21 @@ class TaskCreateRequest(BaseModel):
     params: dict[str, Any] = {}
 
 
+async def get_task_service() -> 'AsyncTaskService':
+    """Get the async task service - would be injected via dependencies."""
+    # This would be properly injected in a real implementation
+    raise NotImplementedError('Task service dependency injection not yet implemented')
+
+
 @router.get('/', response_model=TasksResponse)
 async def get_tasks(
     _: Annotated[str, Depends(require_logged_in_user)],
-    task_manager: Annotated['TaskManager', Depends(get_task_manager)],
+    task_service: Annotated['AsyncTaskService', Depends(get_task_service)],
 ) -> TasksResponse:
     """Get all tasks"""
-    tasks = []
-
-    # Get running tasks
-    running = task_manager.get_running_tasks()
-    for task_id, task_info in running.items():
-        tasks.append({
-            'task_id': task_id,
-            'task_type': task_info.get('type', 'unknown'),
-            'status': 'running',
-            'progress': task_info.get('progress', 0.0),
-            'started_at': task_info.get('started_at', 0),
-            'completed_at': None,
-            'result': None,
-            'error': None,
-        })
-
-    # Get completed tasks
-    completed = task_manager.get_completed_tasks()
-    for task_id, task_info in completed.items():
-        tasks.append({
-            'task_id': task_id,
-            'task_type': task_info.get('type', 'unknown'),
-            'status': 'completed',
-            'progress': 1.0,
-            'started_at': task_info.get('started_at', 0),
-            'completed_at': task_info.get('completed_at', 0),
-            'result': task_info.get('result'),
-            'error': task_info.get('error'),
-        })
-
-    return TasksResponse(result=tasks)
+    # Get task status from async task service
+    status = await task_service.get_task_status()
+    return TasksResponse(result=status)
 
 
 @router.post('/', response_model=TasksResponse)

@@ -38,12 +38,42 @@ _This phase focuses on creating the new, type-safe data access layer._
   - [ ] **Action:** Pick a legacy file, like `rotkehlchen/db/history_events.py`. For each method, create a corresponding `async def` method in the appropriate repository file.
   - [ ] **Priority:** Focus on implementing the `get_` and `query_` methods first, as Developer A will need these to build the services. `add_`, `edit_`, and `delete_` can follow.
   - [ ] **Conversion:** Replace all `cursor.execute("...")` calls with `await self.session.exec(select(...))` using SQLModel's syntax.
-  - [ ] **Status:**
-    - [ ] Rename remaining async_ files: async_cache.py → cache.py, async_history_events.py → history_events.py, async_loopring.py → loopring.py
-    - [ ] Port get_/query_ methods from rotkehlchen/db/history_events.py
-    - [ ] Port get_/query_ methods from rotkehlchen/db/dbhandler.py
-    - [ ] Port balance-related queries
-    - [ ] Port user/settings queries
+  - [x] **Completed:** Renamed remaining async_ files: cache.py, history_events.py, loopring.py
+  
+  - [x] **Sub-task 4.1: Port History Events Queries**
+    - [x] Analyze `rotkehlchen/db/history_events.py` for key methods
+    - [x] Port `get_history_events()` with filtering, pagination
+    - [x] Port `get_history_events_count()` (as `count()` method)
+    - [x] Port `get_events_by_location_and_type()`
+    - [x] Port `get_base_entries_missing_prices()`
+    - [x] Port event grouping and aggregation queries
+    - [x] Added: `get_history_events_and_limit_info()`, `get_amount_stats()`, `get_event_identifiers_for_tx_hash()`, `get_events_by_event_identifier()`, `get_associated_event_data()`
+    
+  - [x] **Sub-task 4.2: Port User & Settings Queries**
+    - [x] Port user authentication queries from `rotkehlchen/db/dbhandler.py`
+    - [x] Port `get_settings()` and `set_settings()` logic - SettingsRepository already has full async implementation
+    - [x] Port user credentials management - UserCredentialsRepository implemented
+    - [x] Port API key management - UserRepository has full API key support
+    - [x] **Completed:** Converted UserRepository to async, added password verification, user creation, existence checks
+    
+  - [x] **Sub-task 4.3: Port Balance Queries**
+    - [x] Port `query_timed_balances()` from dbhandler - Added with filtering and zero balance inference
+    - [x] Port `get_latest_balance_save_time()` - Added as `get_last_balance_save_time()`
+    - [x] Port manually tracked balance queries - Already in balance.py repository
+    - [x] Port balance snapshots logic - Added `save_balances_snapshot()` method
+    - [x] **Added:** `add_multiple_balances()`, `get_assets_with_balances()`, zero balance inference framework
+    
+  - [ ] **Sub-task 4.4: Port Blockchain Account Queries**
+    - [ ] Port `get_blockchain_accounts()` with tag filtering
+    - [ ] Port xpub-related queries
+    - [ ] Port ENS reverse lookups
+    - [ ] Port address labeling queries
+    
+  - [ ] **Sub-task 4.5: Port Exchange & DeFi Queries**
+    - [ ] Port exchange credentials queries
+    - [ ] Port margin positions queries
+    - [ ] Port DeFi protocol queries (Aave, Compound, etc.)
+    - [ ] Port liquidity pool queries
 
 #### Phase B2: API Endpoint Implementation
 

@@ -2,29 +2,36 @@
 
 Handles all database operations related to users and authentication.
 """
+from typing import TYPE_CHECKING
 
-from sqlmodel import Session, select
+from sqlalchemy import select, text
+from sqlmodel import col
 
-from rotki2.api.v2.repositories.base import BaseRepository
+from rotki2.api.v2.repositories.async_base import AsyncBaseRepository
 from rotki2.db.models.user.auth import ApiKey, UserAccount
 from rotki2.db.models.user.models import Settings
 
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
-class UserRepository(BaseRepository[UserAccount]):
+
+class UserRepository(AsyncBaseRepository[UserAccount]):
     """Repository for user-related database operations."""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: 'AsyncSession') -> None:
+        """Initialize repository."""
         super().__init__(session, UserAccount)
 
-    def find_by_username(self, username: str) -> UserAccount | None:
+    async def find_by_username(self, username: str) -> UserAccount | None:
         """Find user by username."""
-        statement = select(UserAccount).where(
-            UserAccount.username == username,
+        result = await self.session.exec(
+            select(UserAccount).where(
+                col(UserAccount.username) == username
+            )
         )
-        result = self.session.exec(statement)
         return result.first()
 
-    def find_by(self, **kwargs) -> list[UserAccount]:
+    async def find_by(self, **kwargs) -> list[UserAccount]:
         """Find users by multiple criteria."""
         statement = select(UserAccount)
 
@@ -32,10 +39,10 @@ class UserRepository(BaseRepository[UserAccount]):
             if hasattr(UserAccount, key):
                 statement = statement.where(getattr(UserAccount, key) == value)
 
-        results = self.session.exec(statement)
+        results = await self.session.exec(statement)
         return list(results.all())
 
-    def create_api_key(
+    async def create_api_key(
         self,
         username: str,
         key_hash: str,
@@ -51,44 +58,97 @@ class UserRepository(BaseRepository[UserAccount]):
             created_at=datetime.now(),
         )
         self.session.add(api_key)
-        self.session.commit()
-        self.session.refresh(api_key)
+        await self.session.commit()
+        await self.session.refresh(api_key)
         return api_key
 
-    def find_api_key_by_hash(self, key_hash: str) -> ApiKey | None:
+    async def find_api_key_by_hash(self, key_hash: str) -> ApiKey | None:
         """Find API key by its hash."""
-        statement = select(ApiKey).where(ApiKey.key_hash == key_hash)
-        result = self.session.exec(statement)
+        result = await self.session.exec(
+            select(ApiKey).where(col(ApiKey.key_hash) == key_hash)
+        )
         return result.first()
 
-    def get_user_api_keys(self, username: str) -> list[ApiKey]:
+    async def get_user_api_keys(self, username: str) -> list[ApiKey]:
         """Get all API keys for a user."""
-        statement = select(ApiKey).where(ApiKey.username == username)
-        results = self.session.exec(statement)
+        results = await self.session.exec(
+            select(ApiKey).where(col(ApiKey.username) == username)
+        )
         return list(results.all())
 
-    def delete_api_key(self, key_id: int) -> bool:
+    async def delete_api_key(self, key_id: int) -> bool:
         """Delete an API key."""
-        api_key = self.session.get(ApiKey, key_id)
+        result = await self.session.exec(
+            select(ApiKey).where(col(ApiKey.id) == key_id)
+        )
+        api_key = result.first()
         if api_key:
-            self.session.delete(api_key)
-            self.session.commit()
+            await self.session.delete(api_key)
+            await self.session.commit()
             return True
         return False
 
-    def update_settings(self, username: str, settings: dict) -> Settings | None:
-        """Update user settings."""
+    async def update_settings(self, username: str, settings: dict) -> dict[str, Any]:
+        """Update user settings.
+        
+        Returns:
+            Updated settings dictionary
+        """
+        updated = {}
+        
         # Update settings in the settings table
         for key, value in settings.items():
-            statement = select(Settings).where(Settings.name == key)
-            result = self.session.exec(statement)
-            setting = result.first()
+            # Use upsert pattern
+            stmt = text(
+                "INSERT INTO settings (name, value) VALUES (:name, :value) "
+                "ON CONFLICT(name) DO UPDATE SET value = :value"
+            )
+            await self.session.execute(stmt, {"name": key, "value": str(value)})
+            updated[key] = value
 
-            if setting:
-                setting.value = str(value)
-            else:
-                setting = Settings(name=key, value=str(value))
-                self.session.add(setting)
-
-        self.session.commit()
-        return None  # Return None for now, can be enhanced later
+        await self.session.commit()
+        return updated
+    
+    async def verify_password(self, username: str, password_hash: str) -> bool:
+        """Verify user password.
+        
+        Args:
+            username: The username
+            password_hash: The password hash to verify
+            
+        Returns:
+            True if password is correct, False otherwise
+        """
+        user = await self.find_by_username(username)
+        if user is None:
+            return False
+        return user.password == password_hash
+    
+    async def get_all_users(self) -> list[UserAccount]:
+        """Get all registered users."""
+        result = await self.session.exec(select(UserAccount))
+        return list(result.all())
+    
+    async def user_exists(self, username: str) -> bool:
+        """Check if a user exists."""
+        user = await self.find_by_username(username)
+        return user is not None
+    
+    async def create_user(
+        self,
+        username: str,
+        password_hash: str,
+        premium_api_key: str | None = None,
+        premium_api_secret: str | None = None,
+    ) -> UserAccount:
+        """Create a new user account."""
+        user = UserAccount(
+            username=username,
+            password=password_hash,
+            premium_api_key=premium_api_key,
+            premium_api_secret=premium_api_secret,
+        )
+        self.session.add(user)
+        await self.session.commit()
+        await self.session.refresh(user)
+        return user

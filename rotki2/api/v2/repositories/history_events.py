@@ -52,6 +52,9 @@ from rotkehlchen.types import (
     TimestampMS,
 )
 
+# Constants
+FREE_HISTORY_EVENTS_LIMIT = 100  # Default limit for free users
+
 if TYPE_CHECKING:
     from rotkehlchen.db.dbhandler import DBHandler
 
@@ -457,3 +460,209 @@ class HistoryEventsRepository:
             result = await self.session.execute(text("SELECT COUNT(*) FROM history_events"))
         
         return result.scalar() or 0
+    
+    async def get_history_events_and_limit_info(
+        self,
+        filter_query: HistoryEventFilterQuery,
+        has_premium: bool = True,
+        group_by_event_ids: bool = False,
+    ) -> tuple[list[HistoryBaseEntry], int, int]:
+        """Get history events with count information.
+        
+        Returns:
+            - List of events
+            - Total count without limit
+            - Count with limit applied (for free users)
+        """
+        # Get total count without limit
+        total_count = await self.count(filter_query)
+        
+        # Get events
+        events = await self.get_history_events(
+            filter_query=filter_query,
+            has_premium=has_premium,
+            group_by_event_ids=group_by_event_ids,
+        )
+        
+        # For free users, the limited count is the actual number of events returned
+        limited_count = len(events) if not has_premium else total_count
+        
+        return events, total_count, limited_count
+    
+    async def get_events_by_location_and_type(
+        self,
+        location: Location,
+        event_type: str | None = None,
+        event_subtype: str | None = None,
+    ) -> list[HistoryBaseEntry]:
+        """Get events filtered by location and optionally type/subtype."""
+        query_parts = ["WHERE location = :location"]
+        params = {'location': location.value}
+        
+        if event_type is not None:
+            query_parts.append("AND type = :type")
+            params['type'] = event_type
+            
+        if event_subtype is not None:
+            query_parts.append("AND subtype = :subtype")
+            params['subtype'] = event_subtype
+        
+        query = text(f"""
+            SELECT {', '.join(HISTORY_BASE_ENTRY_FIELDS)}
+            FROM history_events
+            {' '.join(query_parts)}
+            ORDER BY timestamp DESC, sequence_index ASC
+        """)
+        
+        result = await self.session.execute(query, params)
+        rows = result.fetchall()
+        
+        events = []
+        for row in rows:
+            try:
+                event = HistoryEvent.deserialize_from_db(row[:HISTORY_BASE_ENTRY_LENGTH])
+                events.append(event)
+            except DeserializationError:
+                continue
+                
+        return events
+    
+    async def get_base_entries_missing_prices(
+        self,
+        query_filter: HistoryEventFilterQuery,
+    ) -> list[tuple[str, Timestamp]]:
+        """Get assets and timestamps for events missing USD prices.
+        
+        Returns:
+            List of (asset_identifier, timestamp) tuples
+        """
+        filter_str, bindings = filter_query.prepare(with_pagination=False)
+        
+        query = text(f"""
+            SELECT DISTINCT asset, timestamp
+            FROM history_events
+            {filter_str}
+            AND usd_value IS NULL
+            AND asset IS NOT NULL
+            ORDER BY timestamp
+        """)
+        
+        result = await self.session.execute(query, bindings)
+        return [(row[0], Timestamp(row[1])) for row in result.fetchall()]
+    
+    async def get_amount_stats(
+        self,
+        filter_query: HistoryEventFilterQuery,
+    ) -> dict[str, str]:
+        """Get sum of amounts grouped by asset.
+        
+        Returns:
+            Dict mapping asset identifier to total amount as string
+        """
+        filter_str, bindings = filter_query.prepare(with_pagination=False)
+        
+        query = text(f"""
+            SELECT asset, SUM(CAST(amount AS REAL))
+            FROM history_events
+            {filter_str}
+            AND asset IS NOT NULL
+            GROUP BY asset
+        """)
+        
+        result = await self.session.execute(query, bindings)
+        return {row[0]: str(row[1]) for row in result.fetchall()}
+    
+    async def get_event_identifiers_for_tx_hash(
+        self,
+        tx_hash: EVMTxHash,
+    ) -> list[int]:
+        """Get all event identifiers for a given transaction hash."""
+        query = text("""
+            SELECT he.identifier
+            FROM history_events he
+            INNER JOIN evm_events_info eei ON he.identifier = eei.identifier
+            WHERE eei.tx_hash = :tx_hash
+            ORDER BY he.sequence_index
+        """)
+        
+        result = await self.session.execute(query, {'tx_hash': tx_hash.hex()})
+        return [row[0] for row in result.fetchall()]
+    
+    async def get_events_by_event_identifier(
+        self,
+        event_identifier: str,
+    ) -> list[HistoryBaseEntry]:
+        """Get all events with a specific event_identifier.
+        
+        This groups together related events (e.g., all events from a single transaction).
+        """
+        query = text(f"""
+            SELECT
+                {', '.join(HISTORY_BASE_ENTRY_FIELDS)},
+                {', '.join(EVM_EVENT_FIELDS)}
+            FROM history_events
+            LEFT JOIN evm_events_info ON history_events.identifier = evm_events_info.identifier
+            WHERE event_identifier = :event_id
+            ORDER BY sequence_index
+        """)
+        
+        result = await self.session.execute(query, {'event_id': event_identifier})
+        rows = result.fetchall()
+        
+        events = []
+        for row in rows:
+            try:
+                # Check if we have EVM data
+                if row[HISTORY_BASE_ENTRY_LENGTH] is not None:
+                    event = EvmEvent.deserialize_from_db(
+                        row[:HISTORY_BASE_ENTRY_LENGTH] + 
+                        row[HISTORY_BASE_ENTRY_LENGTH:HISTORY_BASE_ENTRY_LENGTH + EVM_FIELD_LENGTH]
+                    )
+                else:
+                    event = HistoryEvent.deserialize_from_db(row[:HISTORY_BASE_ENTRY_LENGTH])
+                events.append(event)
+            except DeserializationError:
+                continue
+                
+        return events
+    
+    async def get_associated_event_data(
+        self,
+        identifier: int,
+        event_type: HistoryBaseEntryType,
+    ) -> dict[str, Any] | None:
+        """Get type-specific data for an event."""
+        if event_type == HistoryBaseEntryType.EVM_EVENT:
+            query = text("""
+                SELECT tx_hash, counterparty, product, address
+                FROM evm_events_info
+                WHERE identifier = :id
+            """)
+            result = await self.session.execute(query, {'id': identifier})
+            row = result.fetchone()
+            if row:
+                return {
+                    'tx_hash': row[0],
+                    'counterparty': row[1],
+                    'product': row[2],
+                    'address': row[3],
+                }
+        elif event_type in (
+            HistoryBaseEntryType.ETH_DEPOSIT_EVENT,
+            HistoryBaseEntryType.ETH_WITHDRAWAL_EVENT,
+            HistoryBaseEntryType.ETH_BLOCK_EVENT,
+        ):
+            query = text("""
+                SELECT validator_index, is_exit_or_blocknumber
+                FROM eth_staking_events_info
+                WHERE identifier = :id
+            """)
+            result = await self.session.execute(query, {'id': identifier})
+            row = result.fetchone()
+            if row:
+                return {
+                    'validator_index': row[0],
+                    'is_exit_or_blocknumber': row[1],
+                }
+        
+        return None
