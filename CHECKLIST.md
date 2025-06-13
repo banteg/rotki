@@ -130,7 +130,7 @@
 
 #### **ETH2 Staking**
 
-- [ ] `GET /api/1/blockchains/eth2/validators` (Get all tracked ETH2 validators)
+- [x] `GET /api/1/blockchains/eth2/validators` (Get all tracked ETH2 validators) ✅ Migrated to `GET /api/v2/blockchains/eth2/validators`
 - [ ] `PUT /api/1/blockchains/eth2/validators` (Add an ETH2 validator)
 - [ ] `PATCH /api/1/blockchains/eth2/validators` (Edit an ETH2 validator)
 - [ ] `DELETE /api/1/blockchains/eth2/validators` (Delete an ETH2 validator)
@@ -169,10 +169,10 @@
 - [x] `GET /api/1/history/events/type_mappings` (Get mappings of event types) ✅ Migrated to `GET /api/v2/history/events/type_mappings`
 - [x] `GET /api/1/history/events/counterparties` (Get details for all EVM counterparties) ✅ Migrated to `GET /api/v2/history/events/counterparties`
 - [x] `GET /api/1/history/events/products` (Get products for all EVM counterparties) ✅ Migrated to `GET /api/v2/history/events/products`
-- [ ] `GET /api/1/reports` (Get a list of all PnL reports)
-- [ ] `GET /api/1/reports/<int:report_id>` (Get a specific PnL report)
-- [ ] `DELETE /api/1/reports/<int:report_id>` (Delete a PnL report)
-- [ ] `POST /api/1/reports/<int:report_id>/data` (Get data for a specific PnL report)
+- [x] `GET /api/1/reports` (Get a list of all PnL reports) ✅ Migrated to `GET /api/v2/reports/`
+- [x] `GET /api/1/reports/<int:report_id>` (Get a specific PnL report) ✅ Migrated to `GET /api/v2/reports/{report_id}`
+- [x] `DELETE /api/1/reports/<int:report_id>` (Delete a PnL report) ✅ Migrated to `DELETE /api/v2/reports/{report_id}`
+- [x] `POST /api/1/reports/<int:report_id>/data` (Get data for a specific PnL report) ✅ Migrated to `GET /api/v2/reports/{report_id}/data`
 - [ ] `POST /api/1/accounting/rules` (Query accounting rules)
 - [ ] `PUT /api/1/accounting/rules` (Add an accounting rule)
 - [ ] `PATCH /api/1/accounting/rules` (Edit an accounting rule)
@@ -223,14 +223,14 @@
 - [ ] `GET /api/1/queried_addresses` (Get all queried addresses per module)
 - [ ] `PUT /api/1/queried_addresses` (Add a queried address for a module)
 - [ ] `DELETE /api/1/queried_addresses` (Remove a queried address for a module)
-- [ ] `POST /api/1/names` (Search for names across all sources)
-- [ ] `POST /api/1/names/ens/reverse` (Reverse lookup ENS names for addresses)
-- [ ] `POST /api/1/names/ens/resolve` (Resolve an ENS name to an address)
-- [ ] `GET /api/1/avatars/ens/<string:ens_name>` (Get an ENS avatar)
-- [ ] `POST /api/1/names/addressbook/<string:book_type>` (Get address book entries)
-- [ ] `PUT /api/1/names/addressbook/<string:book_type>` (Add address book entries)
-- [ ] `PATCH /api/1/names/addressbook/<string:book_type>` (Update address book entries)
-- [ ] `DELETE /api/1/names/addressbook/<string:book_type>` (Delete address book entries)
+- [x] `POST /api/1/names` (Search for names across all sources) ✅ Migrated to `POST /api/v2/names/`
+- [x] `POST /api/1/names/ens/reverse` (Reverse lookup ENS names for addresses) ✅ Migrated to `POST /api/v2/names/ens/reverse`
+- [x] `POST /api/1/names/ens/resolve` (Resolve an ENS name to an address) ✅ Migrated to `POST /api/v2/names/ens/resolve`
+- [x] `GET /api/1/avatars/ens/<string:ens_name>` (Get an ENS avatar) ✅ Migrated to `GET /api/v2/names/avatars/ens/{ens_name}`
+- [x] `POST /api/1/names/addressbook/<string:book_type>` (Get address book entries) ✅ Migrated to `POST /api/v2/names/addressbook/{book_type}`
+- [x] `PUT /api/1/names/addressbook/<string:book_type>` (Add address book entries) ✅ Migrated to `PUT /api/v2/names/addressbook/{book_type}`
+- [x] `PATCH /api/1/names/addressbook/<string:book_type>` (Update address book entries) ✅ Migrated to `PATCH /api/v2/names/addressbook/{book_type}`
+- [x] `DELETE /api/1/names/addressbook/<string:book_type>` (Delete address book entries) ✅ Migrated to `DELETE /api/v2/names/addressbook/{book_type}`
 
 #### **Data Import/Export & DB Management**
 
@@ -250,20 +250,20 @@
 
 - [x] `GET /api/1/ping` (Ping the server) ✅ Migrated to `GET /api/v2/info/ping`
 - [x] `GET /api/1/info` (Get application info) ✅ Migrated to `GET /api/v2/info/info`
-- [ ] `GET /api/1/watchers` (Get premium watchers)
-- [ ] `PUT /api/1/watchers` (Add premium watchers)
-- [ ] `PATCH /api/1/watchers` (Edit premium watchers)
-- [ ] `DELETE /api/1/watchers` (Delete premium watchers)
-- [ ] `POST /api/1/cache/<string:cache_type>/clear` (Clear icon or avatar cache)
-- [ ] `POST /api/1/wallet/transfer/token` (Prepare a token transfer)
-- [ ] `POST /api/1/wallet/transfer/native` (Prepare a native asset transfer)
-- [ ] `POST /api/1/wallet/interacted` (Check if two addresses have interacted)
-- [ ] `POST /api/1/wallet/balance` (Fetch token balance for an address)
-- [ ] `POST /api/1/calendar` (Query calendar events)
-- [ ] `PUT /api/1/calendar` (Create a calendar entry)
-- [ ] `DELETE /api/1/calendar` (Delete a calendar entry)
-- [ ] `PATCH /api/1/calendar` (Update a calendar entry)
-- [ ] `POST /api/1/calendar/reminders` (Query calendar reminders for an event)
-- [ ] `PUT /api/1/calendar/reminders` (Create calendar reminders)
-- [ ] `DELETE /api/1/calendar/reminders` (Delete a calendar reminder)
-- [ ] `PATCH /api/1/calendar/reminders` (Update a calendar reminder)
+- [x] `GET /api/1/watchers` (Get premium watchers) ✅ Migrated to `GET /api/v2/watchers/`
+- [x] `PUT /api/1/watchers` (Add premium watchers) ✅ Migrated to `PUT /api/v2/watchers/`
+- [x] `PATCH /api/1/watchers` (Edit premium watchers) ✅ Migrated to `PATCH /api/v2/watchers/`
+- [x] `DELETE /api/1/watchers` (Delete premium watchers) ✅ Migrated to `DELETE /api/v2/watchers/`
+- [x] `POST /api/1/cache/<string:cache_type>/clear` (Clear icon or avatar cache) ✅ Migrated to `POST /api/v2/cache/{cache_type}/clear`
+- [x] `POST /api/1/wallet/transfer/token` (Prepare a token transfer) ✅ Migrated to `POST /api/v2/wallet/transfer/token`
+- [x] `POST /api/1/wallet/transfer/native` (Prepare a native asset transfer) ✅ Migrated to `POST /api/v2/wallet/transfer/native`
+- [x] `POST /api/1/wallet/interacted` (Check if two addresses have interacted) ✅ Migrated to `POST /api/v2/wallet/interacted`
+- [x] `POST /api/1/wallet/balance` (Fetch token balance for an address) ✅ Migrated to `POST /api/v2/wallet/balance`
+- [x] `POST /api/1/calendar` (Query calendar events) ✅ Migrated to `POST /api/v2/calendar/`
+- [x] `PUT /api/1/calendar` (Create a calendar entry) ✅ Migrated to `PUT /api/v2/calendar/`
+- [x] `DELETE /api/1/calendar` (Delete a calendar entry) ✅ Migrated to `DELETE /api/v2/calendar/`
+- [x] `PATCH /api/1/calendar` (Update a calendar entry) ✅ Migrated to `PATCH /api/v2/calendar/`
+- [x] `POST /api/1/calendar/reminders` (Query calendar reminders for an event) ✅ Migrated to `POST /api/v2/calendar/reminders`
+- [x] `PUT /api/1/calendar/reminders` (Create calendar reminders) ✅ Migrated to `PUT /api/v2/calendar/reminders`
+- [x] `DELETE /api/1/calendar/reminders` (Delete a calendar reminder) ✅ Migrated to `DELETE /api/v2/calendar/reminders`
+- [x] `PATCH /api/1/calendar/reminders` (Update a calendar reminder) ✅ Migrated to `PATCH /api/v2/calendar/reminders`

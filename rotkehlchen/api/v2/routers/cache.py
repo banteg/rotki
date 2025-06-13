@@ -21,13 +21,13 @@ def get_cache_service() -> CacheService:
     return CacheService()
 
 
-@router.get('/{cache_type}/clear')
+@router.post('/{cache_type}/clear')
 async def clear_cache(
     _: Annotated[str, Depends(require_logged_in_user)],
     cache_service: Annotated[CacheService, Depends(get_cache_service)],
     cache_type: str = Path(..., description="Type of cache to clear"),
 ) -> CacheResponse:
-    """Clear a specific cache type"""
+    """Clear a specific cache type - Compatible with v1 POST /api/1/cache/<cache_type>/clear"""
     valid_cache_types = cache_service.get_valid_cache_types()
     
     if cache_type not in valid_cache_types:

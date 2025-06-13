@@ -116,3 +116,78 @@ class CalendarService:
         self._reminders.append(reminder)
         
         return reminder_id
+    
+    def delete_event(self, event_id: str) -> None:
+        """Delete a calendar event"""
+        for i, event in enumerate(self._events):
+            if event['id'] == event_id:
+                del self._events[i]
+                return
+        raise ValueError(f'Event {event_id} not found')
+    
+    def update_event(
+        self,
+        event_id: str,
+        title: str,
+        description: str | None = None,
+        timestamp: Timestamp | None = None,
+        event_type: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Update a calendar event"""
+        for event in self._events:
+            if event['id'] == event_id:
+                event['title'] = title
+                if description is not None:
+                    event['description'] = description
+                if timestamp is not None:
+                    event['timestamp'] = timestamp
+                if event_type is not None:
+                    event['event_type'] = event_type
+                if metadata is not None:
+                    event['metadata'] = metadata
+                event['updated_at'] = Timestamp(int(datetime.now().timestamp()))
+                return event
+        raise ValueError(f'Event {event_id} not found')
+    
+    def get_reminders_for_event(self, event_id: str) -> list[dict[str, Any]]:
+        """Get reminders for a specific event"""
+        # In a real implementation, reminders would be linked to events
+        # For now, return all reminders
+        return self.get_reminders()
+    
+    def delete_reminder(self, reminder_id: str) -> None:
+        """Delete a reminder"""
+        for i, reminder in enumerate(self._reminders):
+            if reminder['id'] == reminder_id:
+                del self._reminders[i]
+                return
+        raise ValueError(f'Reminder {reminder_id} not found')
+    
+    def update_reminder(
+        self,
+        reminder_id: str,
+        title: str,
+        description: str | None = None,
+        timestamp: Timestamp | None = None,
+        reminder_type: str | None = None,
+        recurring: bool | None = None,
+        interval_days: int | None = None,
+    ) -> dict[str, Any]:
+        """Update a reminder"""
+        for reminder in self._reminders:
+            if reminder['id'] == reminder_id:
+                reminder['title'] = title
+                if description is not None:
+                    reminder['description'] = description
+                if timestamp is not None:
+                    reminder['timestamp'] = timestamp
+                if reminder_type is not None:
+                    reminder['reminder_type'] = reminder_type
+                if recurring is not None:
+                    reminder['recurring'] = recurring
+                if interval_days is not None:
+                    reminder['interval_days'] = interval_days
+                reminder['updated_at'] = Timestamp(int(datetime.now().timestamp()))
+                return reminder
+        raise ValueError(f'Reminder {reminder_id} not found')
