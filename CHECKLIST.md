@@ -72,19 +72,19 @@ This is the most critical calculation logic. We will port it class by class, ens
 
 The `AccountingPot` holds the state for an accounting run. It uses the `CostBasisCalculator` and needs to be fully asynchronous.
 
-- [ ] **Refactor `rotki2/accounting/pot.py`:**
-  - [ ] Update the `__init__` method:
+- [x] **Refactor `rotki2/accounting/pot.py`:**
+  - [x] Update the `__init__` method:
     - Replace `DBHandler` with `DatabaseService`.
     - Replace `EVMAccountingAggregators` with the new `EVMAccountingAggregator` from `rotki2`.
     - Replace the synchronous `PriceHistorian` with the new `PriceHistorian` from `rotki2/accounting/price_historian.py`.
-  - [ ] **Convert methods to `async`:**
-    - [ ] Convert `get_rate_in_profit_currency` to `async def` and change the `PriceHistorian.query_historical_price` call to `await self.price_historian.query_historical_price(...)`.
-    - [ ] Convert `add_in_event` to `async def`. It calls `get_rate_in_profit_currency`, so it needs to `await` it.
-    - [ ] Convert `add_out_event` to `async def`. It also calls `get_rate_in_profit_currency`.
-    - [ ] Convert `add_asset_change_event` to `async def`.
-    - [ ] Convert `get_prices_for_swap` to `async def` and `await` its internal calls to `get_rate_in_profit_currency`.
-  - [ ] **Update Database Interactions:**
-    - [ ] The `_add_processed_event` method calls `DBAccountingReports`. This dependency needs to be updated to use the `ReportsRepository` from `rotki2`. The call will look something like `await self.reports_repo.add_report_data(...)`.
+  - [x] **Convert methods to `async`:**
+    - [x] Convert `get_rate_in_profit_currency` to `async def` and change the `PriceHistorian.query_historical_price` call to `await self.price_historian.query_historical_price(...)`.
+    - [x] Convert `add_in_event` to `async def`. It calls `get_rate_in_profit_currency`, so it needs to `await` it.
+    - [x] Convert `add_out_event` to `async def`. It also calls `get_rate_in_profit_currency`.
+    - [x] Convert `add_asset_change_event` to `async def`.
+    - [x] Convert `get_prices_for_swap` to `async def` and `await` its internal calls to `get_rate_in_profit_currency`.
+  - [x] **Update Database Interactions:**
+    - [x] The `_add_processed_event` method calls `DBAccountingReports`. This dependency needs to be updated to use the `ReportsRepository` from `rotki2`. The call will look something like `await self.reports_repo.add_report_data(...)`.
 
 ---
 

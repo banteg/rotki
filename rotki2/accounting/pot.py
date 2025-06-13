@@ -2,9 +2,9 @@
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any
 
-from rotkehlchen.accounting.cost_basis import CostBasisCalculator
+from rotki2.accounting.cost_basis.calculator import CostBasisCalculator
 from rotkehlchen.accounting.structures.balance import Balance
-from rotkehlchen.accounting.structures.processed_event import ProcessedAccountingEvent
+from rotki2.accounting.structures import ProcessedAccountingEvent
 from rotkehlchen.accounting.structures.types import ActionType
 from rotkehlchen.assets.asset import Asset
 from rotkehlchen.constants import ONE, ZERO
@@ -12,11 +12,12 @@ from rotkehlchen.errors.accounting import AccountingError
 from rotkehlchen.errors.price import NoPriceForGivenTimestamp, PriceQueryUnsupportedAsset
 from rotkehlchen.fval import FVal
 from rotkehlchen.logging import RotkehlchenLogsAdapter
-from rotkehlchen.types import CostBasisMethod, Price, Timestamp
+from rotkehlchen.types import CostBasisMethod, Location, Price, Timestamp
+from rotki2.accounting.pnl import PNL
 
 if TYPE_CHECKING:
     from rotkehlchen.accounting.events import EventsAccountant
-    from rotkehlchen.accounting.pnl import PnlTotals
+    from rotki2.accounting.pnl import PnlTotals
     from rotkehlchen.db.reports import DBAccountingReports
     from rotkehlchen.user_messages import MessagesAggregator
     from rotki2.accounting.price_historian import PriceHistorian
@@ -92,8 +93,14 @@ class AccountingPot:
         self.processed_events.clear()
         self.processed_actions_count = 0
         
-        # Reset cost basis
-        self.cost_basis.reset(settings)
+        # Reset cost basis with DBSettings object
+        from rotkehlchen.db.settings import DBSettings
+        db_settings = DBSettings(
+            main_currency=self.profit_currency,
+            cost_basis_method=self.cost_basis_method,
+            **settings
+        )
+        self.cost_basis.reset(db_settings)
     
     async def add_in_event(
         self,
@@ -115,14 +122,22 @@ class AccountingPot:
         value_in_profit_currency = price * amount
         
         # Add to cost basis
-        self.cost_basis.add_acquisition(
+        # Create a processed event for the acquisition
+        event = ProcessedAccountingEvent(
             event_type=event_type,
-            asset=asset,
-            amount=amount,
-            rate=price,
+            notes=f'Acquisition of {amount} {asset.identifier}',
+            location=extra_data.get('location', Location.EXTERNAL) if extra_data else Location.EXTERNAL,
             timestamp=timestamp,
-            extra_data=extra_data,
+            asset=asset,
+            free_amount=ZERO,
+            taxable_amount=amount,
+            price=price,
+            pnl=PNL(),
+            cost_basis=None,
+            index=self.processed_actions_count,
+            extra_data=extra_data or {},
         )
+        self.cost_basis.obtain_asset(event)
         
         # Track the acquisition
         self._add_to_pnl_totals(
@@ -153,45 +168,30 @@ class AccountingPot:
             price = await self.get_rate_in_profit_currency(asset, timestamp)
         
         # Get cost basis for the spend
-        spending_events = self.cost_basis.spend_asset(
+        location = extra_data.get('location', Location.EXTERNAL) if extra_data else Location.EXTERNAL
+        originating_event_id = extra_data.get('event_id') if extra_data else None
+        
+        cost_basis_info = await self.cost_basis.spend_asset(
+            originating_event_id=originating_event_id,
+            location=location,
+            timestamp=timestamp,
             asset=asset,
             amount=amount,
             rate=price,
-            timestamp=timestamp,
-            event_type=event_type,
-            extra_data=extra_data,
+            taxable_spend=taxable,
         )
         
-        # Calculate PnL
-        total_taxable_pnl = Balance()
-        total_free_pnl = Balance()
-        taxable_amount = ZERO
-        free_amount = ZERO
-        
-        for acquisition_event, used_amount in spending_events:
-            # Calculate gain/loss
-            acquisition_rate = acquisition_event.rate
-            gain_loss = (price - acquisition_rate) * used_amount
-            gain_loss_in_profit_currency = gain_loss
-            
-            if taxable:
-                taxable_amount += used_amount
-                total_taxable_pnl += Balance(
-                    amount=gain_loss,
-                    usd_value=gain_loss_in_profit_currency,
-                )
-            else:
-                free_amount += used_amount
-                total_free_pnl += Balance(
-                    amount=gain_loss,
-                    usd_value=gain_loss_in_profit_currency,
-                )
-        
-        # Track the PnL
-        if taxable:
-            self.taxable_pnl[event_type] += total_taxable_pnl
+        # Calculate PnL based on cost basis info
+        if taxable and cost_basis_info:
+            taxable_amount = cost_basis_info.taxable_amount
+            free_amount = amount - taxable_amount
+            # The PnL calculation is handled by the cost basis calculator
         else:
-            self.free_pnl[event_type] += total_free_pnl
+            taxable_amount = ZERO if not taxable else amount
+            free_amount = amount if not taxable else ZERO
+        
+        # Track the spend event - PnL calculation will happen later
+        # when processing the event
         
         # Track the spend
         value_in_profit_currency = price * amount
@@ -225,14 +225,22 @@ class AccountingPot:
         
         # For positive amounts (income), add to cost basis at current price
         if amount > ZERO:
-            self.cost_basis.add_acquisition(
+            # Create a processed event for the acquisition
+            event = ProcessedAccountingEvent(
                 event_type=event_type,
-                asset=asset,
-                amount=amount,
-                rate=price,
+                notes=f'Asset change: {amount} {asset.identifier}',
+                location=extra_data.get('location', Location.EXTERNAL) if extra_data else Location.EXTERNAL,
                 timestamp=timestamp,
-                extra_data=extra_data,
+                asset=asset,
+                free_amount=ZERO,
+                taxable_amount=amount,
+                price=price,
+                pnl=PNL(),
+                cost_basis=None,
+                index=self.processed_actions_count,
+                extra_data=extra_data or {},
             )
+            self.cost_basis.obtain_asset(event)
         
         # Track the change
         self._add_to_pnl_totals(
@@ -312,13 +320,103 @@ class AccountingPot:
     
     def get_pnl_totals(self) -> 'PnlTotals':
         """Get the PnL totals for all event types"""
-        from rotkehlchen.accounting.pnl import PnlTotals
+        from rotki2.accounting.pnl import PnlTotals
         
         return PnlTotals(
             totals=dict(self.pnl_totals),
             taxable=dict(self.taxable_pnl),
             free=dict(self.free_pnl),
         )
+    
+    async def get_prices_for_swap(
+            self,
+            timestamp: Timestamp,
+            amount_in: FVal,
+            asset_in: Asset,
+            amount_out: FVal,
+            asset_out: Asset,
+            fee_info: tuple[FVal, Asset] | None,
+    ) -> tuple[Price, Price] | None:
+        """
+        Calculates the prices for assets going in and out of a swap/trade.
+
+        The algorithm is:
+        1. Query oracles for prices of asset_out and asset_in.
+        2.1 If either of the assets is fiat -- use its amount and price for calculations.
+        2.2. If neither of the assets is fiat -- use `out_price` if `out_price` is known,
+        otherwise `in_price`.
+        3.1 If `fee_info` is provided and it's included in the cost basis,
+        fee is included in the price of one of the assets.
+        3.2. If `asset_out` is fiat -- fee is added to `calculated_in_price`.
+        3.3. If `asset_in` is fiat -- fee is subtracted from `calculated_out_price`.
+        3.4. Otherwise fee is added to the price of the asset that was bought.
+
+        Returns (calculated_out_price, calculated_in_price) or None if it can't find proper prices.
+        """
+        if ZERO in (amount_in, amount_out):
+            logger.error(
+                f'At get_prices_for_swap got a zero amount. {asset_in=} {amount_in=} '
+                f'{asset_out=} {amount_out=}. Skipping ...')
+            return None
+
+        # Get prices from oracles
+        try:
+            out_price = await self.get_rate_in_profit_currency(asset_out, timestamp)
+        except (NoPriceForGivenTimestamp, PriceQueryUnsupportedAsset):
+            out_price = None
+            
+        try:
+            in_price = await self.get_rate_in_profit_currency(asset_in, timestamp)
+        except (NoPriceForGivenTimestamp, PriceQueryUnsupportedAsset):
+            in_price = None
+
+        # Calculate base prices
+        if asset_out.is_fiat():
+            calculated_out_price = out_price or Price(ONE)
+            calculated_in_price = Price(amount_out / amount_in)
+        elif asset_in.is_fiat():
+            calculated_in_price = in_price or Price(ONE)
+            calculated_out_price = Price(amount_in / amount_out)
+        else:
+            # Neither is fiat, use oracle prices
+            if out_price is not None:
+                calculated_out_price = out_price
+                calculated_in_price = Price(amount_out * out_price / amount_in)
+            elif in_price is not None:
+                calculated_in_price = in_price
+                calculated_out_price = Price(amount_in * in_price / amount_out)
+            else:
+                # No prices available
+                return None
+
+        # Handle fees if provided
+        if fee_info and self.settings.get('include_fees_in_cost_basis', True):
+            fee_amount, fee_asset = fee_info
+            if fee_amount > ZERO:
+                try:
+                    fee_price = await self.get_rate_in_profit_currency(fee_asset, timestamp)
+                    fee_value = fee_amount * fee_price
+                    
+                    if asset_out.is_fiat():
+                        # Add fee to in price
+                        calculated_in_price = Price(
+                            (calculated_in_price * amount_in + fee_value) / amount_in
+                        )
+                    elif asset_in.is_fiat():
+                        # Subtract fee from out price
+                        calculated_out_price = Price(
+                            (calculated_out_price * amount_out - fee_value) / amount_out
+                        )
+                    else:
+                        # Add fee to the bought asset (out)
+                        calculated_out_price = Price(
+                            (calculated_out_price * amount_out + fee_value) / amount_out
+                        )
+                except (NoPriceForGivenTimestamp, PriceQueryUnsupportedAsset):
+                    # Couldn't get fee price, continue without it
+                    pass
+
+        return calculated_out_price, calculated_in_price
     
     def to_dict(self) -> dict[str, Any]:
         """Convert pot state to dictionary"""
