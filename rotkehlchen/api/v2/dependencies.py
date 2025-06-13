@@ -287,3 +287,70 @@ def get_async_addressbook_repository(
     """Get AsyncAddressBookRepository instance"""
     from rotkehlchen.api.v2.repositories.async_addressbook import AsyncAddressBookRepository
     return AsyncAddressBookRepository(session)
+
+
+def get_async_loopring_repository(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> 'AsyncLoopringRepository':
+    """Get AsyncLoopringRepository instance"""
+    from rotkehlchen.api.v2.repositories.async_loopring import AsyncLoopringRepository
+    return AsyncLoopringRepository(session)
+
+
+def get_async_accounting_rule_repository(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> 'AsyncAccountingRuleRepository':
+    """Get AsyncAccountingRuleRepository instance"""
+    from rotkehlchen.api.v2.repositories.async_accounting_rule import AsyncAccountingRuleRepository
+    return AsyncAccountingRuleRepository(session)
+
+
+# Async service dependencies
+def get_async_ens_service(
+    ens_repository: Annotated['AsyncENSRepository', Depends(get_async_ens_repository)],
+) -> 'AsyncENSService':
+    """Get AsyncENSService instance"""
+    from rotkehlchen.api.v2.services.async_ens import AsyncENSService
+    return AsyncENSService(ens_repository)
+
+
+def get_async_addressbook_service(
+    addressbook_repository: Annotated['AsyncAddressBookRepository', Depends(get_async_addressbook_repository)],
+) -> 'AsyncAddressBookService':
+    """Get AsyncAddressBookService instance"""
+    from rotkehlchen.api.v2.services.async_addressbook import AsyncAddressBookService
+    return AsyncAddressBookService(addressbook_repository)
+
+
+def get_async_loopring_service(
+    loopring_repository: Annotated['AsyncLoopringRepository', Depends(get_async_loopring_repository)],
+) -> 'AsyncLoopringService':
+    """Get AsyncLoopringService instance"""
+    from rotkehlchen.api.v2.services.async_loopring import AsyncLoopringService
+    return AsyncLoopringService(loopring_repository)
+
+
+def get_async_accounting_rules_service(
+    accounting_rule_repository: Annotated['AsyncAccountingRuleRepository', Depends(get_async_accounting_rule_repository)],
+    accountant: Annotated['Accountant', Depends(get_accountant)],
+) -> 'AsyncAccountingRulesService':
+    """Get AsyncAccountingRulesService instance"""
+    from rotkehlchen.api.v2.services.async_accounting_rules import AsyncAccountingRulesService
+    return AsyncAccountingRulesService(accounting_rule_repository, accountant)
+
+
+def get_async_history_events_repository(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> 'AsyncHistoryEventsRepository':
+    """Get AsyncHistoryEventsRepository instance"""
+    from rotkehlchen.api.v2.repositories.async_history_events import AsyncHistoryEventsRepository
+    return AsyncHistoryEventsRepository(session)
+
+
+def get_async_history_events_service(
+    history_events_repository: Annotated['AsyncHistoryEventsRepository', Depends(get_async_history_events_repository)],
+    notifier: Annotated['RotkiNotifier', Depends(get_rotki_notifier)],
+) -> 'AsyncHistoryEventsService':
+    """Get AsyncHistoryEventsService instance"""
+    from rotkehlchen.api.v2.services.async_history_events import AsyncHistoryEventsService
+    return AsyncHistoryEventsService(history_events_repository, notifier)

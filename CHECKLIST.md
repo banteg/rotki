@@ -87,10 +87,10 @@ This is the most critical and extensive phase. The goal is to replace all direct
   - [x] Write integration tests for the new FastAPI endpoint to ensure it works end-to-end. Use the old tests for `db/ens.py` as a reference for expected behavior.
 
 - [ ] **Step 8: Repeat for All Other DB Modules.**
-  - [ ] Repeat the process for `db/addressbook.py` -> `AddressbookRepository`.
-  - [ ] Repeat the process for `db/loopring.py` -> `LoopringRepository`.
-  - [ ] Repeat the process for `db/accounting_rules.py` -> `AccountingRuleRepository`.
-  - [ ] Repeat the process for `db/history_events.py` -> `HistoryRepository`.
+  - [x] Repeat the process for `db/addressbook.py` -> `AddressbookRepository`.
+  - [x] Repeat the process for `db/loopring.py` -> `LoopringRepository`.
+  - [x] Repeat the process for `db/accounting_rules.py` -> `AccountingRuleRepository`.
+  - [x] Repeat the process for `db/history_events.py` -> `HistoryRepository`.
   - [ ] ...and so on for every file in `rotkehlchen/db/` that performs queries. The final goal is to make `DBHandler` obsolete.
 
 #### **Phase 2: Eradicate `gevent` and Embrace `anyio`**
