@@ -357,3 +357,161 @@ class AsyncHistoryService:
             'counterparty': event.counterparty.serialize() if event.counterparty else None,
             'extra_data': event.extra_data,
         }
+
+    async def get_defi_events_by_protocol(
+        self,
+        protocol: str,
+        account: str | None = None,
+        start_timestamp: int | None = None,
+        end_timestamp: int | None = None,
+    ) -> list[HistoryEvent]:
+        """Get DeFi events for a specific protocol"""
+        return await self.history_repo.get_defi_events_by_protocol(
+            protocol=protocol,
+            account=account,
+            start_timestamp=start_timestamp,
+            end_timestamp=end_timestamp,
+        )
+
+    async def get_liquidity_events(
+        self,
+        account: str | None = None,
+        event_types: list[str] | None = None,
+        start_timestamp: int | None = None,
+        end_timestamp: int | None = None,
+    ) -> list[HistoryEvent]:
+        """Get liquidity-related events"""
+        return await self.history_repo.get_liquidity_events(
+            account=account,
+            event_types=event_types,
+            start_timestamp=start_timestamp,
+            end_timestamp=end_timestamp,
+        )
+
+    async def get_lending_events(
+        self,
+        account: str | None = None,
+        protocol: str | None = None,
+        start_timestamp: int | None = None,
+        end_timestamp: int | None = None,
+    ) -> list[HistoryEvent]:
+        """Get lending/borrowing events from DeFi protocols"""
+        return await self.history_repo.get_lending_events(
+            account=account,
+            protocol=protocol,
+            start_timestamp=start_timestamp,
+            end_timestamp=end_timestamp,
+        )
+
+    async def get_protocol_volume_stats(
+        self,
+        start_timestamp: int | None = None,
+        end_timestamp: int | None = None,
+    ) -> list[dict[str, str]]:
+        """Get transaction volume statistics grouped by DeFi protocol"""
+        return await self.history_repo.get_protocol_volume_stats(
+            start_timestamp=start_timestamp,
+            end_timestamp=end_timestamp,
+        )
+
+    async def query_wrap_stats(
+        self,
+        from_ts: Timestamp,
+        to_ts: Timestamp,
+    ) -> dict[str, Any]:
+        """Generate year-end wrap statistics"""
+        return await self.history_repo.query_wrap_stats(from_ts, to_ts)
+
+    async def reset_eth_staking_data(
+        self,
+        validator_indices: set[int] | None = None,
+    ) -> None:
+        """Reset Ethereum staking events and clear cache data"""
+        await self.history_repo.reset_eth_staking_data(validator_indices)
+
+    async def reset_evm_events_for_redecode(
+        self,
+        tx_hashes: list[str] | None = None,
+        chain_id: int | None = None,
+    ) -> None:
+        """Reset EVM events for re-decoding while preserving customized events"""
+        from rotkehlchen.types import ChainID, EVMTxHash
+        
+        tx_hash_objects = None
+        if tx_hashes:
+            tx_hash_objects = [EVMTxHash(h) for h in tx_hashes]
+        
+        chain_id_obj = ChainID(chain_id) if chain_id else None
+        
+        await self.history_repo.reset_evm_events_for_redecode(
+            tx_hashes=tx_hash_objects,
+            chain_id=chain_id_obj,
+        )
+
+    async def delete_events_by_tx_hash(
+        self,
+        tx_hashes: list[str],
+        force_delete: bool = False,
+    ) -> None:
+        """Delete events by transaction hash"""
+        from rotkehlchen.types import EVMTxHash
+        
+        tx_hash_objects = [EVMTxHash(h) for h in tx_hashes]
+        await self.history_repo.delete_events_by_tx_hash(
+            tx_hashes=tx_hash_objects,
+            force_delete=force_delete,
+        )
+
+    async def get_amount_and_value_stats(
+        self,
+        filter_query: HistoryEventFilter,
+        group_by_location: bool = True,
+        group_by_asset: bool = True,
+    ) -> dict[str, Any]:
+        """Get amount and USD value statistics"""
+        # Convert to proper filter query
+        from rotkehlchen.db.filtering import HistoryEventFilterQuery
+        
+        query = HistoryEventFilterQuery.make(
+            from_ts=filter_query.from_ts,
+            to_ts=filter_query.to_ts,
+            event_types=filter_query.event_types,
+            location=filter_query.locations[0] if filter_query.locations and len(filter_query.locations) == 1 else None,
+            assets=[Asset(a) for a in filter_query.assets] if filter_query.assets else None,
+        )
+        
+        return await self.history_repo.get_amount_and_value_stats(
+            filter_query=query,
+            group_by_location=group_by_location,
+            group_by_asset=group_by_asset,
+        )
+
+    async def get_hidden_event_ids(self) -> list[int]:
+        """Get identifiers of events that should be hidden"""
+        return await self.history_repo.get_hidden_event_ids()
+
+    async def edit_event_extra_data(
+        self,
+        identifier: int,
+        extra_data: str | None,
+    ) -> None:
+        """Edit only the extra_data field without marking as customized"""
+        await self.history_repo.edit_event_extra_data(identifier, extra_data)
+
+    async def get_entries_assets_history_events(
+        self,
+        filter_query: HistoryEventFilter,
+    ) -> list[str]:
+        """Get unique assets from filtered history events"""
+        # Convert to proper filter query
+        from rotkehlchen.db.filtering import HistoryEventFilterQuery
+        
+        query = HistoryEventFilterQuery.make(
+            from_ts=filter_query.from_ts,
+            to_ts=filter_query.to_ts,
+            event_types=filter_query.event_types,
+            location=filter_query.locations[0] if filter_query.locations and len(filter_query.locations) == 1 else None,
+            assets=[Asset(a) for a in filter_query.assets] if filter_query.assets else None,
+        )
+        
+        return await self.history_repo.get_entries_assets_history_events(query)

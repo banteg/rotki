@@ -21,10 +21,10 @@ class SettingsRepository(AsyncBaseRepository[Settings]):
 
     async def get_setting(self, name: str) -> Any | None:
         """Get a single setting value."""
-        result = await self.session.exec(
+        result = await self.session.execute(
             select(Settings).where(col(Settings.name) == name)
         )
-        setting = result.first()
+        setting = result.scalars().first()
         return setting.value if setting else None
 
     async def set_setting(self, name: str, value: Any) -> Settings:
@@ -38,17 +38,17 @@ class SettingsRepository(AsyncBaseRepository[Settings]):
         await self.session.commit()
         
         # Return the setting
-        result = await self.session.exec(
+        result = await self.session.execute(
             select(Settings).where(col(Settings.name) == name)
         )
         return result.first()
 
     async def delete_setting(self, name: str) -> bool:
         """Delete a setting."""
-        result = await self.session.exec(
+        result = await self.session.execute(
             select(Settings).where(col(Settings.name) == name)
         )
-        setting = result.first()
+        setting = result.scalars().first()
 
         if setting:
             await self.session.delete(setting)
@@ -58,8 +58,8 @@ class SettingsRepository(AsyncBaseRepository[Settings]):
 
     async def get_all_settings(self) -> dict[str, Any]:
         """Get all settings as a dictionary."""
-        result = await self.session.exec(select(Settings))
-        settings = result.all()
+        result = await self.session.execute(select(Settings))
+        settings = result.scalars().all()
         return {s.name: s.value for s in settings}
 
     async def update_settings(self, settings_dict: dict[str, Any]) -> dict[str, Settings]:
@@ -121,22 +121,22 @@ class MultiSettingsRepository(AsyncBaseRepository[MultiSettings]):
 
     async def get_values(self, name: str) -> list[Any]:
         """Get all values for a multi-setting."""
-        result = await self.session.exec(
+        result = await self.session.execute(
             select(MultiSettings).where(col(MultiSettings.name) == name)
         )
-        results = result.all()
+        results = result.scalars().all()
         return [r.value for r in results]
 
     async def add_value(self, name: str, value: Any) -> MultiSettings:
         """Add a value to a multi-setting."""
         # Check if value already exists
-        result = await self.session.exec(
+        result = await self.session.execute(
             select(MultiSettings).where(
                 col(MultiSettings.name) == name,
                 col(MultiSettings.value) == value,
             )
         )
-        existing = result.first()
+        existing = result.scalars().first()
 
         if existing:
             return existing
@@ -147,13 +147,13 @@ class MultiSettingsRepository(AsyncBaseRepository[MultiSettings]):
 
     async def remove_value(self, name: str, value: Any) -> bool:
         """Remove a value from a multi-setting."""
-        result = await self.session.exec(
+        result = await self.session.execute(
             select(MultiSettings).where(
                 col(MultiSettings.name) == name,
                 col(MultiSettings.value) == value,
             )
         )
-        setting = result.first()
+        setting = result.scalars().first()
 
         if setting:
             await self.delete(setting)
@@ -162,10 +162,10 @@ class MultiSettingsRepository(AsyncBaseRepository[MultiSettings]):
 
     async def clear_all_values(self, name: str) -> int:
         """Clear all values for a multi-setting."""
-        result = await self.session.exec(
+        result = await self.session.execute(
             select(MultiSettings).where(col(MultiSettings.name) == name)
         )
-        settings = result.all()
+        settings = result.scalars().all()
 
         count = len(settings)
         for setting in settings:
