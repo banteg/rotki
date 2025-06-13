@@ -4,11 +4,11 @@ This track focuses on setting up the fundamental application structure, authenti
 
 - **Phase 1: Core Setup & Database Foundation**
 
-  - `[ ]` **Finalize FastAPI App Setup:** In `rotki2/api/v2/app.py`, complete the `lifespan` manager to correctly initialize and shut down the `Rotkehlchen` instance and the new `AnyioTaskManager`.
-  - `[ ]` **Establish Async DB Connection:** In `rotki2/db/async_connection.py`, ensure `create_async_db_engine` and `create_async_session_factory` correctly handle the SQLCipher password and performance pragmas.
-  - `[ ]` **Implement Dependency Injection:** In `rotki2/api/v2/dependencies.py`, implement the `get_session` dependency to provide an `AsyncSession` to repositories.
-  - `[ ]` **Set up Alembic:** Run `alembic revision --autogenerate -m "Initial schema"` to create the first migration script based on all defined SQLModels. This script will be for new users. Do not apply it yet.
-  - `[ ]` **Refactor Task Manager:** In `rotki2/tasks/anyio_manager.py`, fully implement the task spawning and tracking logic. Migrate the scheduling logic from `rotkehlchen/tasks/manager.py` into `rotki2/tasks/async_manager.py`, replacing `gevent` calls with `anyio` equivalents.
+  - `[x]` **Finalize FastAPI App Setup:** In `rotki2/api/v2/app.py`, complete the `lifespan` manager to correctly initialize and shut down the `Rotkehlchen` instance and the new `AnyioTaskManager`.
+  - `[x]` **Establish Async DB Connection:** In `rotki2/db/async_connection.py`, ensure `create_async_db_engine` and `create_async_session_factory` correctly handle the SQLCipher password and performance pragmas.
+  - `[x]` **Implement Dependency Injection:** In `rotki2/api/v2/dependencies.py`, implement the `get_session` dependency to provide an `AsyncSession` to repositories.
+  - `[x]` **Set up Alembic:** Run `alembic revision --autogenerate -m "Initial schema"` to create the first migration script based on all defined SQLModels. This script will be for new users. Do not apply it yet.
+  - `[x]` **Refactor Task Manager:** In `rotki2/tasks/anyio_manager.py`, fully implement the task spawning and tracking logic. Migrate the scheduling logic from `rotkehlchen/tasks/manager.py` into `rotki2/tasks/async_manager.py`, replacing `gevent` calls with `anyio` equivalents.
 
 - **Phase 2: Authentication & User Management**
 

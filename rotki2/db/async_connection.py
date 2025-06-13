@@ -12,28 +12,44 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 
 
-def _setup_sqlite_pragma(dbapi_connection, connection_record):
-    """Set up SQLite pragmas for optimal performance."""
+def _setup_sqlite_pragma(dbapi_connection, connection_record, password: str | None = None):
+    """Set up SQLite pragmas for optimal performance and SQLCipher if needed."""
     cursor = dbapi_connection.cursor()
+    
+    # If password is provided, this is a SQLCipher database
+    if password:
+        cursor.execute(f"PRAGMA key='{password}'")
+        cursor.execute('PRAGMA cipher_compatibility = 4')
+    
     cursor.execute('PRAGMA journal_mode=WAL')
     cursor.execute('PRAGMA synchronous=NORMAL')
     cursor.execute('PRAGMA temp_store=MEMORY')
     cursor.execute('PRAGMA cache_size=10000')
+    cursor.execute('PRAGMA foreign_keys=ON')
     cursor.close()
 
 
-def create_async_db_engine(db_path: Path, echo: bool = False) -> AsyncEngine:
-    """Create an async database engine for SQLite.
+def create_async_db_engine(
+    db_path: Path, 
+    password: str | None = None,
+    echo: bool = False,
+) -> AsyncEngine:
+    """Create an async database engine for SQLite/SQLCipher.
     
     Args:
         db_path: Path to the SQLite database file
+        password: Optional password for SQLCipher encryption
         echo: Whether to log all SQL statements
         
     Returns:
         Configured AsyncEngine instance
     """
-    # Use aiosqlite driver for async SQLite support
-    database_url = f'sqlite+aiosqlite:///{db_path}'
+    # Use aiosqlcipher if password is provided, otherwise use aiosqlite
+    if password:
+        # For SQLCipher, we need to use a special connection string
+        database_url = f'sqlite+aiosqlcipher:///{db_path}'
+    else:
+        database_url = f'sqlite+aiosqlite:///{db_path}'
 
     # Create engine with NullPool to avoid connection pooling issues with SQLite
     engine = create_async_engine(
@@ -47,7 +63,10 @@ def create_async_db_engine(db_path: Path, echo: bool = False) -> AsyncEngine:
     )
 
     # Set up SQLite pragmas when connections are created
-    event.listen(engine.sync_engine, 'connect', _setup_sqlite_pragma)
+    def setup_connection(dbapi_connection, connection_record):
+        _setup_sqlite_pragma(dbapi_connection, connection_record, password)
+    
+    event.listen(engine.sync_engine, 'connect', setup_connection)
 
     return engine
 

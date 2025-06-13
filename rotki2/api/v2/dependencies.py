@@ -270,6 +270,14 @@ async def get_async_session(request: Request) -> AsyncGenerator[AsyncSession, No
     This dependency provides an async session for database operations.
     It will be initialized once the async engine is set up in the application.
     """
+    # Check if user is logged in first
+    rotkehlchen = get_rotkehlchen(request)
+    if not rotkehlchen.user_is_logged_in:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='No user is logged in',
+        )
+    
     if not hasattr(request.app.state, 'async_session_factory'):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -287,6 +295,10 @@ async def get_async_session(request: Request) -> AsyncGenerator[AsyncSession, No
             raise
         finally:
             await session.close()
+
+
+# Alias for consistency with naming convention
+get_session = get_async_session
 
 
 # Async repository dependencies
