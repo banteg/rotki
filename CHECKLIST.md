@@ -111,23 +111,23 @@ The `Accountant` orchestrates the entire process.
 
 ### **Phase 5: Porting Supporting Modules and Final Integration**
 
-- [ ] **Port `AccountingRulesManager`:**
-  - [ ] Create `rotki2/accounting/rules.py`.
-  - [ ] Copy `AccountingRulesManager` from `rotkehlchen/accounting/rules.py`.
-  - [ ] Refactor its `__init__` to take the new `DatabaseService` and `EVMAccountingAggregator`.
-  - [ ] Update `_query_db_rules` to use the `AccountingRuleRepository` instead of direct DB calls.
-- [ ] **Port `EventsAccountant`:**
-  - [ ] Create `rotki2/accounting/history_base_entries.py`.
-  - [ ] Copy `EventsAccountant` from `rotkehlchen/accounting/history_base_entries.py`.
-  - [ ] Refactor its `__init__` and `reset` methods to use the new `AccountingRulesManager`.
-  - [ ] The `process` method is the core logic. It determines how to handle different event types. This logic must be carefully ported. The calls to `pot.add_in_event` and `pot.add_out_event` will now need to be `await`ed.
-- [ ] **Create the `AccountingService`:**
-  - [ ] In `rotki2/api/v2/services/accounting.py`, create the main `AccountingService`.
-  - [ ] This service will be injected with the `Accountant` and `AccountingRuleRepository`.
-  - [ ] It will expose high-level methods like `generate_pnl_report`, `get_accounting_rules`, `add_accounting_rule`, etc., which will be called by the API router.
-- [ ] **Update API Router:**
-  - [ ] Go to `rotki2/api/v2/routers/accounting.py`.
-  - [ ] Ensure the endpoints correctly call the new methods on your `AccountingService`. For example, the `generate_report` endpoint should call a method like `accounting_service.start_pnl_report_generation(...)`.
+- [x] **Port `AccountingRulesManager`:**
+  - [x] Create `rotki2/accounting/rules.py`.
+  - [x] Copy `AccountingRulesManager` from `rotkehlchen/accounting/rules.py`.
+  - [x] Refactor its `__init__` to take the new `DatabaseService` and `EVMAccountingAggregator`.
+  - [x] Update `_query_db_rules` to use the `AccountingRuleRepository` instead of direct DB calls.
+- [x] **Port `EventsAccountant`:**
+  - [x] Create `rotki2/accounting/history_base_entries.py`.
+  - [x] Copy `EventsAccountant` from `rotkehlchen/accounting/history_base_entries.py`.
+  - [x] Refactor its `__init__` and `reset` methods to use the new `AccountingRulesManager`.
+  - [x] The `process` method is the core logic. It determines how to handle different event types. This logic must be carefully ported. The calls to `pot.add_in_event` and `pot.add_out_event` will now need to be `await`ed.
+- [x] **Create the `AccountingService`:**
+  - [x] In `rotki2/api/v2/services/accounting.py`, create the main `AccountingService`.
+  - [x] This service will be injected with the `Accountant` and `AccountingRuleRepository`.
+  - [x] It will expose high-level methods like `generate_pnl_report`, `get_accounting_rules`, `add_accounting_rule`, etc., which will be called by the API router.
+- [x] **Update API Router:**
+  - [x] Go to `rotki2/api/v2/routers/accounting.py`.
+  - [x] Ensure the endpoints correctly call the new methods on your `AccountingService`. For example, the `generate_report` endpoint should call a method like `accounting_service.start_pnl_report_generation(...)`.
 
 ---
 

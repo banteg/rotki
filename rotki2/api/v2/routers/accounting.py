@@ -5,9 +5,11 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
 from rotki2.api.v2.dependencies import (
+    get_accounting_service,
     get_async_accounting_rules_service,
     require_logged_in_user,
 )
+from rotki2.api.v2.services.accounting import AccountingService
 from rotki2.api.v2.services.async_accounting import AsyncAccountingRulesService
 
 router = APIRouter()
@@ -389,3 +391,85 @@ async def resolve_accounting_rule_conflicts(
         result={'resolved': resolved},
         message=f'Resolved {resolved} conflicts',
     )
+
+
+# P&L Report Generation Endpoints
+class PnLReportRequest(BaseModel):
+    """Request model for P&L report generation"""
+    start_ts: int
+    end_ts: int
+
+
+class PnLReportResponse(BaseModel):
+    """Response model for P&L report operations"""
+    result: dict[str, Any]
+    message: str = ''
+
+
+@router.post('/reports/generate')
+async def generate_pnl_report(
+    request: PnLReportRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[AccountingService, Depends(get_accounting_service)],
+) -> PnLReportResponse:
+    """Generate a P&L report for the specified time period"""
+    # In a full implementation, we would get history events from the database
+    # For now, using an empty iterator
+    history_events = iter([])
+    
+    try:
+        report_id = await service.generate_pnl_report(
+            start_ts=request.start_ts,
+            end_ts=request.end_ts,
+            history_events=history_events,
+        )
+        
+        return PnLReportResponse(
+            result={'report_id': report_id},
+            message='P&L report generation started',
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Failed to generate report: {str(e)}',
+        ) from e
+
+
+@router.get('/reports/{report_id}/progress')
+async def get_report_progress(
+    report_id: int,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[AccountingService, Depends(get_accounting_service)],
+) -> PnLReportResponse:
+    """Get the progress of a P&L report generation"""
+    progress = await service.get_report_progress(report_id)
+    
+    return PnLReportResponse(
+        result=progress,
+        message='Report progress retrieved',
+    )
+
+
+@router.post('/reports/{report_id}/export')
+async def export_report_to_csv(
+    report_id: int,
+    directory_path: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[AccountingService, Depends(get_accounting_service)],
+) -> PnLReportResponse:
+    """Export a P&L report to CSV format"""
+    try:
+        file_path = await service.export_report_to_csv(
+            report_id=report_id,
+            directory_path=directory_path,
+        )
+        
+        return PnLReportResponse(
+            result={'file_path': file_path},
+            message='Report exported successfully',
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f'Failed to export report: {str(e)}',
+        ) from e

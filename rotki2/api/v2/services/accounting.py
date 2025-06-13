@@ -1,14 +1,56 @@
 """Accounting service for managing accounting rules and configurations"""
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from rotki2.accounting.accountant import Accountant
+from rotki2.accounting.price_historian import PriceHistorian
 from rotki2.api.v2.services.database import DatabaseService
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from rotkehlchen.chain.aggregator import ChainsAggregator
+    from rotkehlchen.premium.premium import Premium
+    from rotkehlchen.types import Timestamp
+    from rotkehlchen.user_messages import MessagesAggregator
+    from rotki2.accounting.mixins import AccountingEventMixin
 
 
 class AccountingService:
     """Service for handling accounting rules and tax configurations"""
 
-    def __init__(self, db_service: DatabaseService):
+    def __init__(
+        self,
+        db_service: DatabaseService,
+        msg_aggregator: 'MessagesAggregator | None' = None,
+        chains_aggregator: 'ChainsAggregator | None' = None,
+        premium: 'Premium | None' = None,
+    ):
         self.db = db_service
+        self.msg_aggregator = msg_aggregator
+        self.chains_aggregator = chains_aggregator
+        self.premium = premium
+        self._accountant: Accountant | None = None
+        self._price_historian: PriceHistorian | None = None
+    
+    @property
+    def accountant(self) -> Accountant:
+        """Get or create the accountant instance"""
+        if self._accountant is None:
+            if self.msg_aggregator is None or self.chains_aggregator is None:
+                raise ValueError('MessagesAggregator and ChainsAggregator required for Accountant')
+            
+            if self._price_historian is None:
+                self._price_historian = PriceHistorian()
+            
+            self._accountant = Accountant(
+                db=self.db,
+                msg_aggregator=self.msg_aggregator,
+                chains_aggregator=self.chains_aggregator,
+                premium=self.premium,
+                price_historian=self._price_historian,
+            )
+        
+        return self._accountant
 
     def get_accounting_rules(
         self,
@@ -442,3 +484,44 @@ class AccountingService:
                     resolved_count += 1
 
         return resolved_count
+    
+    async def generate_pnl_report(
+        self,
+        start_ts: 'Timestamp',
+        end_ts: 'Timestamp',
+        history_events: 'Iterator[AccountingEventMixin]',
+    ) -> int:
+        """Generate a P&L report for the given time period
+        
+        Returns the report ID.
+        """
+        report_id = await self.accountant.process_history(
+            start_ts=start_ts,
+            end_ts=end_ts,
+            history_events=history_events,
+        )
+        
+        return report_id
+    
+    async def get_report_progress(self, report_id: int) -> dict[str, Any]:
+        """Get the progress of a report generation"""
+        # This would check the actual progress from the database
+        # For now, returning a placeholder
+        return {
+            'report_id': report_id,
+            'status': 'completed',
+            'progress': 100,
+            'events_processed': 0,
+            'total_events': 0,
+        }
+    
+    async def export_report_to_csv(
+        self,
+        report_id: int,
+        directory_path: str,
+    ) -> str:
+        """Export a report to CSV format"""
+        # This would use the CSV exporter once ported
+        # For now, returning a placeholder
+        filepath = f'{directory_path}/pnl_report_{report_id}.csv'
+        return filepath
