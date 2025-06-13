@@ -12,11 +12,11 @@ This track focuses on setting up the fundamental application structure, authenti
 
 - **Phase 2: Authentication & User Management**
 
-  - `[ ]` **Implement `UserRepository`:** In `rotki2/api/v2/repositories/user.py`, implement all methods for user and API key management, drawing logic from `rotkehlchen/db/dbhandler.py`.
-  - `[ ]` **Implement `AuthService`:** In `rotki2/api/v2/services/auth.py`, implement user authentication (`unlock_user`, `logout`), password changes, and API key management logic from `rotkehlchen/rotkehlchen.py` and `rotkehlchen/api/rest.py`.
-  - `[ ]` **Implement `auth.py` Router:** Wire up all endpoints in `rotki2/api/v2/routers/auth.py` to the `AuthService`.
-  - `[ ]` **Implement `users.py` Router:** Wire up all endpoints in `rotki2/api/v2/routers/users.py` to the `AuthService` and `UsersService`.
-  - `[ ]` **Implement `require_logged_in_user`:** In `rotki2/api/v2/dependencies.py`, implement a robust authentication check, likely using JWT tokens or a similar stateless mechanism, replacing the v1 session state check.
+  - `[x]` **Implement `UserRepository`:** In `rotki2/api/v2/repositories/user.py`, implement all methods for user and API key management, drawing logic from `rotkehlchen/db/dbhandler.py`.
+  - `[x]` **Implement `AuthService`:** In `rotki2/api/v2/services/auth.py`, implement user authentication (`unlock_user`, `logout`), password changes, and API key management logic from `rotkehlchen/rotkehlchen.py` and `rotkehlchen/api/rest.py`.
+  - `[x]` **Implement `auth.py` Router:** Wire up all endpoints in `rotki2/api/v2/routers/auth.py` to the `AuthService`.
+  - `[x]` **Implement `users.py` Router:** Wire up all endpoints in `rotki2/api/v2/routers/users.py` to the `AuthService` and `UsersService`.
+  - `[x]` **Implement `require_logged_in_user`:** In `rotki2/api/v2/dependencies.py`, implement a robust authentication check, likely using JWT tokens or a similar stateless mechanism, replacing the v1 session state check.
 
 - **Phase 3: Settings & Info Management**
 

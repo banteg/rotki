@@ -160,23 +160,40 @@ def get_history_service(
     )
 
 
-async def require_logged_in_user(  # noqa: RUF029
+async def require_logged_in_user(
     request: Request,
     rotkehlchen: Annotated['Rotkehlchen', Depends(get_rotkehlchen)],
+    session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> str:
     """Dependency to ensure user is logged in"""
+    # Check for API key authentication first
+    api_key = request.headers.get('X-API-Key')
+    if api_key:
+        # Create an AuthService instance to validate the API key
+        from rotki2.api.v2.repositories.user import UserRepository
+        from rotki2.api.v2.services.auth import AuthService
+        
+        # Create a temporary auth service for API key validation
+        user_repo = UserRepository(session)
+        auth_service = AuthService(
+            db_service=None,  # Not needed for API key auth
+            session=session,
+        )
+        
+        try:
+            username = await auth_service.authenticate_api_key(api_key)
+            if username:
+                return username
+        except Exception:
+            # Fall through to check session authentication
+            pass
+    
+    # Check session authentication
     if not rotkehlchen.user_is_logged_in:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='No user is logged in',
         )
-
-    # Check for API key authentication
-    api_key = request.headers.get('X-API-Key')
-    if api_key:
-        # TODO: Implement API key authentication
-        # This would involve checking the API key against the database
-        pass
 
     # Return the current username
     return rotkehlchen.data.username
