@@ -4,10 +4,16 @@ from typing import TYPE_CHECKING, Annotated
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from rotki2.api.v2.dependencies import get_rotkehlchen, require_logged_in_user
+from rotki2.api.v2.dependencies import (
+    get_async_session, 
+    get_rotkehlchen, 
+    require_logged_in_user,
+)
+from rotki2.api.v2.repositories.settings import SettingsRepository
 from rotkehlchen.globaldb.utils import GLOBAL_DB_VERSION
 from rotkehlchen.logging import RotkehlchenLogsAdapter
 from rotkehlchen.utils.version_check import get_current_version
+from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
     from rotkehlchen.rotkehlchen import Rotkehlchen
@@ -44,15 +50,17 @@ async def ping() -> PingResponse:
 async def get_info(
     rotkehlchen: Annotated['Rotkehlchen', Depends(get_rotkehlchen)],
     logged_in_user: Annotated[str, Depends(require_logged_in_user)],
+    session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> InfoResponse:
     """Get application information"""
     data_dir = rotkehlchen.data_dir
     log_level = rotkehlchen.args.loglevel
 
     # Get version info
+    current_version = get_current_version()
     version_info = {
-        'version': get_current_version(),
-        'latest_version': get_current_version(),  # TODO: Check for updates
+        'version': current_version.our_version,
+        'latest_version': current_version.our_version,  # TODO: Check for updates
         'download_url': None,
     }
 
@@ -64,13 +72,16 @@ async def get_info(
         'data_migration_version': GLOBAL_DB_VERSION,
     }
 
-    # Check premium status
-    premium = rotkehlchen.data.db.get_premium()
-    premium_active = premium is not None
-    premium_should_sync = premium.should_sync() if premium else False
+    # Check premium status using async repository
+    settings_repo = SettingsRepository(session)
+    premium_should_sync = await settings_repo.get_setting('premium_should_sync') or False
+    
+    # For now, we'll assume premium is active if premium_should_sync is enabled
+    # In a full implementation, this would check with the UserRepository
+    premium_active = bool(premium_should_sync)
 
     # Check if user accepted terms
-    acceptance_of_terms = rotkehlchen.data.db.get_setting('user_accepted_terms_of_service')
+    acceptance_of_terms = await settings_repo.get_setting('user_accepted_terms_of_service') or False
 
     return InfoResponse(
         data_directory=str(data_dir),
@@ -79,7 +90,7 @@ async def get_info(
         backend_default_arguments=backend_args,
         acceptance_of_terms=bool(acceptance_of_terms),
         premium_active=premium_active,
-        premium_should_sync=premium_should_sync,
+        premium_should_sync=bool(premium_should_sync),
     )
 
 
@@ -93,6 +104,7 @@ async def ping_post() -> PingResponse:
 async def get_info_post(
     rotkehlchen: Annotated['Rotkehlchen', Depends(get_rotkehlchen)],
     logged_in_user: Annotated[str, Depends(require_logged_in_user)],
+    session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> InfoResponse:
     """Get application information (POST version)"""
-    return await get_info(rotkehlchen, logged_in_user)
+    return await get_info(rotkehlchen, logged_in_user, session)

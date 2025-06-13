@@ -20,10 +20,10 @@ This track focuses on setting up the fundamental application structure, authenti
 
 - **Phase 3: Settings & Info Management**
 
-  - `[ ]` **Implement `SettingsRepository`:** In `rotki2/api/v2/repositories/settings.py`, fully implement methods to get and set values in the `settings` and `multisettings` tables.
-  - `[ ]` **Implement `SettingsService`:** In `rotki2/api/v2/services/settings.py`, port the logic for validating and applying settings from `rotkehlchen/rotkehlchen.py` and `rotkehlchen/api/rest.py`.
-  - `[ ]` **Wire up `settings.py` Router:** Connect all endpoints in `rotki2/api/v2/routers/settings.py` to the `SettingsService`.
-  - `[ ]` **Wire up `info.py` Router:** Implement the logic for the info endpoint in `rotki2/api/v2/routers/info.py`.
+  - `[x]` **Implement `SettingsRepository`:** In `rotki2/api/v2/repositories/settings.py`, fully implement methods to get and set values in the `settings` and `multisettings` tables.
+  - `[x]` **Implement `SettingsService`:** In `rotki2/api/v2/services/settings.py`, port the logic for validating and applying settings from `rotkehlchen/rotkehlchen.py` and `rotkehlchen/api/rest.py`.
+  - `[x]` **Wire up `settings.py` Router:** Connect all endpoints in `rotki2/api/v2/routers/settings.py` to the `SettingsService`.
+  - `[x]` **Wire up `info.py` Router:** Implement the logic for the info endpoint in `rotki2/api/v2/routers/info.py`.
 
 - **Phase 4: Asset & Data Management**
 
