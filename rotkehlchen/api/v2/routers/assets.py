@@ -1001,3 +1001,99 @@ async def delete_counterparty_mappings(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
+
+
+# Spam token and whitelist endpoints
+@router.post('/ignored/whitelist')
+async def add_to_spam_whitelist(
+    token: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Add a spam token to the false positive list - Compatible with v1 POST /api/1/assets/ignored/whitelist"""
+    try:
+        assets_service.add_to_spam_whitelist(token)
+        
+        return AssetResponse(
+            result={'success': True},
+            message=f'Token {token} added to whitelist',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.delete('/ignored/whitelist')
+async def remove_from_spam_whitelist(
+    token: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Remove a token from the false positive list - Compatible with v1 DELETE /api/1/assets/ignored/whitelist"""
+    try:
+        assets_service.remove_from_spam_whitelist(token)
+        
+        return AssetResponse(
+            result={'success': True},
+            message=f'Token {token} removed from whitelist',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+
+
+@router.get('/ignored/whitelist')
+async def get_spam_whitelist(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Get the list of false positive spam tokens - Compatible with v1 GET /api/1/assets/ignored/whitelist"""
+    whitelist = assets_service.get_spam_whitelist()
+    
+    return AssetResponse(result={'tokens': whitelist})
+
+
+@router.post('/evm/spam')
+async def mark_tokens_as_spam(
+    tokens: list[str],
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Mark EVM tokens as spam - Compatible with v1 POST /api/1/assets/evm/spam/"""
+    try:
+        marked_count = assets_service.mark_tokens_as_spam(tokens)
+        
+        return AssetResponse(
+            result={'marked': marked_count},
+            message=f'Marked {marked_count} tokens as spam',
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.delete('/evm/spam')
+async def unmark_token_as_spam(
+    token: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Unmark an EVM token as spam - Compatible with v1 DELETE /api/1/assets/evm/spam/"""
+    try:
+        assets_service.unmark_token_as_spam(token)
+        
+        return AssetResponse(
+            result={'success': True},
+            message=f'Token {token} unmarked as spam',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e

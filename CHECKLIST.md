@@ -192,13 +192,13 @@
 - [x] `GET /api/1/assets/ignored` (Get all ignored assets) ✅ Migrated to `GET /api/v2/assets/ignored`
 - [x] `PUT /api/1/assets/ignored` (Add assets to ignored list) ✅ Migrated to `POST /api/v2/assets/ignored` with action='add'
 - [x] `DELETE /api/1/assets/ignored` (Remove assets from ignored list) ✅ Migrated to `POST /api/v2/assets/ignored` with action='remove'
-- [ ] `POST /api/1/assets/ignored/whitelist` (Add a spam token to the false positive list)
-- [ ] `DELETE /api/1/assets/ignored/whitelist` (Remove a token from the false positive list)
-- [ ] `GET /api/1/assets/ignored/whitelist` (Get the list of false positive spam tokens)
-- [ ] `POST /api/1/assets/evm/spam/` (Mark EVM tokens as spam)
-- [ ] `DELETE /api/1/assets/evm/spam/` (Unmark an EVM token as spam)
-- [ ] `PUT /api/1/actions/ignored` (Add action IDs to ignored list)
-- [ ] `DELETE /api/1/actions/ignored` (Remove action IDs from ignored list)
+- [x] `POST /api/1/assets/ignored/whitelist` (Add a spam token to the false positive list) ✅ Migrated to `POST /api/v2/assets/ignored/whitelist`
+- [x] `DELETE /api/1/assets/ignored/whitelist` (Remove a token from the false positive list) ✅ Migrated to `DELETE /api/v2/assets/ignored/whitelist`
+- [x] `GET /api/1/assets/ignored/whitelist` (Get the list of false positive spam tokens) ✅ Migrated to `GET /api/v2/assets/ignored/whitelist`
+- [x] `POST /api/1/assets/evm/spam/` (Mark EVM tokens as spam) ✅ Migrated to `POST /api/v2/assets/evm/spam`
+- [x] `DELETE /api/1/assets/evm/spam/` (Unmark an EVM token as spam) ✅ Migrated to `DELETE /api/v2/assets/evm/spam`
+- [x] `PUT /api/1/actions/ignored` (Add action IDs to ignored list) ✅ Migrated to `PUT /api/v2/actions/ignored`
+- [x] `DELETE /api/1/actions/ignored` (Remove action IDs from ignored list) ✅ Migrated to `DELETE /api/v2/actions/ignored`
 
 #### **DeFi Modules**
 

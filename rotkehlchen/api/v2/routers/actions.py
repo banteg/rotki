@@ -62,6 +62,57 @@ async def add_ignored_actions(
         ) from e
 
 
+# v1 compatibility endpoints
+@router.put('/ignored')
+async def add_ignored_actions_v1(
+    action_type: str,
+    action_ids: list[str],
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[ActionsService, Depends(get_actions_service)],
+) -> ActionsResponse:
+    """Add action IDs to ignored list - Compatible with v1 PUT /api/1/actions/ignored"""
+    try:
+        added = service.add_ignored_actions(
+            action_type=action_type,
+            action_ids=action_ids,
+        )
+        
+        return ActionsResponse(
+            result={'ignored_actions': added},
+            message=f'Added {len(action_ids)} actions to ignore list',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.delete('/ignored')
+async def remove_ignored_actions_v1(
+    action_type: str,
+    action_ids: list[str],
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[ActionsService, Depends(get_actions_service)],
+) -> ActionsResponse:
+    """Remove action IDs from ignored list - Compatible with v1 DELETE /api/1/actions/ignored"""
+    try:
+        removed = service.remove_ignored_actions(
+            action_type=action_type,
+            action_ids=action_ids,
+        )
+        
+        return ActionsResponse(
+            result={'removed': removed},
+            message=f'Removed {removed} actions from ignore list',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
 @router.delete('/ignored')
 async def remove_ignored_actions(
     request_data: IgnoredActionsRequest,
@@ -73,6 +124,57 @@ async def remove_ignored_actions(
         removed = service.remove_ignored_actions(
             action_type=request_data.action_type,
             action_ids=request_data.action_ids,
+        )
+        
+        return ActionsResponse(
+            result={'removed': removed},
+            message=f'Removed {removed} actions from ignore list',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+# v1 compatibility endpoints
+@router.put('/ignored')
+async def add_ignored_actions_v1(
+    action_type: str,
+    action_ids: list[str],
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[ActionsService, Depends(get_actions_service)],
+) -> ActionsResponse:
+    """Add action IDs to ignored list - Compatible with v1 PUT /api/1/actions/ignored"""
+    try:
+        added = service.add_ignored_actions(
+            action_type=action_type,
+            action_ids=action_ids,
+        )
+        
+        return ActionsResponse(
+            result={'ignored_actions': added},
+            message=f'Added {len(action_ids)} actions to ignore list',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.delete('/ignored')
+async def remove_ignored_actions_v1(
+    action_type: str,
+    action_ids: list[str],
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[ActionsService, Depends(get_actions_service)],
+) -> ActionsResponse:
+    """Remove action IDs from ignored list - Compatible with v1 DELETE /api/1/actions/ignored"""
+    try:
+        removed = service.remove_ignored_actions(
+            action_type=action_type,
+            action_ids=action_ids,
         )
         
         return ActionsResponse(
