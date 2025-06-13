@@ -173,16 +173,16 @@
 - [x] `GET /api/1/reports/<int:report_id>` (Get a specific PnL report) ✅ Migrated to `GET /api/v2/reports/{report_id}`
 - [x] `DELETE /api/1/reports/<int:report_id>` (Delete a PnL report) ✅ Migrated to `DELETE /api/v2/reports/{report_id}`
 - [x] `POST /api/1/reports/<int:report_id>/data` (Get data for a specific PnL report) ✅ Migrated to `GET /api/v2/reports/{report_id}/data`
-- [ ] `POST /api/1/accounting/rules` (Query accounting rules)
-- [ ] `PUT /api/1/accounting/rules` (Add an accounting rule)
-- [ ] `PATCH /api/1/accounting/rules` (Edit an accounting rule)
-- [ ] `DELETE /api/1/accounting/rules` (Delete an accounting rule)
-- [ ] `GET /api/1/accounting/rules/info` (Get info on linkable accounting rule properties)
-- [ ] `POST /api/1/accounting/rules/import` (Import accounting rules via file upload)
-- [ ] `PUT /api/1/accounting/rules/import` (Import accounting rules via file path)
-- [ ] `POST /api/1/accounting/rules/export` (Export accounting rules)
-- [ ] `POST /api/1/accounting/rules/conflicts` (List accounting rule conflicts)
-- [ ] `PATCH /api/1/accounting/rules/conflicts` (Solve accounting rule conflicts)
+- [x] `POST /api/1/accounting/rules` (Query accounting rules) ✅ Migrated to `POST /api/v2/accounting/rules`
+- [x] `PUT /api/1/accounting/rules` (Add an accounting rule) ✅ Migrated to `PUT /api/v2/accounting/rules`
+- [x] `PATCH /api/1/accounting/rules` (Edit an accounting rule) ✅ Migrated to `PATCH /api/v2/accounting/rules`
+- [x] `DELETE /api/1/accounting/rules` (Delete an accounting rule) ✅ Migrated to `DELETE /api/v2/accounting/rules`
+- [x] `GET /api/1/accounting/rules/info` (Get info on linkable accounting rule properties) ✅ Migrated to `GET /api/v2/accounting/rules/info`
+- [x] `POST /api/1/accounting/rules/import` (Import accounting rules via file upload) ✅ Migrated to `POST /api/v2/accounting/rules/import`
+- [x] `PUT /api/1/accounting/rules/import` (Import accounting rules via file path) ✅ Migrated to `PUT /api/v2/accounting/rules/import`
+- [x] `POST /api/1/accounting/rules/export` (Export accounting rules) ✅ Migrated to `POST /api/v2/accounting/rules/export`
+- [x] `POST /api/1/accounting/rules/conflicts` (List accounting rule conflicts) ✅ Migrated to `POST /api/v2/accounting/rules/conflicts`
+- [x] `PATCH /api/1/accounting/rules/conflicts` (Solve accounting rule conflicts) ✅ Migrated to `PATCH /api/v2/accounting/rules/conflicts`
 - [ ] `POST /api/1/balances/historical` (Get historical balance for all assets at a timestamp)
 - [ ] `POST /api/1/balances/historical/asset` (Get historical amounts for a single asset)
 - [ ] `POST /api/1/balances/historical/netvalue` (Get historical net value)
