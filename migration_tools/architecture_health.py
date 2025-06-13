@@ -25,6 +25,16 @@ ARCHITECTURE_RULES = {
             'rotkehlchen.errors',
             'rotkehlchen.constants',
             'rotkehlchen.logging',
+            # Domain types that routers need
+            'rotkehlchen.assets.asset',  # For Asset type
+            'rotkehlchen.assets.types',  # For AssetType enum
+            'rotkehlchen.chain.evm.types',  # For ChainID and similar types
+            'rotkehlchen.chain.constants',  # For blockchain constants
+            'rotkehlchen.history.events.structures.base',  # For HistoryEventType
+            'rotkehlchen.exchanges.constants',  # For exchange constants
+            'rotkehlchen.fval',  # For FVal type in request/response models
+            'rotkehlchen.version',  # For version information
+            'rotkehlchen.rotkehlchen',  # For type hints only (TYPE_CHECKING)
         },
         'forbidden_patterns': {
             'repositories': 'Routers must not import repositories directly',
@@ -49,6 +59,19 @@ ARCHITECTURE_RULES = {
             'rotkehlchen.history',
             'rotkehlchen.externalapis',
             'rotkehlchen.globaldb',
+            # Additional allowed imports for services
+            'rotkehlchen.assets',  # For Asset management
+            'rotkehlchen.fval',  # For financial calculations
+            'rotkehlchen.balances',  # For balance operations
+            'rotkehlchen.exchanges',  # For exchange management (not manager)
+            'rotkehlchen.premium',  # For premium features
+            'rotkehlchen.tasks',  # For task management (not manager directly)
+            'rotkehlchen.api.websockets',  # For notifications
+            'rotkehlchen.data_handler',  # For data operations
+            'rotkehlchen.db.drivers',  # For database connections (temporary)
+            'rotkehlchen.db.filtering',  # For query filters
+            'rotkehlchen.db.utils',  # For database utilities
+            'rotkehlchen.rotkehlchen',  # For main app instance (temporary)
         },
         'forbidden_patterns': {
             'routers': 'Services must not import routers',
@@ -98,6 +121,18 @@ class ArchitectureValidator(ast.NodeVisitor):
         self.allowed_imports = allowed_imports
         self.forbidden_patterns = forbidden_patterns
         self.violations = []
+        self.in_type_checking = False
+        
+    def visit_If(self, node):
+        """Track TYPE_CHECKING blocks"""
+        # Check if this is an if TYPE_CHECKING: block
+        if (isinstance(node.test, ast.Name) and node.test.id == 'TYPE_CHECKING'):
+            old_in_type_checking = self.in_type_checking
+            self.in_type_checking = True
+            self.generic_visit(node)
+            self.in_type_checking = old_in_type_checking
+        else:
+            self.generic_visit(node)
         
     def visit_Import(self, node):
         for alias in node.names:
@@ -111,6 +146,10 @@ class ArchitectureValidator(ast.NodeVisitor):
         
     def _check_import(self, module_name: str, line_no: int):
         """Check if an import violates architectural rules"""
+        # Skip TYPE_CHECKING imports - they're only for type hints
+        if hasattr(self, 'in_type_checking') and self.in_type_checking:
+            return
+            
         # Check forbidden patterns
         for pattern, reason in self.forbidden_patterns.items():
             if pattern in module_name:

@@ -12,27 +12,42 @@ from sqlmodel import Session
 from rotkehlchen.api.v2.config import Settings
 from rotkehlchen.api.v2.routers import (
     accounting,
+    actions,
+    airdrops,
     assets,
     auth,
     balances,
     blockchain,
+    cache,
+    calendar,
     data,
     defi,
     eth2,
     exchanges,
+    exchange_rates,
+    external_services,
     history,
+    import_export,
     info,
     locations,
     messages,
     names,
     nfts,
     notes,
+    oracles,
+    periodic,
+    premium,
+    protocols,
+    queried_addresses,
     reports,
     settings as settings_router,
+    snapshots,
+    staking,
     statistics,
     tags,
     tasks,
     users,
+    wallet,
     watchers,
 )
 from rotkehlchen.api.v2.websocket import websocket_endpoint
@@ -129,6 +144,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(locations.router, prefix='/api/v2/locations', tags=['locations'])
     app.include_router(messages.router, prefix='/api/v2/messages', tags=['messages'])
     app.include_router(tasks.router, prefix='/api/v2/tasks', tags=['tasks'])
+    app.include_router(external_services.router, prefix='/api/v2/external_services', tags=['external_services'])
+    app.include_router(periodic.router, prefix='/api/v2/periodic', tags=['periodic'])
+    app.include_router(premium.router, prefix='/api/v2/premium', tags=['premium'])
+    app.include_router(cache.router, prefix='/api/v2/cache', tags=['cache'])
+    app.include_router(snapshots.router, prefix='/api/v2/snapshots', tags=['snapshots'])
+    app.include_router(queried_addresses.router, prefix='/api/v2/queried_addresses', tags=['queried_addresses'])
+    app.include_router(oracles.router, prefix='/api/v2/oracles', tags=['oracles'])
+    app.include_router(actions.router, prefix='/api/v2/actions', tags=['actions'])
+    app.include_router(calendar.router, prefix='/api/v2/calendar', tags=['calendar'])
+    app.include_router(exchange_rates.router, prefix='/api/v2/exchange_rates', tags=['exchange_rates'])
+    app.include_router(airdrops.router, prefix='/api/v2/airdrops', tags=['airdrops'])
+    app.include_router(import_export.router, prefix='/api/v2/import', tags=['import_export'])
+    app.include_router(staking.router, prefix='/api/v2/staking', tags=['staking'])
+    app.include_router(wallet.router, prefix='/api/v2/wallet', tags=['wallet'])
+    app.include_router(protocols.router, prefix='/api/v2/protocols', tags=['protocols'])
 
     # WebSocket endpoint
     @app.websocket('/api/v2/ws')

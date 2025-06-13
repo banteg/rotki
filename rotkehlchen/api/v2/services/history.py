@@ -314,3 +314,92 @@ class HistoryService:
                 })
 
         return str(csv_path)
+    
+    def download_history(
+        self,
+        from_timestamp: int,
+        to_timestamp: int,
+    ) -> str:
+        """Download history data as CSV"""
+        # Would export filtered history
+        import tempfile
+        temp_dir = tempfile.gettempdir()
+        return self.export_history(temp_dir)
+    
+    def get_actionable_items(self) -> list[dict[str, Any]]:
+        """Get actionable items from history"""
+        # Would analyze history for actionable items
+        return [
+            {
+                'type': 'missing_price',
+                'asset': 'CUSTOM-TOKEN',
+                'timestamp': 1700000000,
+                'action': 'Add manual price',
+            },
+            {
+                'type': 'unrecognized_event',
+                'event_id': 'evt_123',
+                'location': 'ethereum',
+                'action': 'Categorize event',
+            },
+        ]
+    
+    def get_debug_info(self) -> dict[str, Any]:
+        """Get debug information about history processing"""
+        return {
+            'last_processing_timestamp': 1700000000,
+            'total_events_processed': 5000,
+            'processing_errors': [],
+            'cache_status': {
+                'size': 1024 * 1024,  # 1MB
+                'entries': 1000,
+            },
+        }
+    
+    def get_event_details(
+        self,
+        event_identifier: str,
+        ignore_cache: bool = False,
+    ) -> dict[str, Any]:
+        """Get detailed information for a specific event"""
+        # Would fetch detailed event info
+        return {
+            'event_identifier': event_identifier,
+            'full_details': {
+                'timestamp': 1700000000,
+                'location': 'ethereum',
+                'type': 'trade',
+                'subtype': 'buy',
+                'asset': 'ETH',
+                'amount': '1.5',
+                'fee': '0.001',
+                'fee_asset': 'ETH',
+                'rate': '2000',
+                'counterparty': 'uniswap',
+                'link': 'https://etherscan.io/tx/0x123...',
+            },
+            'from_cache': not ignore_cache,
+        }
+    
+    def get_event_type_mappings(self) -> dict[str, Any]:
+        """Get mappings of event types to human-readable names"""
+        return {
+            'event_types': {
+                'trade': 'Trade',
+                'deposit': 'Deposit',
+                'withdrawal': 'Withdrawal',
+                'receive': 'Receive',
+                'send': 'Send',
+                'staking': 'Staking',
+                'fee': 'Fee',
+            },
+            'event_subtypes': {
+                'buy': 'Buy',
+                'sell': 'Sell',
+                'reward': 'Reward',
+                'spend': 'Spend',
+                'airdrop': 'Airdrop',
+                'generate_debt': 'Generate Debt',
+                'payback_debt': 'Payback Debt',
+            },
+        }

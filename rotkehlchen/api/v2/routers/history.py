@@ -205,3 +205,229 @@ async def export_history(
         result={'file_path': file_path},
         message='History exported successfully',
     )
+
+
+@router.get('/export')
+async def get_export_history(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    directory_path: str = Query(...),
+) -> HistoryResponse:
+    """Export history data to CSV (GET version)"""
+    return await export_history(_, history_service, directory_path)
+
+
+@router.post('/status')
+async def post_history_status(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Get history processing status (POST version)"""
+    return await get_history_status(_, history_service)
+
+
+@router.get('/')
+async def get_history(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    from_timestamp: int = Query(0, ge=0),
+    to_timestamp: int = Query(2147483647, ge=0),
+    ascending: bool = Query(False),
+    group_by_event_ids: bool = Query(False),
+) -> HistoryResponse:
+    """Query history data"""
+    results = history_service.query_history(
+        from_timestamp=from_timestamp,
+        to_timestamp=to_timestamp,
+        ascending=ascending,
+        group_by_event_ids=group_by_event_ids,
+    )
+    
+    return HistoryResponse(result=results)
+
+
+@router.post('/')
+async def post_history(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    from_timestamp: int = 0,
+    to_timestamp: int = 2147483647,
+    ascending: bool = False,
+    group_by_event_ids: bool = False,
+) -> HistoryResponse:
+    """Query history data (POST version)"""
+    return await get_history(
+        _,
+        history_service,
+        from_timestamp,
+        to_timestamp,
+        ascending,
+        group_by_event_ids,
+    )
+
+
+@router.get('/events/counterparties')
+async def get_event_counterparties(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Get all unique counterparties from history events"""
+    counterparties = history_service.get_unique_counterparties()
+    
+    return HistoryResponse(result={'counterparties': counterparties})
+
+
+@router.post('/events/counterparties')
+async def post_event_counterparties(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Get all unique counterparties (POST version)"""
+    return await get_event_counterparties(_, history_service)
+
+
+@router.get('/events/products')
+async def get_event_products(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Get all unique products from history events"""
+    products = history_service.get_unique_products()
+    
+    return HistoryResponse(result={'products': products})
+
+
+@router.post('/events/products')
+async def post_event_products(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Get all unique products (POST version)"""
+    return await get_event_products(_, history_service)
+
+
+@router.get('/download')
+async def download_history(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    from_timestamp: int = Query(0, ge=0),
+    to_timestamp: int = Query(2147483647, ge=0),
+) -> HistoryResponse:
+    """Download history data as CSV"""
+    file_path = history_service.download_history(
+        from_timestamp=from_timestamp,
+        to_timestamp=to_timestamp,
+    )
+    
+    return HistoryResponse(
+        result={'file_path': file_path},
+        message='History data exported',
+    )
+
+
+@router.post('/download')
+async def post_download_history(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    from_timestamp: int = 0,
+    to_timestamp: int = 2147483647,
+) -> HistoryResponse:
+    """Download history data as CSV (POST version)"""
+    return await download_history(_, history_service, from_timestamp, to_timestamp)
+
+
+@router.get('/actionable_items')
+async def get_actionable_items(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Get actionable items from history"""
+    items = history_service.get_actionable_items()
+    
+    return HistoryResponse(result={'items': items})
+
+
+@router.post('/actionable_items')
+async def post_actionable_items(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Get actionable items from history (POST version)"""
+    return await get_actionable_items(_, history_service)
+
+
+@router.get('/debug')
+async def get_history_debug_info(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Get debug information about history processing"""
+    debug_info = history_service.get_debug_info()
+    
+    return HistoryResponse(result=debug_info)
+
+
+@router.post('/debug')
+async def post_history_debug_info(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Get debug information about history processing (POST version)"""
+    return await get_history_debug_info(_, history_service)
+
+
+class EventDetailsRequest(BaseModel):
+    """Request model for event details"""
+    event_identifiers: list[str]
+    ignore_cache: bool = False
+
+
+@router.get('/events/details')
+async def get_event_details(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    event_identifier: str,
+) -> HistoryResponse:
+    """Get detailed information for specific events"""
+    details = history_service.get_event_details(event_identifier)
+    
+    return HistoryResponse(result=details)
+
+
+@router.post('/events/details')
+async def post_event_details(
+    request_data: EventDetailsRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Get detailed information for multiple events"""
+    all_details = {}
+    
+    for event_id in request_data.event_identifiers:
+        details = history_service.get_event_details(
+            event_id,
+            ignore_cache=request_data.ignore_cache,
+        )
+        all_details[event_id] = details
+    
+    return HistoryResponse(result={'events': all_details})
+
+
+@router.get('/events/type_mappings')
+async def get_event_type_mappings(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Get mappings of event types to human-readable names"""
+    mappings = history_service.get_event_type_mappings()
+    
+    return HistoryResponse(result=mappings)
+
+
+@router.post('/events/type_mappings')
+async def post_event_type_mappings(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    history_service: Annotated[HistoryService, Depends(get_history_service)],
+) -> HistoryResponse:
+    """Get mappings of event types to human-readable names (POST version)"""
+    return await get_event_type_mappings(_, history_service)

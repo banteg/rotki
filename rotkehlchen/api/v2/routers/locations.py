@@ -1,13 +1,12 @@
 """Locations router for managing locations"""
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlmodel import Session
 
 from rotkehlchen.api.v2.dependencies import get_db_session, require_logged_in_user
-from rotkehlchen.constants.location import SUPPORTED_LOCATIONS
-from rotkehlchen.types import Location
-from sqlmodel import Session
+from rotkehlchen.api.v2.services.locations import LocationsService
 
 if TYPE_CHECKING:
     pass
@@ -21,13 +20,18 @@ class LocationsResponse(BaseModel):
     message: str = ''
 
 
+def get_locations_service(session: Session | None = None) -> LocationsService:
+    """Get locations service instance"""
+    return LocationsService(session)
+
+
 @router.get('/all', response_model=LocationsResponse)
 async def get_all_locations(
     _: Annotated[str, Depends(require_logged_in_user)],
 ) -> LocationsResponse:
     """Get all supported locations"""
-    # Get all location values
-    locations = [loc.value for loc in Location]
+    service = get_locations_service()
+    locations = service.get_all_locations()
     
     return LocationsResponse(result=locations)
 
@@ -46,27 +50,8 @@ async def get_associated_locations(
     session: Annotated[Session, Depends(get_db_session)],
 ) -> LocationsResponse:
     """Get locations with associated data"""
-    # This would typically check which locations have data
-    # For now, return a structure showing which locations have accounts
-    
-    from sqlmodel import select
-    from rotkehlchen.db.models.blockchain_account import BlockchainAccount
-    from rotkehlchen.db.models.user.accounts import UserCredentials
-    
-    # Get blockchains with accounts
-    blockchain_query = select(BlockchainAccount.blockchain).distinct()
-    blockchains = list(session.exec(blockchain_query).all())
-    
-    # Get exchanges with credentials
-    exchange_query = select(UserCredentials.location).distinct()
-    exchanges = list(session.exec(exchange_query).all())
-    
-    # Combine and categorize
-    associated = {
-        'blockchains': blockchains,
-        'exchanges': exchanges,
-        'other': [],  # Other locations like banks, etc.
-    }
+    service = get_locations_service(session)
+    associated = service.get_associated_locations()
     
     return LocationsResponse(result=associated)
 

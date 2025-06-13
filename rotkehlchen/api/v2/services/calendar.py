@@ -1,0 +1,118 @@
+"""Calendar service for managing events and reminders"""
+from typing import Any, TYPE_CHECKING
+from datetime import datetime
+import uuid
+
+from rotkehlchen.types import Timestamp
+
+if TYPE_CHECKING:
+    pass
+
+
+class CalendarService:
+    """Service for managing calendar events and reminders"""
+    
+    def __init__(self) -> None:
+        # In-memory storage for now
+        self._events: list[dict[str, Any]] = []
+        self._reminders: list[dict[str, Any]] = []
+    
+    def get_events(
+        self,
+        from_timestamp: Timestamp | None = None,
+        to_timestamp: Timestamp | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get calendar events within a time range"""
+        filtered_events = []
+        
+        for event in self._events:
+            event_timestamp = event['timestamp']
+            
+            if from_timestamp and event_timestamp < from_timestamp:
+                continue
+            if to_timestamp and event_timestamp > to_timestamp:
+                continue
+            
+            filtered_events.append(event)
+        
+        # Sort by timestamp
+        filtered_events.sort(key=lambda x: x['timestamp'])
+        
+        return filtered_events
+    
+    def create_event(
+        self,
+        title: str,
+        description: str | None = None,
+        timestamp: Timestamp = None,
+        event_type: str = 'general',
+        metadata: dict[str, Any] | None = None,
+    ) -> str:
+        """Create a new calendar event"""
+        valid_event_types = ['general', 'tax_deadline', 'exchange_closure', 'fork', 'airdrop']
+        
+        if event_type not in valid_event_types:
+            raise ValueError(f'Invalid event type. Must be one of: {", ".join(valid_event_types)}')
+        
+        event_id = str(uuid.uuid4())
+        
+        event = {
+            'id': event_id,
+            'title': title,
+            'description': description,
+            'timestamp': timestamp or Timestamp(int(datetime.now().timestamp())),
+            'event_type': event_type,
+            'metadata': metadata or {},
+            'created_at': Timestamp(int(datetime.now().timestamp())),
+        }
+        
+        self._events.append(event)
+        
+        return event_id
+    
+    def get_reminders(self) -> list[dict[str, Any]]:
+        """Get all active reminders"""
+        # Filter out past non-recurring reminders
+        current_time = Timestamp(int(datetime.now().timestamp()))
+        active_reminders = []
+        
+        for reminder in self._reminders:
+            if reminder['recurring'] or reminder['timestamp'] > current_time:
+                active_reminders.append(reminder)
+        
+        return active_reminders
+    
+    def create_reminder(
+        self,
+        title: str,
+        description: str | None = None,
+        timestamp: Timestamp = None,
+        reminder_type: str = 'general',
+        recurring: bool = False,
+        interval_days: int | None = None,
+    ) -> str:
+        """Create a new reminder"""
+        valid_reminder_types = ['general', 'tax_payment', 'report_filing', 'portfolio_review']
+        
+        if reminder_type not in valid_reminder_types:
+            raise ValueError(f'Invalid reminder type. Must be one of: {", ".join(valid_reminder_types)}')
+        
+        if recurring and not interval_days:
+            raise ValueError('Recurring reminders must specify interval_days')
+        
+        reminder_id = str(uuid.uuid4())
+        
+        reminder = {
+            'id': reminder_id,
+            'title': title,
+            'description': description,
+            'timestamp': timestamp or Timestamp(int(datetime.now().timestamp())),
+            'reminder_type': reminder_type,
+            'recurring': recurring,
+            'interval_days': interval_days,
+            'created_at': Timestamp(int(datetime.now().timestamp())),
+        }
+        
+        self._reminders.append(reminder)
+        
+        return reminder_id

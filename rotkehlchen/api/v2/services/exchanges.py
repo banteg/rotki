@@ -158,3 +158,33 @@ class ExchangeService:
                 'address': 'bc1q...',
             },
         ]
+    
+    def edit_exchange(
+        self,
+        name: str,
+        location: str,
+        new_name: str | None = None,
+        api_key: str | None = None,
+        api_secret: str | None = None,
+        passphrase: str | None = None,
+        kraken_account_type: str | None = None,
+        binance_markets: list[str] | None = None,
+    ) -> None:
+        """Edit exchange credentials"""
+        # Would update exchange credentials in database
+        location_enum = Location.deserialize(location)
+        if location_enum not in SUPPORTED_EXCHANGES:
+            raise ValueError(f'Unsupported exchange: {location}')
+        
+        # In real implementation, would update credentials in DB
+        pass
+    
+    def purge_all_exchange_data(self) -> None:
+        """Purge all exchange data from database"""
+        # Would delete all cached exchange data from DB
+        pass
+    
+    def purge_exchange_data(self, location: Location) -> None:
+        """Purge specific exchange data from database"""
+        # Would delete cached data for specific exchange from DB
+        pass

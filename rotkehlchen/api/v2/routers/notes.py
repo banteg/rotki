@@ -3,10 +3,10 @@ from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from rotkehlchen.api.v2.dependencies import get_db_session, require_logged_in_user
-from rotkehlchen.db.models.user_note import UserNote
+from rotkehlchen.api.v2.services.notes import NotesService
 from rotkehlchen.types import Timestamp
 
 if TYPE_CHECKING:
@@ -44,27 +44,21 @@ class NoteUpdateRequest(BaseModel):
     location: str | None = None
 
 
+def get_notes_service(session: Session) -> NotesService:
+    """Get notes service instance"""
+    return NotesService(session)
+
+
 @router.get('/', response_model=NotesResponse)
 async def get_notes(
     _: Annotated[str, Depends(require_logged_in_user)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> NotesResponse:
     """Get all user notes"""
-    query = select(UserNote).order_by(UserNote.last_update_timestamp.desc())
-    notes = session.exec(query).all()
+    service = get_notes_service(session)
+    notes = service.get_all_notes()
     
-    result = [
-        {
-            'identifier': note.identifier,
-            'title': note.title,
-            'content': note.content,
-            'location': note.location,
-            'last_update_timestamp': note.last_update_timestamp,
-        }
-        for note in notes
-    ]
-    
-    return NotesResponse(result=result)
+    return NotesResponse(result=notes)
 
 
 @router.post('/', response_model=NotesResponse)
@@ -74,29 +68,16 @@ async def create_note(
     session: Annotated[Session, Depends(get_db_session)],
 ) -> NotesResponse:
     """Create a new note"""
-    import time
+    service = get_notes_service(session)
     
-    note = UserNote(
+    note = service.create_note(
         title=note_data.title,
         content=note_data.content,
         location=note_data.location,
-        last_update_timestamp=Timestamp(int(time.time())),
     )
     
-    session.add(note)
-    session.commit()
-    session.refresh(note)
-    
-    result = {
-        'identifier': note.identifier,
-        'title': note.title,
-        'content': note.content,
-        'location': note.location,
-        'last_update_timestamp': note.last_update_timestamp,
-    }
-    
     return NotesResponse(
-        result=result,
+        result=note,
         message='Note created successfully',
     )
 
@@ -109,10 +90,14 @@ async def update_note(
     session: Annotated[Session, Depends(get_db_session)],
 ) -> NotesResponse:
     """Update an existing note"""
-    import time
+    service = get_notes_service(session)
     
-    query = select(UserNote).where(UserNote.identifier == note_id)
-    note = session.exec(query).first()
+    note = service.update_note(
+        note_id=note_id,
+        title=note_update.title,
+        content=note_update.content,
+        location=note_update.location,
+    )
     
     if not note:
         raise HTTPException(
@@ -120,30 +105,8 @@ async def update_note(
             detail=f'Note with id {note_id} not found',
         )
     
-    # Update fields if provided
-    if note_update.title is not None:
-        note.title = note_update.title
-    if note_update.content is not None:
-        note.content = note_update.content
-    if note_update.location is not None:
-        note.location = note_update.location
-    
-    note.last_update_timestamp = Timestamp(int(time.time()))
-    
-    session.add(note)
-    session.commit()
-    session.refresh(note)
-    
-    result = {
-        'identifier': note.identifier,
-        'title': note.title,
-        'content': note.content,
-        'location': note.location,
-        'last_update_timestamp': note.last_update_timestamp,
-    }
-    
     return NotesResponse(
-        result=result,
+        result=note,
         message='Note updated successfully',
     )
 
@@ -155,17 +118,15 @@ async def delete_note(
     session: Annotated[Session, Depends(get_db_session)],
 ) -> NotesResponse:
     """Delete a note"""
-    query = select(UserNote).where(UserNote.identifier == note_id)
-    note = session.exec(query).first()
+    service = get_notes_service(session)
     
-    if not note:
+    success = service.delete_note(note_id)
+    
+    if not success:
         raise HTTPException(
             status_code=404,
             detail=f'Note with id {note_id} not found',
         )
-    
-    session.delete(note)
-    session.commit()
     
     return NotesResponse(
         result={},

@@ -178,3 +178,258 @@ async def get_erc20_token_info(
             'symbol': token.symbol,
         },
     )
+
+
+@router.get('/')
+async def get_assets(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Get user assets"""
+    assets = assets_service.get_user_assets()
+    return AssetResponse(result={'assets': assets})
+
+
+@router.post('/')
+async def post_assets(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Get user assets (POST version)"""
+    return await get_assets(_, assets_service)
+
+
+@router.get('/ignored')
+async def get_ignored_assets(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Get ignored assets"""
+    ignored = assets_service.get_ignored_assets()
+    return AssetResponse(result={'assets': ignored})
+
+
+@router.post('/ignored')
+async def modify_ignored_assets(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    assets: list[str],
+    action: str = 'add',
+) -> AssetResponse:
+    """Add or remove ignored assets"""
+    if action == 'add':
+        assets_service.add_ignored_assets(assets)
+    elif action == 'remove':
+        assets_service.remove_ignored_assets(assets)
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Invalid action. Must be "add" or "remove"',
+        )
+    
+    return AssetResponse(
+        result={'success': True},
+        message=f'Successfully {action}ed {len(assets)} assets',
+    )
+
+
+@router.get('/ignored/whitelist')
+async def get_ignored_whitelist(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Get ignored assets whitelist"""
+    whitelist = assets_service.get_ignored_whitelist()
+    return AssetResponse(result={'assets': whitelist})
+
+
+@router.post('/ignored/whitelist')
+async def modify_ignored_whitelist(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    assets: list[str],
+    action: str = 'add',
+) -> AssetResponse:
+    """Add or remove assets from ignored whitelist"""
+    if action == 'add':
+        assets_service.add_to_ignored_whitelist(assets)
+    elif action == 'remove':
+        assets_service.remove_from_ignored_whitelist(assets)
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Invalid action. Must be "add" or "remove"',
+        )
+    
+    return AssetResponse(
+        result={'success': True},
+        message=f'Successfully {action}ed {len(assets)} assets to/from whitelist',
+    )
+
+
+@router.get('/types')
+async def get_asset_types(
+    _: Annotated[str, Depends(require_logged_in_user)],
+) -> AssetResponse:
+    """Get all available asset types"""
+    # Get all asset type values
+    asset_types = [asset_type.value for asset_type in AssetType]
+    return AssetResponse(result={'types': asset_types})
+
+
+@router.post('/types')
+async def post_asset_types(
+    _: Annotated[str, Depends(require_logged_in_user)],
+) -> AssetResponse:
+    """Get all available asset types (POST version)"""
+    return await get_asset_types(_)
+
+
+@router.get('/user')
+async def get_user_owned_assets(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Get assets owned by the user"""
+    owned_assets = assets_service.get_user_owned_assets()
+    return AssetResponse(result={'assets': owned_assets})
+
+
+@router.post('/user')
+async def post_user_owned_assets(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Get assets owned by the user (POST version)"""
+    return await get_user_owned_assets(_, assets_service)
+
+
+@router.get('/prices/latest/all')
+async def get_all_latest_prices(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Get latest prices for all known assets"""
+    prices = assets_service.get_all_latest_prices()
+    
+    return AssetResponse(result=prices)
+
+
+@router.post('/prices/latest/all')
+async def post_all_latest_prices(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Get latest prices for all known assets (POST version)"""
+    return await get_all_latest_prices(_, assets_service)
+
+
+class HistoricalPriceRequest(BaseModel):
+    """Request model for historical price queries"""
+    assets: list[str]
+    target_asset: str = 'USD'
+    from_timestamp: Timestamp
+    to_timestamp: Timestamp
+
+
+@router.get('/prices/historical')
+async def get_historical_prices(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    asset: str,
+    from_timestamp: Timestamp,
+    to_timestamp: Timestamp,
+    target_asset: str = 'USD',
+) -> AssetResponse:
+    """Get historical prices for an asset"""
+    prices = assets_service.get_historical_prices(
+        asset=asset,
+        from_timestamp=from_timestamp,
+        to_timestamp=to_timestamp,
+        target_asset=target_asset,
+    )
+    
+    return AssetResponse(result=prices)
+
+
+@router.post('/prices/historical')
+async def post_historical_prices(
+    request_data: HistoricalPriceRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Get historical prices for multiple assets"""
+    results = {}
+    
+    for asset in request_data.assets:
+        prices = assets_service.get_historical_prices(
+            asset=asset,
+            from_timestamp=request_data.from_timestamp,
+            to_timestamp=request_data.to_timestamp,
+            target_asset=request_data.target_asset,
+        )
+        results[asset] = prices
+    
+    return AssetResponse(result=results)
+
+
+class AssetMappingRequest(BaseModel):
+    """Request model for asset mappings"""
+    asset: str
+    target_asset: str
+    mapping_type: str = 'price'  # 'price', 'location', 'counterparty'
+
+
+@router.get('/mappings')
+async def get_asset_mappings(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Get all asset mappings"""
+    mappings = assets_service.get_asset_mappings()
+    
+    return AssetResponse(result=mappings)
+
+
+@router.post('/mappings')
+async def modify_asset_mappings(
+    mapping_data: AssetMappingRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Add or update asset mappings"""
+    assets_service.set_asset_mapping(
+        asset=mapping_data.asset,
+        target_asset=mapping_data.target_asset,
+        mapping_type=mapping_data.mapping_type,
+    )
+    
+    return AssetResponse(
+        result={'success': True},
+        message='Asset mapping updated',
+    )
+
+
+@router.get('/updates')
+async def check_asset_updates(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Check for asset database updates"""
+    updates = assets_service.check_for_updates()
+    
+    return AssetResponse(result=updates)
+
+
+@router.post('/updates')
+async def apply_asset_updates(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Apply asset database updates"""
+    result = assets_service.apply_updates()
+    
+    return AssetResponse(
+        result=result,
+        message='Asset updates applied',
+    )

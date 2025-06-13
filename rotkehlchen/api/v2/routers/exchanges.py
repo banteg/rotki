@@ -41,6 +41,18 @@ class ExchangeCredentialsRequest(BaseModel):
         return v
 
 
+class ExchangeEditRequest(BaseModel):
+    """Request model for editing exchange credentials"""
+    name: str
+    location: str
+    new_name: str | None = None
+    api_key: str | None = None
+    api_secret: str | None = None
+    passphrase: str | None = None
+    kraken_account_type: str | None = None
+    binance_markets: list[str] | None = None
+
+
 class ExchangeBalanceQuery(BaseModel):
     """Query parameters for exchange balances"""
     ignore_cache: bool = False
@@ -191,3 +203,70 @@ async def query_exchange_data(
         )
 
     return ExchangeResponse(result=data)
+
+
+@router.patch('/')
+async def edit_exchange(
+    edit_data: ExchangeEditRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
+) -> ExchangeResponse:
+    """Edit exchange credentials - Compatible with v1 PATCH /api/1/exchanges"""
+    try:
+        exchange_service.edit_exchange(
+            name=edit_data.name,
+            location=edit_data.location,
+            new_name=edit_data.new_name,
+            api_key=edit_data.api_key,
+            api_secret=edit_data.api_secret,
+            passphrase=edit_data.passphrase,
+            kraken_account_type=edit_data.kraken_account_type,
+            binance_markets=edit_data.binance_markets,
+        )
+        
+        return ExchangeResponse(
+            result={'success': True},
+            message='Exchange updated successfully',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.delete('/data')
+async def purge_all_exchange_data(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
+) -> ExchangeResponse:
+    """Purge all exchange data - Compatible with v1 DELETE /api/1/exchanges/data"""
+    exchange_service.purge_all_exchange_data()
+    
+    return ExchangeResponse(
+        result={'success': True},
+        message='All exchange data purged successfully',
+    )
+
+
+@router.delete('/data/{location}')
+async def purge_exchange_data(
+    location: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
+) -> ExchangeResponse:
+    """Purge data for specific exchange - Compatible with v1 DELETE /api/1/exchanges/data/<location>"""
+    try:
+        location_enum = Location(location)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'Invalid exchange location: {location}',
+        )
+    
+    exchange_service.purge_exchange_data(location_enum)
+    
+    return ExchangeResponse(
+        result={'success': True},
+        message=f'Exchange data purged for {location}',
+    )
