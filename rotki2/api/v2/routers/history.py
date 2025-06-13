@@ -5,11 +5,10 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from rotki2.api.v2.dependencies import (
-    get_database_service,
+    get_async_history_service,
     require_logged_in_user,
 )
-from rotki2.api.v2.services.database import DatabaseService
-from rotki2.api.v2.services.history import HistoryService
+from rotki2.api.v2.services.async_history import AsyncHistoryService
 from rotkehlchen.history.events.structures.base import HistoryEventType
 
 router = APIRouter()
@@ -50,17 +49,12 @@ class HistoryEventFilterRequest(BaseModel):
     offset: int = Field(0, ge=0)
 
 
-def get_history_service(
-    db_service: Annotated[DatabaseService, Depends(get_database_service)],
-) -> HistoryService:
-    """Get history service instance"""
-    return HistoryService(db_service.conn)
 
 
 @router.get('/events')
 async def get_history_events(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     from_timestamp: int = Query(0, ge=0),
     to_timestamp: int = Query(2147483647, ge=0),
     event_types: list[HistoryEventType] | None = Query(None),
@@ -70,20 +64,48 @@ async def get_history_events(
     offset: int = Query(0, ge=0),
 ) -> HistoryResponse:
     """Get history events with filtering"""
-    events = history_service.get_history_events(
-        from_timestamp=from_timestamp,
-        to_timestamp=to_timestamp,
-        event_types=event_types,
+    from rotki2.api.v2.repositories.history import HistoryEventFilter
+    
+    # Create filter for async service
+    filter_query = HistoryEventFilter(
+        from_ts=from_timestamp,
+        to_ts=to_timestamp,
+        event_types=[str(et) for et in event_types] if event_types else None,
         locations=locations,
         assets=assets,
-        limit=limit,
-        offset=offset,
     )
+    
+    events, total = await history_service.get_history_events(
+        filter_query=filter_query,
+        has_premium=True,
+    )
+    
+    # Serialize events
+    serialized_events = []
+    for event in events:
+        serialized_events.append({
+            'identifier': event.identifier,
+            'event_identifier': event.event_identifier,
+            'sequence_index': event.sequence_index,
+            'timestamp': event.timestamp,
+            'location': event.location.serialize(),
+            'event_type': event.event_type.serialize(),
+            'event_subtype': event.event_subtype,
+            'asset': event.asset.identifier,
+            'balance': {
+                'amount': str(event.balance.amount),
+                'usd_value': str(event.balance.usd_value) if event.balance.usd_value else '0',
+            },
+            'location_label': event.location_label,
+            'notes': event.notes,
+            'counterparty': event.counterparty.serialize() if event.counterparty else None,
+            'extra_data': event.extra_data or {},
+        })
 
     return HistoryResponse(
         result={
-            'events': events,
-            'total': len(events),
+            'events': serialized_events,
+            'total': total,
         },
     )
 
@@ -92,23 +114,35 @@ async def get_history_events(
 async def create_history_event(
     event_data: HistoryEventRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Create a new history event"""
-    event_id = history_service.create_history_event(
+    from rotkehlchen.accounting.structures.balance import Balance
+    from rotkehlchen.assets.asset import Asset
+    from rotkehlchen.fval import FVal
+    from rotkehlchen.history.events.structures.base import HistoryEvent
+    from rotkehlchen.types import Location
+    
+    # Create the event object
+    event = HistoryEvent(
         event_identifier=event_data.event_identifier,
         sequence_index=event_data.sequence_index,
         timestamp=event_data.timestamp,
-        location=event_data.location,
+        location=Location.deserialize(event_data.location),
         event_type=event_data.event_type,
         event_subtype=event_data.event_subtype,
-        asset=event_data.asset,
-        balance=event_data.balance,
+        asset=Asset(event_data.asset),
+        balance=Balance(
+            amount=FVal(event_data.balance.get('amount', '0')),
+            usd_value=FVal(event_data.balance.get('usd_value', '0')),
+        ),
         location_label=event_data.location_label,
         notes=event_data.notes,
         counterparty=event_data.counterparty,
         extra_data=event_data.extra_data,
     )
+    
+    event_id = await history_service.add_history_event(event)
 
     return HistoryResponse(
         result={'event_id': event_id},
@@ -121,7 +155,7 @@ async def update_history_event(
     event_id: int,
     event_data: HistoryEventRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Update an existing history event"""
     success = history_service.update_history_event(
@@ -145,7 +179,7 @@ async def update_history_event(
 async def delete_history_event(
     event_id: int,
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Delete a history event"""
     success = history_service.delete_history_event(event_id)
@@ -165,18 +199,24 @@ async def delete_history_event(
 @router.post('/process')
 async def process_history(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     from_timestamp: int = Query(0, ge=0),
     to_timestamp: int = Query(2147483647, ge=0),
 ) -> HistoryResponse:
     """Process history for accounting"""
-    task_id = history_service.process_history(
+    report_id, error_msg = await history_service.process_history(
         from_timestamp=from_timestamp,
         to_timestamp=to_timestamp,
     )
 
+    if error_msg:
+        return HistoryResponse(
+            result={'report_id': report_id},
+            message=f'History processing started with warnings: {error_msg}',
+        )
+
     return HistoryResponse(
-        result={'task_id': task_id},
+        result={'report_id': report_id},
         message='History processing started',
     )
 
@@ -184,7 +224,7 @@ async def process_history(
 @router.get('/status')
 async def get_history_status(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Get history processing status"""
     status = history_service.get_processing_status()
@@ -195,7 +235,7 @@ async def get_history_status(
 @router.post('/export')
 async def export_history(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     directory_path: str,
 ) -> HistoryResponse:
     """Export history data to CSV"""
@@ -210,7 +250,7 @@ async def export_history(
 @router.get('/export')
 async def get_export_history(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     directory_path: str = Query(...),
 ) -> HistoryResponse:
     """Export history data to CSV (GET version)"""
@@ -220,7 +260,7 @@ async def get_export_history(
 @router.post('/status')
 async def post_history_status(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Get history processing status (POST version)"""
     return await get_history_status(_, history_service)
@@ -229,7 +269,7 @@ async def post_history_status(
 @router.get('/')
 async def get_history(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     from_timestamp: int = Query(0, ge=0),
     to_timestamp: int = Query(2147483647, ge=0),
     ascending: bool = Query(False),
@@ -249,7 +289,7 @@ async def get_history(
 @router.post('/')
 async def post_history(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     from_timestamp: int = 0,
     to_timestamp: int = 2147483647,
     ascending: bool = False,
@@ -269,7 +309,7 @@ async def post_history(
 @router.get('/events/counterparties')
 async def get_event_counterparties(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Get all unique counterparties from history events"""
     counterparties = history_service.get_unique_counterparties()
@@ -280,7 +320,7 @@ async def get_event_counterparties(
 @router.post('/events/counterparties')
 async def post_event_counterparties(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Get all unique counterparties (POST version)"""
     return await get_event_counterparties(_, history_service)
@@ -289,7 +329,7 @@ async def post_event_counterparties(
 @router.get('/events/products')
 async def get_event_products(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Get all unique products from history events"""
     products = history_service.get_unique_products()
@@ -300,7 +340,7 @@ async def get_event_products(
 @router.post('/events/products')
 async def post_event_products(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Get all unique products (POST version)"""
     return await get_event_products(_, history_service)
@@ -309,7 +349,7 @@ async def post_event_products(
 @router.get('/download')
 async def download_history(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     from_timestamp: int = Query(0, ge=0),
     to_timestamp: int = Query(2147483647, ge=0),
 ) -> HistoryResponse:
@@ -328,7 +368,7 @@ async def download_history(
 @router.post('/download')
 async def post_download_history(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     from_timestamp: int = 0,
     to_timestamp: int = 2147483647,
 ) -> HistoryResponse:
@@ -339,7 +379,7 @@ async def post_download_history(
 @router.get('/actionable_items')
 async def get_actionable_items(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Get actionable items from history"""
     items = history_service.get_actionable_items()
@@ -350,7 +390,7 @@ async def get_actionable_items(
 @router.post('/actionable_items')
 async def post_actionable_items(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Get actionable items from history (POST version)"""
     return await get_actionable_items(_, history_service)
@@ -359,7 +399,7 @@ async def post_actionable_items(
 @router.get('/debug')
 async def get_history_debug_info(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Get debug information about history processing"""
     debug_info = history_service.get_debug_info()
@@ -370,7 +410,7 @@ async def get_history_debug_info(
 @router.post('/debug')
 async def post_history_debug_info(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Get debug information about history processing (POST version)"""
     return await get_history_debug_info(_, history_service)
@@ -385,7 +425,7 @@ class EventDetailsRequest(BaseModel):
 @router.get('/events/details')
 async def get_event_details(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     event_identifier: str,
 ) -> HistoryResponse:
     """Get detailed information for specific events"""
@@ -398,7 +438,7 @@ async def get_event_details(
 async def post_event_details(
     request_data: EventDetailsRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Get detailed information for multiple events"""
     all_details = {}
@@ -416,7 +456,7 @@ async def post_event_details(
 @router.get('/events/type_mappings')
 async def get_event_type_mappings(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Get mappings of event types to human-readable names"""
     mappings = history_service.get_event_type_mappings()
@@ -427,7 +467,7 @@ async def get_event_type_mappings(
 @router.post('/events/type_mappings')
 async def post_event_type_mappings(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Get mappings of event types to human-readable names (POST version)"""
     return await get_event_type_mappings(_, history_service)
@@ -437,7 +477,7 @@ async def post_event_type_mappings(
 @router.post('/debug')
 async def export_pnl_debug_data(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     directory_path: str,
 ) -> HistoryResponse:
     """Export PnL debug data - Compatible with v1 POST /api/1/history/debug"""
@@ -452,7 +492,7 @@ async def export_pnl_debug_data(
 @router.put('/debug')
 async def import_pnl_debug_data_path(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     filepath: str,
 ) -> HistoryResponse:
     """Import PnL debug data from file path - Compatible with v1 PUT /api/1/history/debug"""
@@ -467,7 +507,7 @@ async def import_pnl_debug_data_path(
 @router.patch('/debug')
 async def import_pnl_debug_data_upload(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     file: UploadFile = File(...),
 ) -> HistoryResponse:
     """Import PnL debug data from file upload - Compatible with v1 PATCH /api/1/history/debug"""
@@ -494,7 +534,7 @@ async def import_pnl_debug_data_upload(
 @router.post('/events/export')
 async def export_history_events_to_dir(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     directory_path: str,
 ) -> HistoryResponse:
     """Export history events to a file in a directory - Compatible with v1 POST /api/1/history/events/export"""
@@ -509,7 +549,7 @@ async def export_history_events_to_dir(
 @router.put('/events/export')
 async def download_history_events_csv(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Download history events as CSV - Compatible with v1 PUT /api/1/history/events/export"""
     csv_data = history_service.export_events_as_csv()
@@ -523,7 +563,7 @@ async def download_history_events_csv(
 @router.get('/events/export/download')
 async def download_exported_history_csv(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     filepath: str,
 ) -> HistoryResponse:
     """Download an exported history events CSV - Compatible with v1 GET /api/1/history/events/export/download"""
@@ -538,7 +578,7 @@ async def download_exported_history_csv(
 @router.get('/skipped_external_events')
 async def get_skipped_external_events(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Get summary of skipped events - Compatible with v1 GET /api/1/history/skipped_external_events"""
     skipped = history_service.get_skipped_external_events()
@@ -549,7 +589,7 @@ async def get_skipped_external_events(
 @router.put('/skipped_external_events')
 async def export_skipped_events_to_dir(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
     directory_path: str,
 ) -> HistoryResponse:
     """Export skipped events to a file - Compatible with v1 PUT /api/1/history/skipped_external_events"""
@@ -564,7 +604,7 @@ async def export_skipped_events_to_dir(
 @router.patch('/skipped_external_events')
 async def download_skipped_events_csv(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Download skipped events as CSV - Compatible with v1 PATCH /api/1/history/skipped_external_events"""
     csv_data = history_service.download_skipped_events_csv()
@@ -578,7 +618,7 @@ async def download_skipped_events_csv(
 @router.post('/skipped_external_events')
 async def reprocess_skipped_events(
     _: Annotated[str, Depends(require_logged_in_user)],
-    history_service: Annotated[HistoryService, Depends(get_history_service)],
+    history_service: Annotated[AsyncHistoryService, Depends(get_async_history_service)],
 ) -> HistoryResponse:
     """Reprocess skipped events - Compatible with v1 POST /api/1/history/skipped_external_events"""
     result = history_service.reprocess_skipped_events()

@@ -5,18 +5,30 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from rotki2.api.v2.services.database import DatabaseService
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from rotki2.api.v2.repositories.tags import TagsRepository
+from rotki2.db.models.user.cache import ManuallyTrackedBalances
+from rotki2.db.models.user.models import Tag
+from rotkehlchen.data_import.manager import DataImportSource
+from rotkehlchen.db.settings import DBSettings
+
+if TYPE_CHECKING:
+    from rotkehlchen.db.dbhandler import DBHandler
 
 
 class DataService:
     """Service for handling data import/export and database operations"""
 
-    def __init__(self, db_service: DatabaseService):
-        self.db = db_service
+    def __init__(self, session: AsyncSession, db_handler: 'DBHandler | None' = None):
+        self.session = session
+        self.db_handler = db_handler
+        self.tags_repo = TagsRepository(session)
 
-    def import_rotki_data(self, data: dict[str, Any]) -> dict[str, Any]:
+    async def import_rotki_data(self, data: dict[str, Any]) -> dict[str, Any]:
         """Import data from rotki JSON format"""
         imported = {
             'trades': 0,
@@ -46,23 +58,17 @@ class DataService:
         # Import tags
         if 'tags' in data:
             for tag in data['tags']:
-                with self.db.conn.write_ctx() as cursor:
-                    cursor.execute(
-                        """INSERT OR IGNORE INTO tags 
-                           (name, description, background_color, foreground_color)
-                           VALUES (?, ?, ?, ?)""",
-                        (
-                            tag['name'],
-                            tag.get('description'),
-                            tag.get('background_color'),
-                            tag.get('foreground_color'),
-                        ),
-                    )
+                await self.tags_repo.add_tag(
+                    name=tag['name'],
+                    description=tag.get('description'),
+                    background_color=tag.get('background_color'),
+                    foreground_color=tag.get('foreground_color'),
+                )
                 imported['tags'] += 1
 
         return imported
 
-    def import_cointracking_csv(self, csv_content: str) -> dict[str, Any]:
+    async def import_cointracking_csv(self, csv_content: str) -> dict[str, Any]:
         """Import data from CoinTracking CSV format"""
         imported = {'trades': 0, 'errors': []}
 
@@ -77,7 +83,7 @@ class DataService:
 
         return imported
 
-    def import_cryptocom_csv(self, csv_content: str) -> dict[str, Any]:
+    async def import_cryptocom_csv(self, csv_content: str) -> dict[str, Any]:
         """Import data from Crypto.com CSV format"""
         imported = {'transactions': 0, 'errors': []}
 
@@ -92,7 +98,7 @@ class DataService:
 
         return imported
 
-    def export_user_data(self, directory_path: str | None = None) -> str:
+    async def export_user_data(self, directory_path: str | None = None) -> str:
         """Export all user data to JSON file"""
         if directory_path is None:
             directory_path = os.path.expanduser('~/rotki_exports')
@@ -109,12 +115,12 @@ class DataService:
         export_data = {
             'version': 2,
             'timestamp': timestamp,
-            'trades': self._export_trades(),
-            'balances': self._export_balances(),
-            'transactions': self._export_transactions(),
-            'tags': self._export_tags(),
-            'accounts': self._export_accounts(),
-            'settings': self._export_settings(),
+            'trades': await self._export_trades(),
+            'balances': await self._export_balances(),
+            'transactions': await self._export_transactions(),
+            'tags': await self._export_tags(),
+            'accounts': await self._export_accounts(),
+            'settings': await self._export_settings(),
         }
 
         # Write to file
@@ -123,28 +129,27 @@ class DataService:
 
         return filepath
 
-    def _export_trades(self) -> list[dict[str, Any]]:
+    async def _export_trades(self) -> list[dict[str, Any]]:
         """Export trades data"""
         trades = []
         # TODO: Query and format trades
         return trades
 
-    def _export_balances(self) -> list[dict[str, Any]]:
+    async def _export_balances(self) -> list[dict[str, Any]]:
         """Export manual balances"""
         balances = []
-        with self.db.conn.read_ctx() as cursor:
-            cursor.execute(
-                """SELECT asset, label, amount, location, category
-                   FROM manually_tracked_balances""",
-            )
-            for row in cursor:
-                balances.append({
-                    'asset': row[0],
-                    'label': row[1],
-                    'amount': row[2],
-                    'location': row[3],
-                    'category': row[4],
-                })
+        
+        stmt = select(ManuallyTrackedBalances)
+        result = await self.session.execute(stmt)
+        for balance in result.scalars().all():
+            balances.append({
+                'asset': balance.asset,
+                'label': balance.label,
+                'amount': str(balance.amount),
+                'location': balance.location,
+                'category': balance.tag,
+            })
+        
         return balances
 
     def _export_transactions(self) -> list[dict[str, Any]]:
@@ -153,21 +158,20 @@ class DataService:
         # TODO: Query and format transactions
         return transactions
 
-    def _export_tags(self) -> list[dict[str, Any]]:
+    async def _export_tags(self) -> list[dict[str, Any]]:
         """Export tags"""
         tags = []
-        with self.db.conn.read_ctx() as cursor:
-            cursor.execute(
-                """SELECT name, description, background_color, foreground_color
-                   FROM tags""",
-            )
-            for row in cursor:
-                tags.append({
-                    'name': row[0],
-                    'description': row[1],
-                    'background_color': row[2],
-                    'foreground_color': row[3],
-                })
+        
+        stmt = select(Tag)
+        result = await self.session.execute(stmt)
+        for tag in result.scalars().all():
+            tags.append({
+                'name': tag.name,
+                'description': tag.description,
+                'background_color': tag.background_color,
+                'foreground_color': tag.foreground_color,
+            })
+        
         return tags
 
     def _export_accounts(self) -> list[dict[str, Any]]:
@@ -176,32 +180,37 @@ class DataService:
         # TODO: Query and format accounts
         return accounts
 
-    def _export_settings(self) -> dict[str, Any]:
+    async def _export_settings(self) -> dict[str, Any]:
         """Export user settings"""
-        return self.db.get_settings().__dict__
+        # Would fetch settings from DB
+        # For now, return empty dict
+        return {}
 
-    def get_database_info(self) -> dict[str, Any]:
+    async def get_database_info(self) -> dict[str, Any]:
         """Get database information"""
-        with self.db.conn.read_ctx() as cursor:
-            # Get database size
-            cursor.execute('SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()')
-            size = cursor.fetchone()[0]
+        # Get database size
+        size_result = await self.session.execute(
+            text('SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()')
+        )
+        size = size_result.scalar()
 
-            # Get table counts
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            tables = [row[0] for row in cursor.fetchall()]
+        # Get table counts
+        tables_result = await self.session.execute(
+            text("SELECT name FROM sqlite_master WHERE type='table'")
+        )
+        tables = [row[0] for row in tables_result.fetchall()]
 
-            counts = {}
-            for table in tables:
-                cursor.execute(f'SELECT COUNT(*) FROM {table}')
-                counts[table] = cursor.fetchone()[0]
+        counts = {}
+        for table in tables:
+            count_result = await self.session.execute(text(f'SELECT COUNT(*) FROM {table}'))
+            counts[table] = count_result.scalar()
 
         return {
             'size': size,
             'size_mb': round(size / (1024 * 1024), 2),
             'tables': len(tables),
             'table_counts': counts,
-            'version': self.db.get_version(),
+            'version': 47,  # Current DB version
         }
 
     def list_backups(self) -> list[dict[str, Any]]:

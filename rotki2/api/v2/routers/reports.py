@@ -6,12 +6,10 @@ from pydantic import BaseModel
 
 from rotki2.api.v2.dependencies import (
     get_accountant,
-    get_database_service,
-    get_rotki_notifier,
+    get_async_reports_service,
     require_logged_in_user,
 )
-from rotki2.api.v2.services.database import DatabaseService
-from rotki2.api.v2.services.reports import ReportsService
+from rotki2.api.v2.services.async_reports import AsyncReportsService
 from rotkehlchen.types import Timestamp
 
 if TYPE_CHECKING:
@@ -40,24 +38,13 @@ class ReportDataResponse(BaseModel):
     message: str = ''
 
 
-def get_reports_service(
-    db_service: Annotated[DatabaseService, Depends(get_database_service)],
-    accountant: Annotated['Accountant', Depends(get_accountant)],
-    notifier: Annotated['RotkiNotifier', Depends(get_rotki_notifier)],
-) -> ReportsService:
-    """Get reports service instance"""
-    return ReportsService(
-        db_service=db_service,
-        accountant=accountant,
-        notifier=notifier,
-    )
 
 
 @router.post('/')
 async def generate_report(
     request: ReportGenerateRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[ReportsService, Depends(get_reports_service)],
+    service: Annotated[AsyncReportsService, Depends(get_async_reports_service)],
 ) -> ReportResponse:
     """Generate a new accounting report"""
     try:
@@ -81,7 +68,7 @@ async def generate_report(
 @router.get('/')
 async def list_reports(
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[ReportsService, Depends(get_reports_service)],
+    service: Annotated[AsyncReportsService, Depends(get_async_reports_service)],
 ) -> ReportResponse:
     """List all available reports"""
     reports = service.list_reports()
@@ -92,7 +79,7 @@ async def list_reports(
 async def get_report(
     report_id: int,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[ReportsService, Depends(get_reports_service)],
+    service: Annotated[AsyncReportsService, Depends(get_async_reports_service)],
 ) -> ReportResponse:
     """Get report status and metadata"""
     report = service.get_report(report_id)
@@ -109,7 +96,7 @@ async def get_report(
 async def get_report_data(
     report_id: int,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[ReportsService, Depends(get_reports_service)],
+    service: Annotated[AsyncReportsService, Depends(get_async_reports_service)],
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=500, gt=0, le=5000),
 ) -> ReportDataResponse:
@@ -133,7 +120,7 @@ async def get_report_data(
 async def delete_report(
     report_id: int,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[ReportsService, Depends(get_reports_service)],
+    service: Annotated[AsyncReportsService, Depends(get_async_reports_service)],
 ) -> ReportResponse:
     """Delete a report"""
     success = service.delete_report(report_id)

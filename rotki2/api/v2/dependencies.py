@@ -400,3 +400,41 @@ def get_async_history_events_service(
     """Get AsyncHistoryEventsService instance"""
     from rotki2.api.v2.services.async_history_events import AsyncHistoryEventsService
     return AsyncHistoryEventsService(history_events_repository, notifier)
+
+
+class DatabaseDependency:
+    """Database dependency wrapper for async operations"""
+    def __init__(self, session: AsyncSession):
+        self.async_db_session = lambda: session
+
+
+def get_async_history_service(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+    history_events_repository: Annotated['HistoryEventsRepository', Depends(get_async_history_events_repository)],
+    history_manager: Annotated['HistoryQueryingManager | None', Depends(get_history_querying_manager)],
+    notifier: Annotated['RotkiNotifier | None', Depends(get_rotki_notifier)],
+) -> 'AsyncHistoryService':
+    """Get AsyncHistoryService instance"""
+    from rotki2.api.v2.services.async_history import AsyncHistoryService
+    db = DatabaseDependency(session)
+    return AsyncHistoryService(
+        db=db,
+        history_repo=history_events_repository,
+        history_manager=history_manager,
+        notifier=notifier,
+    )
+
+
+def get_async_reports_service(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+    accountant: Annotated['Accountant | None', Depends(get_accountant)],
+    notifier: Annotated['RotkiNotifier | None', Depends(get_rotki_notifier)],
+) -> 'AsyncReportsService':
+    """Get AsyncReportsService instance"""
+    from rotki2.api.v2.services.async_reports import AsyncReportsService
+    db = DatabaseDependency(session)
+    return AsyncReportsService(
+        db=db,
+        accountant=accountant,
+        notifier=notifier,
+    )

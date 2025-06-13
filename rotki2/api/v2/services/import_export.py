@@ -2,13 +2,21 @@
 import csv
 import json
 from io import StringIO
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from rotki2.api.v2.services.data import DataService
+
+if TYPE_CHECKING:
+    from rotkehlchen.db.dbhandler import DBHandler
 
 
 class ImportExportService:
     """Service for importing and exporting data"""
 
-    def __init__(self) -> None:
+    def __init__(self, session: AsyncSession | None = None, db_handler: 'DBHandler | None' = None) -> None:
+        self.data_service = DataService(session, db_handler) if session else None
         # Available importers
         self._importers = {
             'cointracking': {
@@ -38,11 +46,11 @@ class ImportExportService:
             },
         }
 
-    def get_available_importers(self) -> dict[str, Any]:
+    async def get_available_importers(self) -> dict[str, Any]:
         """Get list of available data importers"""
         return self._importers
 
-    def import_data(
+    async def import_data(
         self,
         source: str,
         data: dict[str, Any] | None = None,
@@ -54,15 +62,15 @@ class ImportExportService:
 
         # Would implement actual import logic based on source
         if source == 'rotki':
-            return self._import_rotki_data(data)
+            return await self._import_rotki_data(data)
         elif source == 'cointracking':
-            return self._import_cointracking_data(data)
+            return await self._import_cointracking_data(data)
         elif source == 'cryptocom':
-            return self._import_cryptocom_data(data)
+            return await self._import_cryptocom_data(data)
         else:
-            return self._generic_csv_import(source, data)
+            return await self._generic_csv_import(source, data)
 
-    def import_from_file(
+    async def import_from_file(
         self,
         filename: str,
         content: bytes,
@@ -83,7 +91,7 @@ class ImportExportService:
         else:
             raise ValueError(f'Unsupported file type: {filename}')
 
-        return self.import_data(source, data)
+        return await self.import_data(source, data)
 
     def _detect_source(self, filename: str, content: bytes) -> str:
         """Auto-detect import source from file"""
@@ -109,12 +117,16 @@ class ImportExportService:
 
         raise ValueError('Could not auto-detect import source')
 
-    def _import_rotki_data(self, data: dict[str, Any] | None) -> dict[str, Any]:
+    async def _import_rotki_data(self, data: dict[str, Any] | None) -> dict[str, Any]:
         """Import data from another Rotki instance"""
         if not data:
             raise ValueError('No data provided')
 
-        # Would implement actual import
+        # Use DataService for actual import
+        if self.data_service:
+            return await self.data_service.import_rotki_data(data)
+        
+        # Fallback if no data service
         imported = {
             'trades': 0,
             'transactions': 0,
@@ -129,17 +141,17 @@ class ImportExportService:
 
         return {'imported': imported}
 
-    def _import_cointracking_data(self, data: Any) -> dict[str, Any]:
+    async def _import_cointracking_data(self, data: Any) -> dict[str, Any]:
         """Import data from CoinTracking"""
         # Would implement CoinTracking import
         return {'imported': {'trades': 10, 'transactions': 5}}
 
-    def _import_cryptocom_data(self, data: Any) -> dict[str, Any]:
+    async def _import_cryptocom_data(self, data: Any) -> dict[str, Any]:
         """Import data from Crypto.com"""
         # Would implement Crypto.com import
         return {'imported': {'trades': 15, 'transactions': 20}}
 
-    def _generic_csv_import(self, source: str, data: Any) -> dict[str, Any]:
+    async def _generic_csv_import(self, source: str, data: Any) -> dict[str, Any]:
         """Generic CSV import"""
         # Would implement generic CSV import
         return {'imported': {'entries': len(data) if data else 0}}

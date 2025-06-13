@@ -5,11 +5,10 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
 from rotki2.api.v2.dependencies import (
-    get_database_service,
+    get_async_accounting_rules_service,
     require_logged_in_user,
 )
-from rotki2.api.v2.services.accounting import AccountingService
-from rotki2.api.v2.services.database import DatabaseService
+from rotki2.api.v2.services.async_accounting import AsyncAccountingRulesService
 
 router = APIRouter()
 
@@ -39,22 +38,17 @@ class AccountingResponse(BaseModel):
     message: str = ''
 
 
-def get_accounting_service(
-    db_service: Annotated[DatabaseService, Depends(get_database_service)],
-) -> AccountingService:
-    """Get accounting service instance"""
-    return AccountingService(db_service)
 
 
 @router.get('/rules')
 async def get_accounting_rules(
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
     event_type: str | None = None,
     event_subtype: str | None = None,
 ) -> AccountingResponse:
     """Get accounting rules with optional filtering"""
-    rules = service.get_accounting_rules(
+    rules = await service.get_accounting_rules(
         event_type=event_type,
         event_subtype=event_subtype,
     )
@@ -65,11 +59,11 @@ async def get_accounting_rules(
 async def create_accounting_rule(
     request: AccountingRuleRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
 ) -> AccountingResponse:
     """Create a new accounting rule"""
     try:
-        rule_id = service.create_accounting_rule(
+        rule_id = await service.create_accounting_rule(
             event_type=request.event_type,
             event_subtype=request.event_subtype,
             counterparty=request.counterparty,
@@ -96,10 +90,10 @@ async def update_accounting_rule(
     rule_id: int,
     request: AccountingRuleRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
 ) -> AccountingResponse:
     """Update an existing accounting rule"""
-    success = service.update_accounting_rule(
+    success = await service.update_accounting_rule(
         rule_id=rule_id,
         event_type=request.event_type,
         event_subtype=request.event_subtype,
@@ -127,10 +121,10 @@ async def update_accounting_rule(
 async def delete_accounting_rule(
     rule_id: int,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
 ) -> AccountingResponse:
     """Delete an accounting rule"""
-    success = service.delete_accounting_rule(rule_id)
+    success = await service.delete_accounting_rule(rule_id)
 
     if not success:
         raise HTTPException(
@@ -147,10 +141,10 @@ async def delete_accounting_rule(
 @router.get('/rules/linked')
 async def get_linked_rules(
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
 ) -> AccountingResponse:
     """Get all linked accounting settings"""
-    linked_rules = service.get_linked_rules()
+    linked_rules = await service.get_linked_rules()
     return AccountingResponse(result=linked_rules)
 
 
@@ -158,11 +152,11 @@ async def get_linked_rules(
 async def create_linked_rule(
     request: LinkedRuleRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
 ) -> AccountingResponse:
     """Create a new linked accounting setting"""
     try:
-        service.create_linked_rule(
+        await service.create_linked_rule(
             property_name=request.property_name,
             setting_name=request.setting_name,
             value=request.value,
@@ -184,10 +178,10 @@ async def delete_linked_rule(
     property_name: str,
     setting_name: str,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
 ) -> AccountingResponse:
     """Delete a linked accounting setting"""
-    success = service.delete_linked_rule(property_name, setting_name)
+    success = await service.delete_linked_rule(property_name, setting_name)
 
     if not success:
         raise HTTPException(
@@ -205,13 +199,13 @@ async def delete_linked_rule(
 @router.post('/rules')
 async def query_accounting_rules_v1(
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
     event_types: list[str] | None = None,
     event_subtypes: list[str] | None = None,
     counterparties: list[str] | None = None,
 ) -> AccountingResponse:
     """Query accounting rules - Compatible with v1 POST /api/1/accounting/rules"""
-    rules = service.query_accounting_rules(
+    rules = await service.query_accounting_rules(
         event_types=event_types,
         event_subtypes=event_subtypes,
         counterparties=counterparties,
@@ -224,10 +218,10 @@ async def query_accounting_rules_v1(
 async def add_accounting_rule_v1(
     rule_data: AccountingRuleRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
 ) -> AccountingResponse:
     """Add an accounting rule - Compatible with v1 PUT /api/1/accounting/rules"""
-    rule_id = service.add_accounting_rule(
+    rule_id = await service.add_accounting_rule(
         event_type=rule_data.event_type,
         event_subtype=rule_data.event_subtype,
         counterparty=rule_data.counterparty,
@@ -248,10 +242,10 @@ async def edit_accounting_rule_v1(
     identifier: int,
     rule_data: AccountingRuleRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
 ) -> AccountingResponse:
     """Edit an accounting rule - Compatible with v1 PATCH /api/1/accounting/rules"""
-    success = service.edit_accounting_rule(
+    success = await service.edit_accounting_rule(
         identifier=identifier,
         event_type=rule_data.event_type,
         event_subtype=rule_data.event_subtype,
@@ -278,10 +272,10 @@ async def edit_accounting_rule_v1(
 async def delete_accounting_rule_v1(
     identifier: int,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
 ) -> AccountingResponse:
     """Delete an accounting rule - Compatible with v1 DELETE /api/1/accounting/rules"""
-    success = service.delete_accounting_rule(identifier)
+    success = await service.delete_accounting_rule(identifier)
 
     if not success:
         raise HTTPException(
@@ -298,10 +292,10 @@ async def delete_accounting_rule_v1(
 @router.get('/rules/info')
 async def get_accounting_rule_info(
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
 ) -> AccountingResponse:
     """Get info on linkable accounting rule properties - Compatible with v1 GET /api/1/accounting/rules/info"""
-    info = service.get_accounting_rule_info()
+    info = await service.get_accounting_rule_info()
 
     return AccountingResponse(result=info)
 
@@ -309,7 +303,7 @@ async def get_accounting_rule_info(
 @router.post('/rules/import')
 async def import_accounting_rules_upload(
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
     file: UploadFile = File(...),
 ) -> AccountingResponse:
     """Import accounting rules via file upload - Compatible with v1 POST /api/1/accounting/rules/import"""
@@ -323,7 +317,7 @@ async def import_accounting_rules_upload(
         tmp_path = tmp.name
 
     try:
-        result = service.import_accounting_rules(tmp_path)
+        result = await service.import_accounting_rules(tmp_path)
         return AccountingResponse(
             result=result,
             message='Accounting rules imported successfully',
@@ -336,10 +330,10 @@ async def import_accounting_rules_upload(
 async def import_accounting_rules_path(
     filepath: str,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
 ) -> AccountingResponse:
     """Import accounting rules via file path - Compatible with v1 PUT /api/1/accounting/rules/import"""
-    result = service.import_accounting_rules(filepath)
+    result = await service.import_accounting_rules(filepath)
 
     return AccountingResponse(
         result=result,
@@ -350,11 +344,11 @@ async def import_accounting_rules_path(
 @router.post('/rules/export')
 async def export_accounting_rules(
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
     directory_path: str | None = None,
 ) -> AccountingResponse:
     """Export accounting rules - Compatible with v1 POST /api/1/accounting/rules/export"""
-    file_path = service.export_accounting_rules(directory_path)
+    file_path = await service.export_accounting_rules(directory_path)
 
     return AccountingResponse(
         result={'file': file_path},
@@ -365,10 +359,10 @@ async def export_accounting_rules(
 @router.post('/rules/conflicts')
 async def list_accounting_rule_conflicts(
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
 ) -> AccountingResponse:
     """List accounting rule conflicts - Compatible with v1 POST /api/1/accounting/rules/conflicts"""
-    conflicts = service.get_accounting_rule_conflicts()
+    conflicts = await service.get_accounting_rule_conflicts()
 
     return AccountingResponse(result={'conflicts': conflicts})
 
@@ -383,10 +377,10 @@ class AccountingRuleConflictRequest(BaseModel):
 async def resolve_accounting_rule_conflicts(
     conflict_data: AccountingRuleConflictRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
-    service: Annotated[AccountingService, Depends(get_accounting_service)],
+    service: Annotated[AsyncAccountingRulesService, Depends(get_async_accounting_rules_service)],
 ) -> AccountingResponse:
     """Solve accounting rule conflicts - Compatible with v1 PATCH /api/1/accounting/rules/conflicts"""
-    resolved = service.resolve_accounting_rule_conflicts(
+    resolved = await service.resolve_accounting_rule_conflicts(
         conflicts=conflict_data.conflicts,
         resolution=conflict_data.resolution,
     )

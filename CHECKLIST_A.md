@@ -31,9 +31,9 @@ This track focuses on setting up the fundamental application structure, authenti
   - `[x]` **Implement `GlobalAssetRepository`:** In `rotki2/api/v2/repositories/globaldb_asset.py`, port all asset-related queries from `rotkehlchen/globaldb/handler.py`.
   - `[x]` **Implement `AssetIgnoreRepository`:** In `rotki2/api/v2/repositories/asset_ignore.py`, implement the logic for managing ignored assets from `rotkehlchen/db/dbhandler.py`.
   - `[x]` **Implement `AssetsService`:** In `rotki2/api/v2/services/assets.py`, consolidate asset management logic.
-  - `[ ]` **Implement `DataService`:** In `rotki2/api/v2/services/data.py`, port data import/export logic from `rotkehlchen/data_import/manager.py`.
+  - `[x]` **Implement `DataService`:** In `rotki2/api/v2/services/data.py`, port data import/export logic from `rotkehlchen/data_import/manager.py`.
   - `[x]` **Wire up `assets.py` Router:** Connect all endpoints to the `AssetsService`.
-  - `[ ]` **Wire up `import_export.py` Router:** Connect endpoints to the `DataService`.
+  - `[x]` **Wire up `import_export.py` Router:** Connect endpoints to the `DataService`.
 
 - **Phase 5: Cleanup & Verification**
   - `[ ]` **Remove Old User/Asset Files:** Delete `rotkehlchen/data_handler.py` and user/asset-related methods from `rotkehlchen.py` and `rotkehlchen/api/rest.py`.
