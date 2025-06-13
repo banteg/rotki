@@ -92,18 +92,18 @@ The `AccountingPot` holds the state for an accounting run. It uses the `CostBasi
 
 The `Accountant` orchestrates the entire process.
 
-- [ ] **Refactor `rotki2/accounting/accountant.py`:**
-  - [ ] Update the `__init__` method:
+- [x] **Refactor `rotki2/accounting/accountant.py`:**
+  - [x] Update the `__init__` method:
     - Replace dependencies with their v2 counterparts (`DatabaseService`, `ChainsAggregator`, etc.).
     - Ensure it initializes the new `AccountingPot`.
-  - [ ] **Port `process_history` method:**
-    - [ ] Change the method signature to `async def process_history(...)`.
-    - [ ] The main loop `while True:` should remain, but the call to `_process_event` inside it must be awaited: `await self._process_event(...)`.
-    - [ ] Replace `gevent.sleep()` with `await anyio.sleep()`.
-    - [ ] Database interactions for creating and updating the report must now use the `ReportsRepository`.
-  - [ ] **Port `_process_event` method:**
-    - [ ] Change the method signature to `async def _process_event(...)`.
-    - [ ] The call to `event.process()` will now be `await event.process(...)`. This is a crucial change that will ripple through all event classes.
+  - [x] **Port `process_history` method:**
+    - [x] Change the method signature to `async def process_history(...)`.
+    - [x] The main loop `while True:` should remain, but the call to `_process_event` inside it must be awaited: `await self._process_event(...)`.
+    - [x] Replace `gevent.sleep()` with `await anyio.sleep()`.
+    - [x] Database interactions for creating and updating the report must now use the `ReportsRepository`.
+  - [x] **Port `_process_event` method:**
+    - [x] Change the method signature to `async def _process_event(...)`.
+    - [x] The call to `event.process()` will now be `await event.process(...)`. This is a crucial change that will ripple through all event classes.
   - [ ] **Port `export` method:**
     - [ ] This method depends on `CSVExporter`. You need to port `rotkehlchen/accounting/export/csv.py` to `rotki2/accounting/export/csv.py` first. Ensure its methods are `async` if they perform I/O.
 

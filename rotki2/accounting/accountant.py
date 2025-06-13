@@ -5,11 +5,9 @@ from typing import TYPE_CHECKING, Any
 
 import anyio
 
-from rotkehlchen.accounting.cost_basis import CostBasisCalculator
 from rotkehlchen.accounting.events import EventsAccountant
-from rotkehlchen.accounting.pot import AccountingPot
 from rotkehlchen.accounting.structures.balance import Balance
-from rotkehlchen.accounting.structures.processed_event import ProcessedAccountingEvent
+from rotki2.accounting.structures import ProcessedAccountingEvent
 from rotkehlchen.constants import ZERO
 from rotkehlchen.constants.limits import FREE_PNL_EVENTS_LIMIT
 from rotkehlchen.errors.accounting import AccountingError
@@ -27,7 +25,7 @@ from rotki2.accounting.price_historian import PriceHistorian
 if TYPE_CHECKING:
     from collections.abc import Iterator
     
-    from rotkehlchen.accounting.mixins.event import AccountingEventMixin
+    from rotki2.accounting.mixins import AccountingEventMixin
     from rotkehlchen.accounting.structures.types import ActionType
     from rotkehlchen.assets.asset import Asset
     from rotkehlchen.chain.aggregator import ChainsAggregator
