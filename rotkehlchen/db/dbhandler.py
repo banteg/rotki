@@ -1160,7 +1160,7 @@ class DBHandler:
             (names_to_delete, '\\'),
         )
 
-    @deprecated(reason=\"Use HistoryRepository.delete_events_by_location instead\", version=\"2.0.0\")
+    @deprecated(reason="Use HistoryRepository.delete_events_by_location instead", version="2.0.0")
     def purge_exchange_data(self, write_cursor: 'DBCursor', location: Location) -> None:
         self.delete_used_query_range_for_exchange(write_cursor=write_cursor, location=location)
         serialized_location = location.serialize_for_db()
@@ -1767,7 +1767,7 @@ class DBHandler:
             if location in (Location.BINANCE, Location.BINANCEUS) and binance_selected_trade_pairs is not None:  # noqa: E501
                 self.set_binance_pairs(cursor, name=name, pairs=binance_selected_trade_pairs, location=location)  # noqa: E501
 
-    @deprecated(reason=\"Direct history_events updates should use HistoryRepository\", version=\"2.0.0\")
+    @deprecated(reason="Direct history_events updates should use HistoryRepository", version="2.0.0")
     def edit_exchange(
             self,
             write_cursor: 'DBCursor',
@@ -2232,7 +2232,7 @@ class DBHandler:
                 (f'{BRIDGE_QUERIED_ADDRESS_PREFIX}{address}',),
             )
 
-    @deprecated(reason=\"Direct history_events deletion should use HistoryRepository\", version=\"2.0.0\")
+    @deprecated(reason="Direct history_events deletion should use HistoryRepository", version="2.0.0")
     def delete_data_for_evmlike_address(
             self,
             write_cursor: 'DBCursor',

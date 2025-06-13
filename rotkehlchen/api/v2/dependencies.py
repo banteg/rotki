@@ -4,6 +4,11 @@ from typing import TYPE_CHECKING, Annotated
 from fastapi import Depends, HTTPException, Request, status
 from sqlmodel import Session
 
+from rotkehlchen.api.v2.repositories.accounting_rule import AccountingRuleRepository
+from rotkehlchen.api.v2.repositories.blockchain_account import BlockchainAccountRepository
+from rotkehlchen.api.v2.repositories.eth2_validator import Eth2ValidatorRepository
+from rotkehlchen.api.v2.repositories.evm_transaction import EvmTransactionRepository
+from rotkehlchen.api.v2.repositories.nft import NFTRepository
 from rotkehlchen.api.v2.services.auth import AuthService
 from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.db.drivers.gevent import DBConnection
@@ -171,3 +176,39 @@ async def require_logged_in_user(  # noqa: RUF029
     
     # Return the current username
     return rotkehlchen.data.username
+
+
+# Repository dependencies
+def get_accounting_rule_repository(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> AccountingRuleRepository:
+    """Get AccountingRuleRepository instance"""
+    return AccountingRuleRepository(session)
+
+
+def get_blockchain_account_repository(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> BlockchainAccountRepository:
+    """Get BlockchainAccountRepository instance"""
+    return BlockchainAccountRepository(session)
+
+
+def get_nft_repository(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> NFTRepository:
+    """Get NFTRepository instance"""
+    return NFTRepository(session)
+
+
+def get_evm_transaction_repository(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> EvmTransactionRepository:
+    """Get EvmTransactionRepository instance"""
+    return EvmTransactionRepository(session)
+
+
+def get_eth2_validator_repository(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> Eth2ValidatorRepository:
+    """Get Eth2ValidatorRepository instance"""
+    return Eth2ValidatorRepository(session)
