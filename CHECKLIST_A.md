@@ -27,12 +27,12 @@ This track focuses on setting up the fundamental application structure, authenti
 
 - **Phase 4: Asset & Data Management**
 
-  - `[ ]` **Finalize Asset Models:** Ensure all asset-related models in `rotki2/db/models/globaldb/assets.py` are complete and match the v1 schema.
-  - `[ ]` **Implement `GlobalAssetRepository`:** In `rotki2/api/v2/repositories/globaldb_asset.py`, port all asset-related queries from `rotkehlchen/globaldb/handler.py`.
-  - `[ ]` **Implement `AssetIgnoreRepository`:** In `rotki2/api/v2/repositories/asset_ignore.py`, implement the logic for managing ignored assets from `rotkehlchen/db/dbhandler.py`.
-  - `[ ]` **Implement `AssetsService`:** In `rotki2/api/v2/services/assets.py`, consolidate asset management logic.
+  - `[x]` **Finalize Asset Models:** Ensure all asset-related models in `rotki2/db/models/globaldb/assets.py` are complete and match the v1 schema.
+  - `[x]` **Implement `GlobalAssetRepository`:** In `rotki2/api/v2/repositories/globaldb_asset.py`, port all asset-related queries from `rotkehlchen/globaldb/handler.py`.
+  - `[x]` **Implement `AssetIgnoreRepository`:** In `rotki2/api/v2/repositories/asset_ignore.py`, implement the logic for managing ignored assets from `rotkehlchen/db/dbhandler.py`.
+  - `[x]` **Implement `AssetsService`:** In `rotki2/api/v2/services/assets.py`, consolidate asset management logic.
   - `[ ]` **Implement `DataService`:** In `rotki2/api/v2/services/data.py`, port data import/export logic from `rotkehlchen/data_import/manager.py`.
-  - `[ ]` **Wire up `assets.py` Router:** Connect all endpoints to the `AssetsService`.
+  - `[x]` **Wire up `assets.py` Router:** Connect all endpoints to the `AssetsService`.
   - `[ ]` **Wire up `import_export.py` Router:** Connect endpoints to the `DataService`.
 
 - **Phase 5: Cleanup & Verification**

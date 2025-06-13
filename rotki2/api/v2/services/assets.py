@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING, Any
 
-from sqlmodel import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from rotki2.api.v2.repositories.asset_ignore import AssetIgnoreRepository
 from rotki2.api.v2.repositories.globaldb_asset import GlobalAssetRepository
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 class AssetsService:
     """Service for handling asset-related operations"""
 
-    def __init__(self, db_handler: 'DBHandler | None' = None, session: Session | None = None):
+    def __init__(self, db_handler: 'DBHandler | None' = None, session: AsyncSession | None = None):
         self.resolver = AssetResolver()
         self._globaldb = GlobalDBHandler()
         self.asset_repo = GlobalAssetRepository(self._globaldb)
@@ -40,7 +40,7 @@ class AssetsService:
         self.session = session
         self.asset_ignore_repo = AssetIgnoreRepository(session) if session else None
 
-    def get_all_assets(
+    async def get_all_assets(
         self,
         asset_type: AssetType | None = None,
         limit: int | None = None,
@@ -67,17 +67,17 @@ class AssetsService:
         # Get ignored assets from user preferences
         ignored_assets = None
         if ignored_assets_handling == 'exclude' and self.asset_ignore_repo:
-            ignored_assets = self.asset_ignore_repo.get_ignored_assets()
+            ignored_assets = await self.asset_ignore_repo.get_ignored_assets()
 
         # Use repository to get assets
         assets, total_count = self.asset_repo.get_all_assets(
             filter_query=filter_query,
-            ignored_assets=ignored_assets,
+            ignored_assets=set(ignored_assets) if ignored_assets else None,
         )
 
         return assets, total_count
 
-    def search_assets(
+    async def search_assets(
         self,
         search_term: str,
         asset_type: AssetType | None = None,
@@ -107,7 +107,7 @@ class AssetsService:
 
         return results
 
-    def search_assets_levenshtein(
+    async def search_assets_levenshtein(
         self,
         search_term: str,
         asset_type: AssetType | None = None,
@@ -116,7 +116,7 @@ class AssetsService:
         ignored_assets_handling: str = 'exclude',
     ) -> list[dict[str, Any]]:
         """Fuzzy search for assets using Levenshtein distance"""
-        return self.search_assets(
+        return await self.search_assets(
             search_term=search_term,
             asset_type=asset_type,
             limit=limit,
@@ -124,7 +124,7 @@ class AssetsService:
             ignored_assets_handling=ignored_assets_handling,
         )
 
-    def search_assets_exact(
+    async def search_assets_exact(
         self,
         search_query: dict[str, Any],
         ignored_assets_handling: str = 'exclude',
@@ -143,21 +143,21 @@ class AssetsService:
         # Get ignored assets from user preferences
         ignored_assets = None
         if ignored_assets_handling == 'exclude' and self.asset_ignore_repo:
-            ignored_assets = self.asset_ignore_repo.get_ignored_assets()
+            ignored_assets = await self.asset_ignore_repo.get_ignored_assets()
 
         # Use repository to search assets
         results = self.asset_repo.search_assets(
             filter_query=filter_query,
-            ignored_assets=ignored_assets,
+            ignored_assets=set(ignored_assets) if ignored_assets else None,
         )
 
         return results
 
-    def reset_asset_data(self) -> None:
+    async def reset_asset_data(self) -> None:
         """Reset local asset data to defaults"""
         # Would reset asset database to defaults
 
-    def replace_asset(self, source_identifier: str, target_identifier: str) -> None:
+    async def replace_asset(self, source_identifier: str, target_identifier: str) -> None:
         """Replace/merge one asset with another"""
         # Check both assets exist
         if not self.asset_repo.check_asset_exists(source_identifier):
@@ -167,36 +167,36 @@ class AssetsService:
 
         # Would merge assets in database
 
-    def import_user_assets(self, file_path: str) -> int:
+    async def import_user_assets(self, file_path: str) -> int:
         """Import user-defined assets from a file"""
         # Would import assets from JSON file
         # For now, simulate
         return 5  # Number of imported assets
 
-    def get_custom_assets(self) -> list[dict[str, Any]]:
+    async def get_custom_assets(self) -> list[dict[str, Any]]:
         """Get all custom assets"""
         # Would fetch custom assets from database
         return []
 
-    def get_custom_asset_types(self) -> list[str]:
+    async def get_custom_asset_types(self) -> list[str]:
         """Get all custom asset types"""
         return ['token', 'derivative', 'custom']
 
-    def add_manual_latest_price(self, asset: str, price: str) -> None:
+    async def add_manual_latest_price(self, asset: str, price: str) -> None:
         """Add a manual latest price for an asset"""
         if not self.asset_repo.check_asset_exists(asset):
             raise ValueError(f'Asset {asset} not found')
 
         # Would store manual price in database
 
-    def delete_manual_latest_price(self, asset: str) -> None:
+    async def delete_manual_latest_price(self, asset: str) -> None:
         """Delete a manual latest price for an asset"""
         if not self.asset_repo.check_asset_exists(asset):
             raise ValueError(f'Asset {asset} not found')
 
         # Would delete manual price from database
 
-    def get_asset_price(
+    async def get_asset_price(
         self,
         asset: Asset,
         target_asset: Asset = A_USD,
@@ -213,7 +213,7 @@ class AssetsService:
             # Get current price
             return Inquirer.find_usd_price(asset)
 
-    def add_custom_asset(
+    async def add_custom_asset(
         self,
         identifier: str,
         name: str,
@@ -248,7 +248,7 @@ class AssetsService:
         except InputError as e:
             raise InputError(f'Failed to add custom asset: {e!s}') from e
 
-    def edit_custom_asset(
+    async def edit_custom_asset(
         self,
         identifier: str,
         name: str,
@@ -270,7 +270,7 @@ class AssetsService:
 
         return {'identifier': identifier}
 
-    def delete_custom_asset(self, identifier: str) -> None:
+    async def delete_custom_asset(self, identifier: str) -> None:
         """Delete a custom asset"""
         # Check if asset exists
         if not self.asset_repo.check_asset_exists(identifier):
@@ -383,7 +383,7 @@ class AssetsService:
         # Clear from asset resolver cache
         AssetResolver().assets_cache.remove(identifier)
 
-    def get_evm_token_info(
+    async def get_evm_token_info(
         self,
         address: ChecksumEvmAddress,
         chain_id: ChainID,
@@ -439,7 +439,7 @@ class AssetsService:
             chain_id=chain_id,
         )
 
-    def get_all_latest_prices(self) -> dict[str, Any]:
+    async def get_all_latest_prices(self) -> dict[str, Any]:
         """Get latest prices for all known assets"""
         # Would query price oracle for all assets
         # Simulated response
@@ -452,7 +452,7 @@ class AssetsService:
             'last_updated': 1700000000,
         }
 
-    def get_historical_prices(
+    async def get_historical_prices(
         self,
         asset: str,
         from_timestamp: int,
@@ -472,7 +472,7 @@ class AssetsService:
             ],
         }
 
-    def get_asset_mappings(self) -> dict[str, Any]:
+    async def get_asset_mappings(self) -> dict[str, Any]:
         """Get all asset mappings"""
         # Would retrieve asset mappings
         return {
@@ -484,7 +484,7 @@ class AssetsService:
             'counterparty_mappings': {},
         }
 
-    def set_asset_mapping(
+    async def set_asset_mapping(
         self,
         asset: str,
         target_asset: str,
@@ -493,7 +493,7 @@ class AssetsService:
         """Set an asset mapping"""
         # Would store asset mapping
 
-    def check_for_updates(self) -> dict[str, Any]:
+    async def check_for_updates(self) -> dict[str, Any]:
         """Check for asset database updates"""
         # Would check for updates
         return {
@@ -503,7 +503,7 @@ class AssetsService:
             'assets_to_update': 50,
         }
 
-    def apply_updates(self) -> dict[str, Any]:
+    async def apply_updates(self) -> dict[str, Any]:
         """Apply asset database updates"""
         # Would apply updates
         return {
@@ -512,7 +512,7 @@ class AssetsService:
             'success': True,
         }
 
-    def add_manual_historical_price(
+    async def add_manual_historical_price(
         self,
         asset: str,
         timestamp: Timestamp,
@@ -525,7 +525,7 @@ class AssetsService:
 
         # Would store manual historical price in database
 
-    def edit_manual_historical_price(
+    async def edit_manual_historical_price(
         self,
         asset: str,
         timestamp: Timestamp,
@@ -538,7 +538,7 @@ class AssetsService:
 
         # Would update manual historical price in database
 
-    def delete_manual_historical_price(
+    async def delete_manual_historical_price(
         self,
         asset: str,
         timestamp: Timestamp,
@@ -550,7 +550,7 @@ class AssetsService:
 
         # Would delete manual historical price from database
 
-    def get_manual_historical_prices(self) -> list[dict[str, Any]]:
+    async def get_manual_historical_prices(self) -> list[dict[str, Any]]:
         """Get all manual historical prices"""
         # Would fetch from database
         return [
@@ -568,21 +568,21 @@ class AssetsService:
             },
         ]
 
-    def upload_asset_icon(self, asset: str, icon_data: bytes) -> None:
+    async def upload_asset_icon(self, asset: str, icon_data: bytes) -> None:
         """Upload an icon for an asset"""
         if not self.asset_repo.check_asset_exists(asset):
             raise ValueError(f'Asset {asset} not found')
 
         # Would save icon to storage
 
-    def refresh_asset_icon(self, asset: str) -> None:
+    async def refresh_asset_icon(self, asset: str) -> None:
         """Refresh asset icon from remote source"""
         if not self.asset_repo.check_asset_exists(asset):
             raise ValueError(f'Asset {asset} not found')
 
         # Would fetch and update icon from remote source
 
-    def get_location_mappings(self, location: str | None = None) -> dict[str, list[str]]:
+    async def get_location_mappings(self, location: str | None = None) -> dict[str, list[str]]:
         """Get location asset mappings"""
         # Would fetch from database
         if location:
@@ -593,19 +593,19 @@ class AssetsService:
             'coinbase': ['ETH', 'BTC', 'USDC', 'USDT'],
         }
 
-    def add_location_mapping(self, location: str, assets: list[str]) -> None:
+    async def add_location_mapping(self, location: str, assets: list[str]) -> None:
         """Add location asset mappings"""
         # Would store in database
 
-    def update_location_mapping(self, location: str, assets: list[str]) -> None:
+    async def update_location_mapping(self, location: str, assets: list[str]) -> None:
         """Update location asset mappings"""
         # Would update in database
 
-    def delete_location_mapping(self, location: str, assets: list[str] | None = None) -> None:
+    async def delete_location_mapping(self, location: str, assets: list[str] | None = None) -> None:
         """Delete location asset mappings"""
         # Would delete from database
 
-    def get_counterparty_mappings(self, counterparty: str | None = None) -> dict[str, list[str]]:
+    async def get_counterparty_mappings(self, counterparty: str | None = None) -> dict[str, list[str]]:
         """Get counterparty asset mappings"""
         # Would fetch from database
         if counterparty:
@@ -616,38 +616,38 @@ class AssetsService:
             'aave': ['AAVE', 'aETH', 'aUSDC'],
         }
 
-    def add_counterparty_mapping(self, counterparty: str, assets: list[str]) -> None:
+    async def add_counterparty_mapping(self, counterparty: str, assets: list[str]) -> None:
         """Add counterparty asset mappings"""
         # Would store in database
 
-    def update_counterparty_mapping(self, counterparty: str, assets: list[str]) -> None:
+    async def update_counterparty_mapping(self, counterparty: str, assets: list[str]) -> None:
         """Update counterparty asset mappings"""
         # Would update in database
 
-    def delete_counterparty_mapping(self, counterparty: str, assets: list[str] | None = None) -> None:
+    async def delete_counterparty_mapping(self, counterparty: str, assets: list[str] | None = None) -> None:
         """Delete counterparty asset mappings"""
         # Would delete from database
 
-    def add_to_spam_whitelist(self, token: str) -> None:
+    async def add_to_spam_whitelist(self, token: str) -> None:
         """Add a token to the spam false positive whitelist"""
         # Would store in database
         # For now, just validate the token exists
         if not self.asset_repo.check_asset_exists(token):
             raise ValueError(f'Token {token} not found')
 
-    def remove_from_spam_whitelist(self, token: str) -> None:
+    async def remove_from_spam_whitelist(self, token: str) -> None:
         """Remove a token from the spam false positive whitelist"""
         # Would delete from database
         # For now, just validate the token exists
         if not self.asset_repo.check_asset_exists(token):
             raise ValueError(f'Token {token} not found or not in whitelist')
 
-    def get_spam_whitelist(self) -> list[str]:
+    async def get_spam_whitelist(self) -> list[str]:
         """Get the list of tokens in the spam false positive whitelist"""
         # Would fetch from database
         return ['FAKE-TOKEN-1', 'FAKE-TOKEN-2', 'NOT-SPAM-TOKEN']
 
-    def mark_tokens_as_spam(self, tokens: list[str]) -> int:
+    async def mark_tokens_as_spam(self, tokens: list[str]) -> int:
         """Mark multiple EVM tokens as spam"""
         marked_count = 0
 
@@ -662,8 +662,52 @@ class AssetsService:
 
         return marked_count
 
-    def unmark_token_as_spam(self, token: str) -> None:
+    async def unmark_token_as_spam(self, token: str) -> None:
         """Unmark an EVM token as spam"""
         # Would update token spam status in database
         if not self.asset_repo.check_asset_exists(token):
             raise ValueError(f'Token {token} not found')
+
+    async def get_user_assets(self) -> list[str]:
+        """Get user assets"""
+        # Would fetch user assets from database
+        return ['ETH', 'BTC', 'USDC', 'DAI']
+
+    async def get_ignored_assets(self) -> list[str]:
+        """Get ignored assets"""
+        if self.asset_ignore_repo:
+            return await self.asset_ignore_repo.get_ignored_assets()
+        return []
+
+    async def add_ignored_assets(self, assets: list[str]) -> None:
+        """Add assets to ignored list"""
+        if self.asset_ignore_repo:
+            await self.asset_ignore_repo.add_ignored_assets(assets)
+
+    async def remove_ignored_assets(self, assets: list[str]) -> None:
+        """Remove assets from ignored list"""
+        if self.asset_ignore_repo:
+            # Remove each asset individually
+            for asset_id in assets:
+                asset = Asset(asset_id)
+                await self.asset_ignore_repo.remove_ignored_asset(asset)
+
+    async def get_ignored_whitelist(self) -> list[str]:
+        """Get ignored whitelist"""
+        # Would fetch from database
+        return ['SPAM-TOKEN-1', 'SPAM-TOKEN-2']
+
+    async def add_to_ignored_whitelist(self, assets: list[str]) -> None:
+        """Add assets to ignored whitelist"""
+        # Would store in database
+        pass
+
+    async def remove_from_ignored_whitelist(self, assets: list[str]) -> None:
+        """Remove assets from ignored whitelist"""
+        # Would remove from database
+        pass
+
+    async def get_user_owned_assets(self) -> list[str]:
+        """Get user owned assets"""
+        # Would fetch from database
+        return ['ETH', 'BTC', 'WETH', 'USDC']

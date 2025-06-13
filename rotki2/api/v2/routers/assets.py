@@ -3,8 +3,9 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from rotki2.api.v2.dependencies import require_logged_in_user
+from rotki2.api.v2.dependencies import get_async_session, require_logged_in_user
 from rotki2.api.v2.services.assets import AssetsService
 from rotkehlchen.assets.asset import Asset
 from rotkehlchen.assets.types import AssetType
@@ -36,9 +37,12 @@ class AssetPriceRequest(BaseModel):
     timestamp: Timestamp | None = None
 
 
-def get_assets_service() -> AssetsService:
+async def get_assets_service(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> AssetsService:
     """Get assets service instance"""
-    return AssetsService()
+    # In a full implementation, we would also get the DBHandler
+    return AssetsService(session=session)
 
 
 @router.post('/all')
@@ -62,26 +66,26 @@ async def get_all_assets(
     offset: int = Query(0, ge=0),
 ) -> AssetResponse:
     """Get all assets with optional filtering"""
-    assets = assets_service.get_all_assets(
-        asset_type=asset_type,
-        limit=limit,
-        offset=offset,
-    )
+    try:
+        assets, total_count = await assets_service.get_all_assets(
+            asset_type=asset_type,
+            limit=limit,
+            offset=offset,
+        )
 
-    return AssetResponse(
-        result={
-            'assets': [
-                {
-                    'identifier': asset.identifier,
-                    'name': asset.name,
-                    'symbol': asset.symbol,
-                    'asset_type': asset.asset_type.value,
-                }
-                for asset in assets
-            ],
-            'total': len(assets),
-        },
-    )
+        return AssetResponse(
+            result={
+                'entries': assets,
+                'entries_found': len(assets),
+                'entries_total': total_count,
+                'entries_limit': limit,
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        ) from e
 
 
 @router.get('/search')
@@ -93,7 +97,7 @@ async def search_assets(
     limit: int = Query(25, ge=1, le=100),
 ) -> AssetResponse:
     """Search for assets by name or symbol"""
-    results = assets_service.search_assets(
+    results = await assets_service.search_assets(
         search_term=search_term,
         asset_type=asset_type,
         limit=limit,
@@ -101,7 +105,7 @@ async def search_assets(
 
     return AssetResponse(
         result={
-            'assets': [asset.identifier for asset in results],
+            'assets': results,
             'total': len(results),
         },
     )
@@ -120,7 +124,7 @@ async def get_latest_prices(
     for asset_id in price_request.assets:
         try:
             asset = Asset(asset_id)
-            price = assets_service.get_asset_price(
+            price = await assets_service.get_asset_price(
                 asset=asset,
                 target_asset=target,
                 timestamp=price_request.timestamp,
@@ -155,7 +159,7 @@ async def add_custom_asset(
 ) -> AssetResponse:
     """Add a custom asset"""
     try:
-        asset = assets_service.add_custom_asset(
+        asset = await assets_service.add_custom_asset(
             identifier=asset_data.identifier,
             name=asset_data.name,
             notes=f'Symbol: {asset_data.symbol}',
@@ -181,7 +185,7 @@ async def edit_custom_asset(
 ) -> AssetResponse:
     """Edit an existing custom asset - Compatible with v1 PATCH /api/1/assets/all"""
     try:
-        asset = assets_service.edit_custom_asset(
+        asset = await assets_service.edit_custom_asset(
             identifier=asset_data.identifier,
             name=asset_data.name,
             notes=f'Symbol: {asset_data.symbol}',
@@ -212,7 +216,7 @@ async def delete_custom_asset(
 ) -> AssetResponse:
     """Delete a custom asset - Compatible with v1 DELETE /api/1/assets/all"""
     try:
-        assets_service.delete_custom_asset(identifier)
+        await assets_service.delete_custom_asset(identifier)
 
         return AssetResponse(
             result={'success': True},
@@ -238,7 +242,7 @@ async def get_erc20_token_info(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Get ERC20 token information"""
-    token = assets_service.get_evm_token_info(address, chain_id)
+    token = await assets_service.get_evm_token_info(address, chain_id)
 
     if not token:
         raise HTTPException(
@@ -264,7 +268,7 @@ async def get_assets(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Get user assets"""
-    assets = assets_service.get_user_assets()
+    assets = await assets_service.get_user_assets()
     return AssetResponse(result={'assets': assets})
 
 
@@ -283,7 +287,7 @@ async def get_ignored_assets(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Get ignored assets"""
-    ignored = assets_service.get_ignored_assets()
+    ignored = await assets_service.get_ignored_assets()
     return AssetResponse(result={'assets': ignored})
 
 
@@ -296,9 +300,9 @@ async def modify_ignored_assets(
 ) -> AssetResponse:
     """Add or remove ignored assets"""
     if action == 'add':
-        assets_service.add_ignored_assets(assets)
+        await assets_service.add_ignored_assets(assets)
     elif action == 'remove':
-        assets_service.remove_ignored_assets(assets)
+        await assets_service.remove_ignored_assets(assets)
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -317,7 +321,7 @@ async def get_ignored_whitelist(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Get ignored assets whitelist"""
-    whitelist = assets_service.get_ignored_whitelist()
+    whitelist = await assets_service.get_ignored_whitelist()
     return AssetResponse(result={'assets': whitelist})
 
 
@@ -330,9 +334,9 @@ async def modify_ignored_whitelist(
 ) -> AssetResponse:
     """Add or remove assets from ignored whitelist"""
     if action == 'add':
-        assets_service.add_to_ignored_whitelist(assets)
+        await assets_service.add_to_ignored_whitelist(assets)
     elif action == 'remove':
-        assets_service.remove_from_ignored_whitelist(assets)
+        await assets_service.remove_from_ignored_whitelist(assets)
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -369,7 +373,7 @@ async def get_user_owned_assets(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Get assets owned by the user"""
-    owned_assets = assets_service.get_user_owned_assets()
+    owned_assets = await assets_service.get_user_owned_assets()
     return AssetResponse(result={'assets': owned_assets})
 
 
@@ -388,7 +392,7 @@ async def get_all_latest_prices(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Get latest prices for all known assets"""
-    prices = assets_service.get_all_latest_prices()
+    prices = await assets_service.get_all_latest_prices()
 
     return AssetResponse(result=prices)
 
@@ -420,7 +424,7 @@ async def get_historical_prices(
     target_asset: str = 'USD',
 ) -> AssetResponse:
     """Get historical prices for an asset"""
-    prices = assets_service.get_historical_prices(
+    prices = await assets_service.get_historical_prices(
         asset=asset,
         from_timestamp=from_timestamp,
         to_timestamp=to_timestamp,
@@ -440,7 +444,7 @@ async def post_historical_prices(
     results = {}
 
     for asset in request_data.assets:
-        prices = assets_service.get_historical_prices(
+        prices = await assets_service.get_historical_prices(
             asset=asset,
             from_timestamp=request_data.from_timestamp,
             to_timestamp=request_data.to_timestamp,
@@ -464,7 +468,7 @@ async def get_asset_mappings(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Get all asset mappings"""
-    mappings = assets_service.get_asset_mappings()
+    mappings = await assets_service.get_asset_mappings()
 
     return AssetResponse(result=mappings)
 
@@ -476,7 +480,7 @@ async def modify_asset_mappings(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Add or update asset mappings"""
-    assets_service.set_asset_mapping(
+    await assets_service.set_asset_mapping(
         asset=mapping_data.asset,
         target_asset=mapping_data.target_asset,
         mapping_type=mapping_data.mapping_type,
@@ -494,7 +498,7 @@ async def check_asset_updates(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Check for asset database updates"""
-    updates = assets_service.check_for_updates()
+    updates = await assets_service.check_for_updates()
 
     return AssetResponse(result=updates)
 
@@ -505,7 +509,7 @@ async def apply_asset_updates(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Apply asset database updates"""
-    result = assets_service.apply_updates()
+    result = await assets_service.apply_updates()
 
     return AssetResponse(
         result=result,
@@ -538,7 +542,7 @@ async def search_assets_fuzzy(
     ignored_assets_handling: str = 'exclude',
 ) -> AssetResponse:
     """Fuzzy search for assets - Compatible with v1 POST /api/1/assets/search/levenshtein"""
-    results = assets_service.search_assets_levenshtein(
+    results = await assets_service.search_assets_levenshtein(
         search_term=search_term,
         asset_type=asset_type,
         limit=limit,
@@ -563,7 +567,7 @@ async def replace_asset(
 ) -> AssetResponse:
     """Replace/merge one asset with another - Compatible with v1 PUT /api/1/assets/replace"""
     try:
-        assets_service.replace_asset(source_identifier, target_identifier)
+        await assets_service.replace_asset(source_identifier, target_identifier)
 
         return AssetResponse(
             result={'success': True},
@@ -582,7 +586,7 @@ async def reset_asset_data(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Reset local asset data to defaults - Compatible with v1 DELETE /api/1/assets/updates"""
-    assets_service.reset_asset_data()
+    await assets_service.reset_asset_data()
 
     return AssetResponse(
         result={'success': True},
@@ -598,7 +602,7 @@ async def import_user_assets(
 ) -> AssetResponse:
     """Import user-defined assets from a file - Compatible with v1 PUT /api/1/assets/user"""
     try:
-        count = assets_service.import_user_assets(file_path)
+        count = await assets_service.import_user_assets(file_path)
 
         return AssetResponse(
             result={'imported': count},
@@ -617,7 +621,7 @@ async def get_custom_assets(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Get all custom assets - Compatible with v1 GET /api/1/assets/custom"""
-    custom_assets = assets_service.get_custom_assets()
+    custom_assets = await assets_service.get_custom_assets()
 
     return AssetResponse(result={'assets': custom_assets})
 
@@ -658,7 +662,7 @@ async def get_custom_asset_types(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Get all custom asset types - Compatible with v1 GET /api/1/assets/custom/types"""
-    types = assets_service.get_custom_asset_types()
+    types = await assets_service.get_custom_asset_types()
 
     return AssetResponse(result={'types': types})
 
@@ -672,7 +676,7 @@ async def add_manual_latest_price(
 ) -> AssetResponse:
     """Add a manual latest price - Compatible with v1 PUT /api/1/assets/prices/latest"""
     try:
-        assets_service.add_manual_latest_price(asset, price)
+        await assets_service.add_manual_latest_price(asset, price)
 
         return AssetResponse(
             result={'success': True},
@@ -693,7 +697,7 @@ async def delete_manual_latest_price(
 ) -> AssetResponse:
     """Delete a manual latest price - Compatible with v1 DELETE /api/1/assets/prices/latest"""
     try:
-        assets_service.delete_manual_latest_price(asset)
+        await assets_service.delete_manual_latest_price(asset)
 
         return AssetResponse(
             result={'success': True},
@@ -712,7 +716,7 @@ async def get_manual_historical_prices(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Get all stored manual historical prices - Compatible with v1 GET /api/1/assets/prices/historical"""
-    prices = assets_service.get_manual_historical_prices()
+    prices = await assets_service.get_manual_historical_prices()
 
     return AssetResponse(result={'prices': prices})
 
@@ -728,7 +732,7 @@ async def add_manual_historical_price(
 ) -> AssetResponse:
     """Add a manual historical price - Compatible with v1 PUT /api/1/assets/prices/historical"""
     try:
-        assets_service.add_manual_historical_price(asset, timestamp, price, target_asset)
+        await assets_service.add_manual_historical_price(asset, timestamp, price, target_asset)
 
         return AssetResponse(
             result={'success': True},
@@ -752,7 +756,7 @@ async def edit_manual_historical_price(
 ) -> AssetResponse:
     """Edit a manual historical price - Compatible with v1 PATCH /api/1/assets/prices/historical"""
     try:
-        assets_service.edit_manual_historical_price(asset, timestamp, price, target_asset)
+        await assets_service.edit_manual_historical_price(asset, timestamp, price, target_asset)
 
         return AssetResponse(
             result={'success': True},
@@ -775,7 +779,7 @@ async def delete_manual_historical_price(
 ) -> AssetResponse:
     """Delete a manual historical price - Compatible with v1 DELETE /api/1/assets/prices/historical"""
     try:
-        assets_service.delete_manual_historical_price(asset, timestamp, target_asset)
+        await assets_service.delete_manual_historical_price(asset, timestamp, target_asset)
 
         return AssetResponse(
             result={'success': True},
@@ -800,7 +804,7 @@ async def upload_asset_icon(
     try:
         # Read file content
         icon_data = await file.read()
-        assets_service.upload_asset_icon(asset, icon_data)
+        await assets_service.upload_asset_icon(asset, icon_data)
 
         return AssetResponse(
             result={'success': True},
@@ -832,7 +836,7 @@ async def refresh_asset_icon(
 ) -> AssetResponse:
     """Refresh an asset icon from remote source - Compatible with v1 PATCH /api/1/assets/icon/modify"""
     try:
-        assets_service.refresh_asset_icon(asset)
+        await assets_service.refresh_asset_icon(asset)
 
         return AssetResponse(
             result={'success': True},
@@ -853,7 +857,7 @@ async def query_location_mappings(
     location: str | None = None,
 ) -> AssetResponse:
     """Query location asset mappings - Compatible with v1 POST /api/1/assets/locationmappings"""
-    mappings = assets_service.get_location_mappings(location)
+    mappings = await assets_service.get_location_mappings(location)
 
     return AssetResponse(result={'mappings': mappings})
 
@@ -867,7 +871,7 @@ async def add_location_mappings(
 ) -> AssetResponse:
     """Add location asset mappings - Compatible with v1 PUT /api/1/assets/locationmappings"""
     try:
-        assets_service.add_location_mapping(location, assets)
+        await assets_service.add_location_mapping(location, assets)
 
         return AssetResponse(
             result={'success': True},
@@ -889,7 +893,7 @@ async def update_location_mappings(
 ) -> AssetResponse:
     """Update location asset mappings - Compatible with v1 PATCH /api/1/assets/locationmappings"""
     try:
-        assets_service.update_location_mapping(location, assets)
+        await assets_service.update_location_mapping(location, assets)
 
         return AssetResponse(
             result={'success': True},
@@ -911,7 +915,7 @@ async def delete_location_mappings(
 ) -> AssetResponse:
     """Delete location asset mappings - Compatible with v1 DELETE /api/1/assets/locationmappings"""
     try:
-        assets_service.delete_location_mapping(location, assets)
+        await assets_service.delete_location_mapping(location, assets)
 
         return AssetResponse(
             result={'success': True},
@@ -932,7 +936,7 @@ async def query_counterparty_mappings(
     counterparty: str | None = None,
 ) -> AssetResponse:
     """Query counterparty asset mappings - Compatible with v1 POST /api/1/assets/counterpartymappings"""
-    mappings = assets_service.get_counterparty_mappings(counterparty)
+    mappings = await assets_service.get_counterparty_mappings(counterparty)
 
     return AssetResponse(result={'mappings': mappings})
 
@@ -946,7 +950,7 @@ async def add_counterparty_mappings(
 ) -> AssetResponse:
     """Add counterparty asset mappings - Compatible with v1 PUT /api/1/assets/counterpartymappings"""
     try:
-        assets_service.add_counterparty_mapping(counterparty, assets)
+        await assets_service.add_counterparty_mapping(counterparty, assets)
 
         return AssetResponse(
             result={'success': True},
@@ -968,7 +972,7 @@ async def update_counterparty_mappings(
 ) -> AssetResponse:
     """Update counterparty asset mappings - Compatible with v1 PATCH /api/1/assets/counterpartymappings"""
     try:
-        assets_service.update_counterparty_mapping(counterparty, assets)
+        await assets_service.update_counterparty_mapping(counterparty, assets)
 
         return AssetResponse(
             result={'success': True},
@@ -990,7 +994,7 @@ async def delete_counterparty_mappings(
 ) -> AssetResponse:
     """Delete counterparty asset mappings - Compatible with v1 DELETE /api/1/assets/counterpartymappings"""
     try:
-        assets_service.delete_counterparty_mapping(counterparty, assets)
+        await assets_service.delete_counterparty_mapping(counterparty, assets)
 
         return AssetResponse(
             result={'success': True},
@@ -1012,7 +1016,7 @@ async def add_to_spam_whitelist(
 ) -> AssetResponse:
     """Add a spam token to the false positive list - Compatible with v1 POST /api/1/assets/ignored/whitelist"""
     try:
-        assets_service.add_to_spam_whitelist(token)
+        await assets_service.add_to_spam_whitelist(token)
 
         return AssetResponse(
             result={'success': True},
@@ -1033,7 +1037,7 @@ async def remove_from_spam_whitelist(
 ) -> AssetResponse:
     """Remove a token from the false positive list - Compatible with v1 DELETE /api/1/assets/ignored/whitelist"""
     try:
-        assets_service.remove_from_spam_whitelist(token)
+        await assets_service.remove_from_spam_whitelist(token)
 
         return AssetResponse(
             result={'success': True},
@@ -1052,7 +1056,7 @@ async def get_spam_whitelist(
     assets_service: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> AssetResponse:
     """Get the list of false positive spam tokens - Compatible with v1 GET /api/1/assets/ignored/whitelist"""
-    whitelist = assets_service.get_spam_whitelist()
+    whitelist = await assets_service.get_spam_whitelist()
 
     return AssetResponse(result={'tokens': whitelist})
 
@@ -1065,7 +1069,7 @@ async def mark_tokens_as_spam(
 ) -> AssetResponse:
     """Mark EVM tokens as spam - Compatible with v1 POST /api/1/assets/evm/spam/"""
     try:
-        marked_count = assets_service.mark_tokens_as_spam(tokens)
+        marked_count = await assets_service.mark_tokens_as_spam(tokens)
 
         return AssetResponse(
             result={'marked': marked_count},
@@ -1086,7 +1090,7 @@ async def unmark_token_as_spam(
 ) -> AssetResponse:
     """Unmark an EVM token as spam - Compatible with v1 DELETE /api/1/assets/evm/spam/"""
     try:
-        assets_service.unmark_token_as_spam(token)
+        await assets_service.unmark_token_as_spam(token)
 
         return AssetResponse(
             result={'success': True},
