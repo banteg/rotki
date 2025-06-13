@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional
 from sqlmodel import select
 
 from rotkehlchen.api.v2.repositories.base import BaseRepository
-from rotkehlchen.db.models.tag import Tag, TagMapping
+from rotkehlchen.db.models.user.models import Tag, TagMapping
 
 if TYPE_CHECKING:
     from rotkehlchen.types import ChecksumEvmAddress

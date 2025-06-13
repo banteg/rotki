@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, Optional
 from sqlmodel import select
 
 from rotkehlchen.api.v2.repositories.base import BaseRepository
-from rotkehlchen.db.models.blockchain_account import BlockchainAccount, EvmAccountDetails
-from rotkehlchen.db.models.tag import TagMapping
+from rotkehlchen.db.models.user.accounts import BlockchainAccount, EvmAccountDetails
+from rotkehlchen.db.models.user.models import TagMapping
 
 if TYPE_CHECKING:
     from rotkehlchen.types import ChecksumEvmAddress, SupportedBlockchain

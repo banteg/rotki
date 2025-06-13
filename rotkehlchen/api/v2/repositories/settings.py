@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING, Any, Optional
 from sqlmodel import select
 
 from rotkehlchen.api.v2.repositories.base import BaseRepository
-from rotkehlchen.db.models.settings import MultiSettings, Settings
+from rotkehlchen.db.models.user.cache import MultiSettings
+from rotkehlchen.db.models.user.models import Settings
 
 if TYPE_CHECKING:
     from rotkehlchen.types import ModuleName

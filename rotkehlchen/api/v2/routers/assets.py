@@ -1,7 +1,7 @@
 """Assets router for asset management endpoints"""
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
 from pydantic import BaseModel
 
 from rotkehlchen.api.v2.dependencies import require_logged_in_user
@@ -511,3 +511,493 @@ async def apply_asset_updates(
         result=result,
         message='Asset updates applied',
     )
+
+
+# Additional endpoints for full v1 compatibility
+
+@router.post('/search')
+async def search_assets_post(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    search_term: str,
+    asset_type: AssetType | None = None,
+    limit: int = 25,
+) -> AssetResponse:
+    """Search for assets by name or symbol - Compatible with v1 POST /api/1/assets/search"""
+    return await search_assets(_, assets_service, search_term, asset_type, limit)
+
+
+@router.post('/search/levenshtein')
+async def search_assets_fuzzy(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    search_term: str,
+    asset_type: AssetType | None = None,
+    limit: int = 25,
+    search_nfts: bool = False,
+    ignored_assets_handling: str = 'exclude',
+) -> AssetResponse:
+    """Fuzzy search for assets - Compatible with v1 POST /api/1/assets/search/levenshtein"""
+    results = assets_service.search_assets_levenshtein(
+        search_term=search_term,
+        asset_type=asset_type,
+        limit=limit,
+        search_nfts=search_nfts,
+        ignored_assets_handling=ignored_assets_handling,
+    )
+
+    return AssetResponse(
+        result={
+            'assets': results,
+            'total': len(results),
+        },
+    )
+
+
+@router.put('/replace')
+async def replace_asset(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    source_identifier: str,
+    target_identifier: str,
+) -> AssetResponse:
+    """Replace/merge one asset with another - Compatible with v1 PUT /api/1/assets/replace"""
+    try:
+        assets_service.replace_asset(source_identifier, target_identifier)
+        
+        return AssetResponse(
+            result={'success': True},
+            message=f'Successfully replaced {source_identifier} with {target_identifier}',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.delete('/updates')
+async def reset_asset_data(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Reset local asset data to defaults - Compatible with v1 DELETE /api/1/assets/updates"""
+    assets_service.reset_asset_data()
+    
+    return AssetResponse(
+        result={'success': True},
+        message='Asset data reset to defaults',
+    )
+
+
+@router.put('/user')
+async def import_user_assets(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    file_path: str,
+) -> AssetResponse:
+    """Import user-defined assets from a file - Compatible with v1 PUT /api/1/assets/user"""
+    try:
+        count = assets_service.import_user_assets(file_path)
+        
+        return AssetResponse(
+            result={'imported': count},
+            message=f'Successfully imported {count} assets',
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.get('/custom')
+async def get_custom_assets(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Get all custom assets - Compatible with v1 GET /api/1/assets/custom"""
+    custom_assets = assets_service.get_custom_assets()
+    
+    return AssetResponse(result={'assets': custom_assets})
+
+
+@router.put('/custom')
+async def add_custom_asset_v1(
+    asset_data: CustomAssetRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Add a new custom asset - Compatible with v1 PUT /api/1/assets/custom"""
+    return await add_custom_asset(asset_data, _, assets_service)
+
+
+@router.patch('/custom')
+async def edit_custom_asset_v1(
+    asset_data: CustomAssetRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Edit a custom asset - Compatible with v1 PATCH /api/1/assets/custom"""
+    return await edit_custom_asset(asset_data, _, assets_service)
+
+
+@router.delete('/custom')
+async def delete_custom_asset_v1(
+    identifier: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Delete a custom asset - Compatible with v1 DELETE /api/1/assets/custom"""
+    return await delete_custom_asset(identifier, _, assets_service)
+
+
+@router.get('/custom/types')
+async def get_custom_asset_types(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Get all custom asset types - Compatible with v1 GET /api/1/assets/custom/types"""
+    types = assets_service.get_custom_asset_types()
+    
+    return AssetResponse(result={'types': types})
+
+
+@router.put('/prices/latest')
+async def add_manual_latest_price(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    asset: str,
+    price: str,
+) -> AssetResponse:
+    """Add a manual latest price - Compatible with v1 PUT /api/1/assets/prices/latest"""
+    try:
+        assets_service.add_manual_latest_price(asset, price)
+        
+        return AssetResponse(
+            result={'success': True},
+            message='Manual latest price added',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.delete('/prices/latest')
+async def delete_manual_latest_price(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    asset: str,
+) -> AssetResponse:
+    """Delete a manual latest price - Compatible with v1 DELETE /api/1/assets/prices/latest"""
+    try:
+        assets_service.delete_manual_latest_price(asset)
+        
+        return AssetResponse(
+            result={'success': True},
+            message='Manual latest price deleted',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+
+
+@router.get('/prices/historical/manual')
+async def get_manual_historical_prices(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Get all stored manual historical prices - Compatible with v1 GET /api/1/assets/prices/historical"""
+    prices = assets_service.get_manual_historical_prices()
+    
+    return AssetResponse(result={'prices': prices})
+
+
+@router.put('/prices/historical')
+async def add_manual_historical_price(
+    asset: str,
+    timestamp: Timestamp,
+    price: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    target_asset: str = 'USD',
+) -> AssetResponse:
+    """Add a manual historical price - Compatible with v1 PUT /api/1/assets/prices/historical"""
+    try:
+        assets_service.add_manual_historical_price(asset, timestamp, price, target_asset)
+        
+        return AssetResponse(
+            result={'success': True},
+            message='Manual historical price added',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.patch('/prices/historical')
+async def edit_manual_historical_price(
+    asset: str,
+    timestamp: Timestamp,
+    price: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    target_asset: str = 'USD',
+) -> AssetResponse:
+    """Edit a manual historical price - Compatible with v1 PATCH /api/1/assets/prices/historical"""
+    try:
+        assets_service.edit_manual_historical_price(asset, timestamp, price, target_asset)
+        
+        return AssetResponse(
+            result={'success': True},
+            message='Manual historical price updated',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.delete('/prices/historical')
+async def delete_manual_historical_price(
+    asset: str,
+    timestamp: Timestamp,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    target_asset: str = 'USD',
+) -> AssetResponse:
+    """Delete a manual historical price - Compatible with v1 DELETE /api/1/assets/prices/historical"""
+    try:
+        assets_service.delete_manual_historical_price(asset, timestamp, target_asset)
+        
+        return AssetResponse(
+            result={'success': True},
+            message='Manual historical price deleted',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+
+
+# Asset icon endpoints
+@router.put('/icon/modify')
+async def upload_asset_icon(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    asset: str = Form(...),
+    file: UploadFile = File(...),
+) -> AssetResponse:
+    """Upload an asset icon - Compatible with v1 PUT /api/1/assets/icon/modify"""
+    try:
+        # Read file content
+        icon_data = await file.read()
+        assets_service.upload_asset_icon(asset, icon_data)
+        
+        return AssetResponse(
+            result={'success': True},
+            message=f'Icon uploaded for asset {asset}',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.post('/icon/modify')
+async def upload_asset_icon_via_form(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    asset: str = Form(...),
+    file: UploadFile = File(...),
+) -> AssetResponse:
+    """Upload an asset icon via form - Compatible with v1 POST /api/1/assets/icon/modify"""
+    return await upload_asset_icon(_, assets_service, asset, file)
+
+
+@router.patch('/icon/modify')
+async def refresh_asset_icon(
+    asset: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Refresh an asset icon from remote source - Compatible with v1 PATCH /api/1/assets/icon/modify"""
+    try:
+        assets_service.refresh_asset_icon(asset)
+        
+        return AssetResponse(
+            result={'success': True},
+            message=f'Icon refreshed for asset {asset}',
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+# Location mappings endpoints
+@router.post('/locationmappings')
+async def query_location_mappings(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    location: str | None = None,
+) -> AssetResponse:
+    """Query location asset mappings - Compatible with v1 POST /api/1/assets/locationmappings"""
+    mappings = assets_service.get_location_mappings(location)
+    
+    return AssetResponse(result={'mappings': mappings})
+
+
+@router.put('/locationmappings')
+async def add_location_mappings(
+    location: str,
+    assets: list[str],
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Add location asset mappings - Compatible with v1 PUT /api/1/assets/locationmappings"""
+    try:
+        assets_service.add_location_mapping(location, assets)
+        
+        return AssetResponse(
+            result={'success': True},
+            message=f'Added {len(assets)} asset mappings for location {location}',
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.patch('/locationmappings')
+async def update_location_mappings(
+    location: str,
+    assets: list[str],
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Update location asset mappings - Compatible with v1 PATCH /api/1/assets/locationmappings"""
+    try:
+        assets_service.update_location_mapping(location, assets)
+        
+        return AssetResponse(
+            result={'success': True},
+            message=f'Updated asset mappings for location {location}',
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.delete('/locationmappings')
+async def delete_location_mappings(
+    location: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    assets: list[str] | None = None,
+) -> AssetResponse:
+    """Delete location asset mappings - Compatible with v1 DELETE /api/1/assets/locationmappings"""
+    try:
+        assets_service.delete_location_mapping(location, assets)
+        
+        return AssetResponse(
+            result={'success': True},
+            message=f'Deleted asset mappings for location {location}',
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+# Counterparty mappings endpoints
+@router.post('/counterpartymappings')
+async def query_counterparty_mappings(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    counterparty: str | None = None,
+) -> AssetResponse:
+    """Query counterparty asset mappings - Compatible with v1 POST /api/1/assets/counterpartymappings"""
+    mappings = assets_service.get_counterparty_mappings(counterparty)
+    
+    return AssetResponse(result={'mappings': mappings})
+
+
+@router.put('/counterpartymappings')
+async def add_counterparty_mappings(
+    counterparty: str,
+    assets: list[str],
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Add counterparty asset mappings - Compatible with v1 PUT /api/1/assets/counterpartymappings"""
+    try:
+        assets_service.add_counterparty_mapping(counterparty, assets)
+        
+        return AssetResponse(
+            result={'success': True},
+            message=f'Added {len(assets)} asset mappings for counterparty {counterparty}',
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.patch('/counterpartymappings')
+async def update_counterparty_mappings(
+    counterparty: str,
+    assets: list[str],
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetResponse:
+    """Update counterparty asset mappings - Compatible with v1 PATCH /api/1/assets/counterpartymappings"""
+    try:
+        assets_service.update_counterparty_mapping(counterparty, assets)
+        
+        return AssetResponse(
+            result={'success': True},
+            message=f'Updated asset mappings for counterparty {counterparty}',
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+
+@router.delete('/counterpartymappings')
+async def delete_counterparty_mappings(
+    counterparty: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    assets_service: Annotated[AssetsService, Depends(get_assets_service)],
+    assets: list[str] | None = None,
+) -> AssetResponse:
+    """Delete counterparty asset mappings - Compatible with v1 DELETE /api/1/assets/counterpartymappings"""
+    try:
+        assets_service.delete_counterparty_mapping(counterparty, assets)
+        
+        return AssetResponse(
+            result={'success': True},
+            message=f'Deleted asset mappings for counterparty {counterparty}',
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Optional
 from sqlmodel import func, select
 
 from rotkehlchen.api.v2.repositories.base import BaseRepository
-from rotkehlchen.db.models.evm_transaction import (
+from rotkehlchen.db.models.user.evm import (
     EvmTransaction,
     EvmTransactionAuthorization,
     EvmTxReceipt,

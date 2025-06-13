@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional
 from sqlmodel import func, select
 
 from rotkehlchen.api.v2.repositories.base import BaseRepository
-from rotkehlchen.db.models.asset import NFT
+from rotkehlchen.db.models.user.nfts import NFT
 
 if TYPE_CHECKING:
     from rotkehlchen.types import ChecksumEvmAddress

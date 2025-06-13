@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional
 from sqlmodel import func, select
 
 from rotkehlchen.api.v2.repositories.base import BaseRepository
-from rotkehlchen.db.models.eth2_validator import Eth2DailyStakingDetails, Eth2Validator
+from rotkehlchen.db.models.user.staking import Eth2DailyStakingDetails, Eth2Validator
 
 if TYPE_CHECKING:
     from rotkehlchen.types import ChecksumEvmAddress, Timestamp

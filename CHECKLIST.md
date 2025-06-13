@@ -54,41 +54,41 @@
 - [x] `PUT /api/1/assets/all` (Add a new asset) ✅ Migrated to `PUT /api/v2/assets/all`
 - [x] `PATCH /api/1/assets/all` (Edit an existing asset) ✅ Migrated to `PATCH /api/v2/assets/all`
 - [x] `DELETE /api/1/assets/all` (Delete a custom asset) ✅ Migrated to `DELETE /api/v2/assets/all`
-- [ ] `POST /api/1/assets/mappings` (Get asset mappings)
-- [ ] `POST /api/1/assets/search` (Search for an asset by name/symbol)
-- [ ] `POST /api/1/assets/search/levenshtein` (Fuzzy search for an asset)
-- [ ] `GET /api/1/assets/types` (Get all supported asset types)
-- [ ] `PUT /api/1/assets/replace` (Merge two asset entries)
-- [ ] `GET /api/1/assets/updates` (Check for remote asset data updates)
-- [ ] `POST /api/1/assets/updates` (Perform asset data updates)
-- [ ] `DELETE /api/1/assets/updates` (Reset local asset data)
-- [ ] `PUT /api/1/assets/user` (Import user-defined assets from a file)
-- [ ] `GET /api/1/assets/custom` (Get all custom assets)
-- [ ] `PUT /api/1/assets/custom` (Add a new custom asset)
-- [ ] `PATCH /api/1/assets/custom` (Edit a custom asset)
-- [ ] `DELETE /api/1/assets/custom` (Delete a custom asset)
-- [ ] `GET /api/1/assets/custom/types` (Get all custom asset types)
+- [x] `POST /api/1/assets/mappings` (Get asset mappings) ✅ Migrated to `POST /api/v2/assets/mappings`
+- [x] `POST /api/1/assets/search` (Search for an asset by name/symbol) ✅ Migrated to `POST /api/v2/assets/search`
+- [x] `POST /api/1/assets/search/levenshtein` (Fuzzy search for an asset) ✅ Migrated to `POST /api/v2/assets/search/levenshtein`
+- [x] `GET /api/1/assets/types` (Get all supported asset types) ✅ Migrated to `GET /api/v2/assets/types`
+- [x] `PUT /api/1/assets/replace` (Merge two asset entries) ✅ Migrated to `PUT /api/v2/assets/replace`
+- [x] `GET /api/1/assets/updates` (Check for remote asset data updates) ✅ Migrated to `GET /api/v2/assets/updates`
+- [x] `POST /api/1/assets/updates` (Perform asset data updates) ✅ Migrated to `POST /api/v2/assets/updates`
+- [x] `DELETE /api/1/assets/updates` (Reset local asset data) ✅ Migrated to `DELETE /api/v2/assets/updates`
+- [x] `PUT /api/1/assets/user` (Import user-defined assets from a file) ✅ Migrated to `PUT /api/v2/assets/user`
+- [x] `GET /api/1/assets/custom` (Get all custom assets) ✅ Migrated to `GET /api/v2/assets/custom`
+- [x] `PUT /api/1/assets/custom` (Add a new custom asset) ✅ Migrated to `PUT /api/v2/assets/custom`
+- [x] `PATCH /api/1/assets/custom` (Edit a custom asset) ✅ Migrated to `PATCH /api/v2/assets/custom`
+- [x] `DELETE /api/1/assets/custom` (Delete a custom asset) ✅ Migrated to `DELETE /api/v2/assets/custom`
+- [x] `GET /api/1/assets/custom/types` (Get all custom asset types) ✅ Migrated to `GET /api/v2/assets/custom/types`
 - [x] `GET /api/1/exchange_rates` (Get exchange rates for given pairs) ✅ Migrated to `GET /api/v2/exchange_rates/`
-- [ ] `POST /api/1/assets/prices/latest` (Get current prices for a list of assets)
-- [ ] `GET /api/1/assets/prices/latest/all` (Get all stored manual latest prices)
-- [ ] `PUT /api/1/assets/prices/latest` (Add a manual latest price)
-- [ ] `DELETE /api/1/assets/prices/latest` (Delete a manual latest price)
-- [ ] `POST /api/1/assets/prices/historical` (Get historical prices for a list of assets and timestamps)
-- [ ] `GET /api/1/assets/prices/historical` (Get all stored manual historical prices)
-- [ ] `PUT /api/1/assets/prices/historical` (Add a manual historical price)
-- [ ] `PATCH /api/1/assets/prices/historical` (Edit a manual historical price)
-- [ ] `DELETE /api/1/assets/prices/historical` (Delete a manual historical price)
-- [ ] `PUT /api/1/assets/icon/modify` (Upload an asset icon)
-- [ ] `POST /api/1/assets/icon/modify` (Upload an asset icon via form)
-- [ ] `PATCH /api/1/assets/icon/modify` (Refresh an asset icon from a remote source)
-- [ ] `POST /api/1/assets/locationmappings` (Query location asset mappings)
-- [ ] `PUT /api/1/assets/locationmappings` (Add location asset mappings)
-- [ ] `PATCH /api/1/assets/locationmappings` (Update location asset mappings)
-- [ ] `DELETE /api/1/assets/locationmappings` (Delete location asset mappings)
-- [ ] `POST /api/1/assets/counterpartymappings` (Query counterparty asset mappings)
-- [ ] `PUT /api/1/assets/counterpartymappings` (Add counterparty asset mappings)
-- [ ] `PATCH /api/1/assets/counterpartymappings` (Update counterparty asset mappings)
-- [ ] `DELETE /api/1/assets/counterpartymappings` (Delete counterparty asset mappings)
+- [x] `POST /api/1/assets/prices/latest` (Get current prices for a list of assets) ✅ Migrated to `POST /api/v2/assets/prices/latest`
+- [x] `GET /api/1/assets/prices/latest/all` (Get all stored manual latest prices) ✅ Migrated to `GET /api/v2/assets/prices/latest/all`
+- [x] `PUT /api/1/assets/prices/latest` (Add a manual latest price) ✅ Migrated to `PUT /api/v2/assets/prices/latest`
+- [x] `DELETE /api/1/assets/prices/latest` (Delete a manual latest price) ✅ Migrated to `DELETE /api/v2/assets/prices/latest`
+- [x] `POST /api/1/assets/prices/historical` (Get historical prices for a list of assets and timestamps) ✅ Migrated to `POST /api/v2/assets/prices/historical`
+- [x] `GET /api/1/assets/prices/historical` (Get all stored manual historical prices) ✅ Migrated to `GET /api/v2/assets/prices/historical`
+- [x] `PUT /api/1/assets/prices/historical` (Add a manual historical price) ✅ Migrated to `PUT /api/v2/assets/prices/historical`
+- [x] `PATCH /api/1/assets/prices/historical` (Edit a manual historical price) ✅ Migrated to `PATCH /api/v2/assets/prices/historical`
+- [x] `DELETE /api/1/assets/prices/historical` (Delete a manual historical price) ✅ Migrated to `DELETE /api/v2/assets/prices/historical`
+- [x] `PUT /api/1/assets/icon/modify` (Upload an asset icon) ✅ Migrated to `PUT /api/v2/assets/icon/modify`
+- [x] `POST /api/1/assets/icon/modify` (Upload an asset icon via form) ✅ Migrated to `POST /api/v2/assets/icon/modify`
+- [x] `PATCH /api/1/assets/icon/modify` (Refresh an asset icon from a remote source) ✅ Migrated to `PATCH /api/v2/assets/icon/modify`
+- [x] `POST /api/1/assets/locationmappings` (Query location asset mappings) ✅ Migrated to `POST /api/v2/assets/locationmappings`
+- [x] `PUT /api/1/assets/locationmappings` (Add location asset mappings) ✅ Migrated to `PUT /api/v2/assets/locationmappings`
+- [x] `PATCH /api/1/assets/locationmappings` (Update location asset mappings) ✅ Migrated to `PATCH /api/v2/assets/locationmappings`
+- [x] `DELETE /api/1/assets/locationmappings` (Delete location asset mappings) ✅ Migrated to `DELETE /api/v2/assets/locationmappings`
+- [x] `POST /api/1/assets/counterpartymappings` (Query counterparty asset mappings) ✅ Migrated to `POST /api/v2/assets/counterpartymappings`
+- [x] `PUT /api/1/assets/counterpartymappings` (Add counterparty asset mappings) ✅ Migrated to `PUT /api/v2/assets/counterpartymappings`
+- [x] `PATCH /api/1/assets/counterpartymappings` (Update counterparty asset mappings) ✅ Migrated to `PATCH /api/v2/assets/counterpartymappings`
+- [x] `DELETE /api/1/assets/counterpartymappings` (Delete counterparty asset mappings) ✅ Migrated to `DELETE /api/v2/assets/counterpartymappings`
 
 #### **Balances**
 

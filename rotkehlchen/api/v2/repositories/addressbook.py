@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional
 from sqlmodel import func, select
 
 from rotkehlchen.api.v2.repositories.base import BaseRepository
-from rotkehlchen.db.models.addressbook import AddressBook
+from rotkehlchen.db.models.user.address_book import AddressBook
 
 if TYPE_CHECKING:
     from rotkehlchen.types import AddressBookType, ChecksumEvmAddress, SupportedBlockchain

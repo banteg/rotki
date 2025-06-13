@@ -4,9 +4,7 @@ from typing import TYPE_CHECKING, Any
 from sqlmodel import Session, select
 
 from rotkehlchen.api.v2.repositories.blockchain_account import BlockchainAccountRepository
-from rotkehlchen.constants.location import SUPPORTED_LOCATIONS
-from rotkehlchen.db.models.blockchain_account import BlockchainAccount
-from rotkehlchen.db.models.user.accounts import UserCredentials
+from rotkehlchen.db.models.user.accounts import BlockchainAccount, UserCredentials
 from rotkehlchen.types import Location
 
 if TYPE_CHECKING:

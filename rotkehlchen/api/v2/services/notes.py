@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 from sqlmodel import Session, select
 
 from rotkehlchen.api.v2.repositories.notes import NotesRepository
-from rotkehlchen.db.models.user_note import UserNote
+from rotkehlchen.db.models.user.notes import UserNote
 from rotkehlchen.types import Timestamp
 
 if TYPE_CHECKING:

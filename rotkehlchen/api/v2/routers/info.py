@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from rotkehlchen.api.v2.dependencies import get_rotkehlchen, require_logged_in_user
-from rotkehlchen.constants import GLOBAL_DB_VERSION
+from rotkehlchen.globaldb.utils import GLOBAL_DB_VERSION
 from rotkehlchen.logging import RotkehlchenLogsAdapter
-from rotkehlchen.version import get_current_version
+from rotkehlchen.utils.version_check import get_current_version
 
 if TYPE_CHECKING:
     from rotkehlchen.rotkehlchen import Rotkehlchen
