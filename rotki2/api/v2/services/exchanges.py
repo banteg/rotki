@@ -1,8 +1,19 @@
 """Exchange service for managing exchange connections and data"""
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rotki2.api.v2.services.database import DatabaseService
-from rotkehlchen.types import Location
+from rotkehlchen.constants.assets import A_USD
+from rotkehlchen.errors.misc import RemoteError
+from rotkehlchen.exchanges.data_structures import AssetMovement, MarginPosition, Trade
+from rotkehlchen.exchanges.kraken import KrakenAccountType
+from rotkehlchen.fval import FVal
+from rotkehlchen.types import ApiKey, ApiSecret, Location
+from rotkehlchen.utils.misc import ts_now
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from rotkehlchen.exchanges.manager import ExchangeManager
 
 
 class ExchangeInfo:
@@ -21,10 +32,21 @@ class ExchangeInfo:
 
 
 class ExchangeService:
-    """Service for exchange operations"""
+    """Service for exchange operations
+    
+    This service migrates the exchange management logic from RestAPI
+    to an async-first architecture.
+    """
 
-    def __init__(self, db_service: DatabaseService):
+    def __init__(
+        self,
+        session: 'AsyncSession',
+        db_service: DatabaseService,
+        exchange_manager: 'ExchangeManager | None' = None,
+    ):
+        self.session = session
         self.db = db_service
+        self.exchange_manager = exchange_manager
 
     def get_configured_exchanges(self) -> list[ExchangeInfo]:
         """Get all configured exchanges"""
@@ -52,54 +74,104 @@ class ExchangeService:
 
         return exchanges
 
-    def add_exchange(
+    async def setup_exchange(
         self,
         name: str,
         location: Location,
-        api_key: str,
-        api_secret: str,
+        api_key: ApiKey,
+        api_secret: ApiSecret | None,
         passphrase: str | None = None,
-        kraken_account_type: str | None = None,
-        binance_markets: list[str] | None = None,
-    ) -> dict[str, Any]:
-        """Add new exchange connection"""
-        # Validate exchange credentials
-        # In real implementation, would test connection first
-
-        credential = self.db.add_user_credential(
+        kraken_account_type: KrakenAccountType | None = None,
+        binance_selected_trade_pairs: list[str] | None = None,
+    ) -> tuple[bool, str]:
+        """Setup a new exchange with api credentials
+        
+        This migrates the logic from RestAPI.setup_exchange and
+        Rotkehlchen.setup_exchange.
+        """
+        if not self.exchange_manager:
+            return False, "Exchange manager not initialized"
+            
+        # Delegate to exchange manager for setup and validation
+        success, msg = await self.exchange_manager.setup_exchange(
             name=name,
-            location=location.serialize(),
+            location=location,
             api_key=api_key,
             api_secret=api_secret,
+            database=self.db,
             passphrase=passphrase,
+            binance_selected_trade_pairs=binance_selected_trade_pairs,
         )
+        
+        if success:
+            # Save exchange credentials to database
+            await self.db.add_exchange(
+                name=name,
+                location=location,
+                api_key=api_key,
+                api_secret=api_secret,
+                passphrase=passphrase,
+            )
+            
+            # Handle exchange-specific settings
+            if kraken_account_type is not None:
+                await self.db.set_kraken_account_type(
+                    name=name,
+                    account_type=kraken_account_type,
+                )
+            
+            if binance_selected_trade_pairs is not None:
+                await self.db.set_binance_selected_trade_pairs(
+                    name=name,
+                    pairs=binance_selected_trade_pairs,
+                )
+                
+        return success, msg
 
-        # Store additional exchange-specific settings
-        # Would store in credential mappings table
+    async def remove_exchange(self, name: str, location: Location) -> tuple[bool, str]:
+        """Remove exchange connection
+        
+        This migrates the logic from RestAPI.remove_exchange.
+        """
+        if not self.exchange_manager:
+            return False, "Exchange manager not initialized"
+            
+        success, msg = await self.exchange_manager.delete_exchange(
+            name=name,
+            location=location,
+        )
+        
+        if success:
+            # Also remove from database
+            await self.db.remove_exchange(
+                name=name,
+                location=location,
+            )
+            
+        return success, msg
 
-        return {
-            'name': name,
-            'location': location.value,
-            'connected': True,
-        }
-
-    def remove_exchange(self, name: str) -> bool:
-        """Remove exchange connection"""
-        # In real implementation, would delete from database
-        return True
-
-    def get_all_exchange_balances(self, ignore_cache: bool = False) -> dict[str, Any]:
-        """Get balances from all exchanges"""
-        credentials = self.db.get_user_credentials()
-        all_balances = {}
-
-        for cred in credentials:
-            location = Location.deserialize(cred.location)
-            balances = self.get_exchange_balances(location, ignore_cache)
-            if balances:
-                all_balances[location.value] = balances
-
-        return all_balances
+    async def get_all_exchange_balances(
+        self,
+        ignore_cache: bool = False,
+    ) -> dict[str, Any]:
+        """Get balances from all exchanges
+        
+        This is now handled by BalancesService.query_exchange_balances
+        """
+        # Deprecated - use BalancesService instead
+        from rotki2.api.v2.services.balances import BalancesService
+        
+        balances_service = BalancesService(
+            session=self.session,
+            exchange_manager=self.exchange_manager,
+        )
+        
+        result = await balances_service.query_exchange_balances(
+            location=None,  # Query all exchanges
+            ignore_cache=ignore_cache,
+        )
+        
+        return result.get('balances', {})
 
     def get_exchange_balances(
         self,
@@ -119,64 +191,135 @@ class ExchangeService:
             },
         }
 
-    def query_trades(self, location: Location) -> list[dict[str, Any]]:
-        """Query trades from exchange"""
-        # Simplified implementation
-        return [
-            {
-                'timestamp': 1234567890,
-                'pair': 'BTC_USD',
-                'type': 'buy',
-                'amount': '0.1',
-                'rate': '50000',
-                'fee': '0.001',
-                'fee_currency': 'BTC',
-            },
-        ]
-
-    def query_deposits(self, location: Location) -> list[dict[str, Any]]:
-        """Query deposits from exchange"""
-        # Simplified implementation
-        return [
-            {
-                'timestamp': 1234567890,
-                'asset': 'BTC',
-                'amount': '0.5',
-                'fee': '0',
-            },
-        ]
-
-    def query_withdrawals(self, location: Location) -> list[dict[str, Any]]:
-        """Query withdrawals from exchange"""
-        # Simplified implementation
-        return [
-            {
-                'timestamp': 1234567890,
-                'asset': 'BTC',
-                'amount': '0.3',
-                'fee': '0.0005',
-                'address': 'bc1q...',
-            },
-        ]
-
-    def edit_exchange(
+    async def query_trades(
         self,
         name: str,
-        location: str,
-        new_name: str | None = None,
-        api_key: str | None = None,
-        api_secret: str | None = None,
-        passphrase: str | None = None,
-        kraken_account_type: str | None = None,
-        binance_markets: list[str] | None = None,
-    ) -> None:
-        """Edit exchange credentials"""
-        # Would update exchange credentials in database
-        location_enum = Location.deserialize(location)
-        if location_enum not in SUPPORTED_EXCHANGES:
-            raise ValueError(f'Unsupported exchange: {location}')
+        location: Location,
+        from_timestamp: int | None = None,
+        to_timestamp: int | None = None,
+    ) -> list[Trade]:
+        """Query trades from exchange"""
+        if not self.exchange_manager:
+            return []
+            
+        # Get the specific exchange instance
+        exchanges = self.exchange_manager.connected_exchanges.get(location, [])
+        exchange = next((e for e in exchanges if e.name == name), None)
+        
+        if not exchange:
+            raise ValueError(f"Exchange {name} not found")
+            
+        # Query trades from the exchange
+        trades = await exchange.query_trade_history(
+            start_ts=from_timestamp or 0,
+            end_ts=to_timestamp or ts_now(),
+        )
+        
+        return trades
 
-        # In real implementation, would update credentials in DB
+    async def query_deposits_withdrawals(
+        self,
+        name: str,
+        location: Location,
+        from_timestamp: int | None = None,
+        to_timestamp: int | None = None,
+    ) -> tuple[list[AssetMovement], list[AssetMovement]]:
+        """Query deposits and withdrawals from exchange"""
+        if not self.exchange_manager:
+            return [], []
+            
+        # Get the specific exchange instance
+        exchanges = self.exchange_manager.connected_exchanges.get(location, [])
+        exchange = next((e for e in exchanges if e.name == name), None)
+        
+        if not exchange:
+            raise ValueError(f"Exchange {name} not found")
+            
+        # Query asset movements from the exchange
+        movements = await exchange.query_deposits_withdrawals(
+            start_ts=from_timestamp or 0,
+            end_ts=to_timestamp or ts_now(),
+        )
+        
+        # Separate deposits and withdrawals
+        deposits = [m for m in movements if m.category == 'deposit']
+        withdrawals = [m for m in movements if m.category == 'withdrawal']
+        
+        return deposits, withdrawals
+
+    async def query_margin_positions(
+        self,
+        name: str,
+        location: Location,
+        from_timestamp: int | None = None,
+        to_timestamp: int | None = None,
+    ) -> list[MarginPosition]:
+        """Query margin positions from exchange"""
+        if not self.exchange_manager:
+            return []
+            
+        # Get the specific exchange instance
+        exchanges = self.exchange_manager.connected_exchanges.get(location, [])
+        exchange = next((e for e in exchanges if e.name == name), None)
+        
+        if not exchange:
+            raise ValueError(f"Exchange {name} not found")
+            
+        # Check if exchange supports margin trading
+        if not hasattr(exchange, 'query_margin_history'):
+            return []
+            
+        # Query margin positions from the exchange
+        positions = await exchange.query_margin_history(
+            start_ts=from_timestamp or 0,
+            end_ts=to_timestamp or ts_now(),
+        )
+        
+        return positions
+
+    async def edit_exchange(
+        self,
+        name: str,
+        location: Location,
+        new_name: str | None = None,
+        api_key: ApiKey | None = None,
+        api_secret: ApiSecret | None = None,
+        passphrase: str | None = None,
+        kraken_account_type: KrakenAccountType | None = None,
+        binance_selected_trade_pairs: list[str] | None = None,
+    ) -> tuple[bool, str]:
+        """Edit existing exchange connection
+        
+        This migrates the logic from RestAPI.edit_exchange.
+        """
+        if not self.exchange_manager:
+            return False, "Exchange manager not initialized"
+            
+        success, msg = await self.exchange_manager.edit_exchange(
+            name=name,
+            location=location,
+            new_name=new_name,
+            api_key=api_key,
+            api_secret=api_secret,
+            passphrase=passphrase,
+            database=self.db,
+        )
+        
+        if success:
+            # Update exchange-specific settings if provided
+            if kraken_account_type is not None:
+                await self.db.set_kraken_account_type(
+                    name=new_name or name,
+                    account_type=kraken_account_type,
+                )
+            
+            if binance_selected_trade_pairs is not None:
+                await self.db.set_binance_selected_trade_pairs(
+                    name=new_name or name,
+                    pairs=binance_selected_trade_pairs,
+                )
+                
+        return success, msg
 
     def purge_all_exchange_data(self) -> None:
         """Purge all exchange data from database"""
@@ -186,20 +329,31 @@ class ExchangeService:
         """Purge specific exchange data from database"""
         # Would delete cached data for specific exchange from DB
 
-    def get_binance_pairs(self) -> list[str]:
+    async def get_binance_pairs(self) -> list[str]:
         """Get all available Binance pairs"""
-        # In real implementation, would fetch from Binance API
-        return [
-            'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'DOGEUSDT',
-            'XRPUSDT', 'DOTUSDT', 'UNIUSDT', 'LINKUSDT', 'LTCUSDT',
-            'SOLUSDT', 'MATICUSDT', 'AVAXUSDT', 'ATOMUSDT', 'FILUSDT',
-        ]
+        if not self.exchange_manager:
+            return []
+            
+        # Get Binance exchange instance
+        binance_exchanges = self.exchange_manager.connected_exchanges.get(Location.BINANCE, [])
+        if not binance_exchanges:
+            # If no Binance connection, we could still query available pairs
+            # For now, return empty list
+            return []
+            
+        binance = binance_exchanges[0]
+        
+        # Get all available trading pairs
+        if hasattr(binance, 'get_all_pairs'):
+            return await binance.get_all_pairs()
+        
+        return []
 
-    def get_user_binance_pairs(self, name: str) -> list[str]:
+    async def get_user_binance_pairs(self, name: str) -> list[str]:
         """Get user-configured Binance pairs"""
-        # In real implementation, would fetch from user settings
-        # For now, return a subset of pairs
-        return ['BTCUSDT', 'ETHUSDT', 'BNBUSDT']
+        # Fetch from database
+        pairs = await self.db.get_binance_selected_trade_pairs(name)
+        return pairs or []
 
     def get_exchange_savings_history(
         self,

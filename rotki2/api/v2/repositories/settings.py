@@ -1,172 +1,190 @@
 """Repository for managing application settings."""
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from sqlmodel import select
+from sqlalchemy import select, text
+from sqlmodel import col
 
-from rotki2.api.v2.repositories.base import BaseRepository
+from rotki2.api.v2.repositories.async_base import AsyncBaseRepository
 from rotki2.db.models.user.cache import MultiSettings
 from rotki2.db.models.user.models import Settings
 
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
-class SettingsRepository(BaseRepository[Settings]):
+
+class SettingsRepository(AsyncBaseRepository[Settings]):
     """Repository for managing application settings."""
 
-    model = Settings
+    def __init__(self, session: 'AsyncSession') -> None:
+        """Initialize repository."""
+        super().__init__(session, Settings)
 
-    def get_setting(self, name: str) -> Any | None:
+    async def get_setting(self, name: str) -> Any | None:
         """Get a single setting value."""
-        query = select(self.model).where(self.model.name == name)
-        result = self.session.exec(query).first()
-        return result.value if result else None
+        result = await self.session.exec(
+            select(Settings).where(col(Settings.name) == name)
+        )
+        setting = result.first()
+        return setting.value if setting else None
 
-    def set_setting(self, name: str, value: Any) -> Settings:
+    async def set_setting(self, name: str, value: Any) -> Settings:
         """Set or update a setting value."""
-        setting = self.session.exec(
-            select(self.model).where(self.model.name == name),
-        ).first()
+        # Use upsert pattern for settings
+        stmt = text(
+            "INSERT INTO settings (name, value) VALUES (:name, :value) "
+            "ON CONFLICT(name) DO UPDATE SET value = :value"
+        )
+        await self.session.execute(stmt, {"name": name, "value": value})
+        await self.session.commit()
+        
+        # Return the setting
+        result = await self.session.exec(
+            select(Settings).where(col(Settings.name) == name)
+        )
+        return result.first()
 
-        if setting:
-            setting.value = value
-            self.session.add(setting)
-        else:
-            setting = Settings(name=name, value=value)
-            self.session.add(setting)
-
-        self.session.commit()
-        return setting
-
-    def delete_setting(self, name: str) -> bool:
+    async def delete_setting(self, name: str) -> bool:
         """Delete a setting."""
-        query = select(self.model).where(self.model.name == name)
-        setting = self.session.exec(query).first()
+        result = await self.session.exec(
+            select(Settings).where(col(Settings.name) == name)
+        )
+        setting = result.first()
 
         if setting:
-            self.session.delete(setting)
-            self.session.commit()
+            await self.session.delete(setting)
+            await self.session.commit()
             return True
         return False
 
-    def get_all_settings(self) -> dict[str, Any]:
+    async def get_all_settings(self) -> dict[str, Any]:
         """Get all settings as a dictionary."""
-        settings = self.session.exec(select(self.model)).all()
+        result = await self.session.exec(select(Settings))
+        settings = result.all()
         return {s.name: s.value for s in settings}
 
-    def update_settings(self, settings_dict: dict[str, Any]) -> dict[str, Settings]:
+    async def update_settings(self, settings_dict: dict[str, Any]) -> dict[str, Settings]:
         """Update multiple settings at once."""
         updated = {}
 
         for name, value in settings_dict.items():
-            setting = self.set_setting(name, value)
+            setting = await self.set_setting(name, value)
             updated[name] = setting
 
         return updated
 
     # Common settings convenience methods
 
-    def get_main_currency(self) -> str:
+    async def get_main_currency(self) -> str:
         """Get the main currency setting."""
-        return self.get_setting('main_currency') or 'USD'
+        return await self.get_setting('main_currency') or 'USD'
 
-    def set_main_currency(self, currency: str) -> Settings:
+    async def set_main_currency(self, currency: str) -> Settings:
         """Set the main currency."""
-        return self.set_setting('main_currency', currency)
+        return await self.set_setting('main_currency', currency)
 
-    def get_ui_floating_precision(self) -> int:
+    async def get_ui_floating_precision(self) -> int:
         """Get the UI floating precision setting."""
-        return self.get_setting('ui_floating_precision') or 2
+        return await self.get_setting('ui_floating_precision') or 2
 
-    def set_ui_floating_precision(self, precision: int) -> Settings:
+    async def set_ui_floating_precision(self, precision: int) -> Settings:
         """Set the UI floating precision."""
-        return self.set_setting('ui_floating_precision', precision)
+        return await self.set_setting('ui_floating_precision', precision)
 
-    def get_active_modules(self) -> list[str]:
+    async def get_active_modules(self) -> list[str]:
         """Get the list of active modules."""
-        return self.get_setting('active_modules') or []
+        return await self.get_setting('active_modules') or []
 
-    def set_active_modules(self, modules: list[str]) -> Settings:
+    async def set_active_modules(self, modules: list[str]) -> Settings:
         """Set the list of active modules."""
-        return self.set_setting('active_modules', modules)
+        return await self.set_setting('active_modules', modules)
 
-    def is_module_active(self, module_name: str) -> bool:
+    async def is_module_active(self, module_name: str) -> bool:
         """Check if a specific module is active."""
-        active_modules = self.get_active_modules()
+        active_modules = await self.get_active_modules()
         return module_name in active_modules
 
-    def get_ignored_assets(self) -> list[str]:
+    async def get_ignored_assets(self) -> list[str]:
         """Get the list of ignored assets."""
-        return self.get_setting('ignored_assets') or []
+        return await self.get_setting('ignored_assets') or []
 
-    def set_ignored_assets(self, assets: list[str]) -> Settings:
+    async def set_ignored_assets(self, assets: list[str]) -> Settings:
         """Set the list of ignored assets."""
-        return self.set_setting('ignored_assets', assets)
+        return await self.set_setting('ignored_assets', assets)
 
 
-class MultiSettingsRepository(BaseRepository[MultiSettings]):
+class MultiSettingsRepository(AsyncBaseRepository[MultiSettings]):
     """Repository for managing multi-value settings."""
 
-    model = MultiSettings
+    def __init__(self, session: 'AsyncSession') -> None:
+        """Initialize repository."""
+        super().__init__(session, MultiSettings)
 
-    def get_values(self, name: str) -> list[Any]:
+    async def get_values(self, name: str) -> list[Any]:
         """Get all values for a multi-setting."""
-        query = select(self.model).where(self.model.name == name)
-        results = self.session.exec(query).all()
+        result = await self.session.exec(
+            select(MultiSettings).where(col(MultiSettings.name) == name)
+        )
+        results = result.all()
         return [r.value for r in results]
 
-    def add_value(self, name: str, value: Any) -> MultiSettings:
+    async def add_value(self, name: str, value: Any) -> MultiSettings:
         """Add a value to a multi-setting."""
         # Check if value already exists
-        existing = self.session.exec(
-            select(self.model).where(
-                self.model.name == name,
-                self.model.value == value,
-            ),
-        ).first()
+        result = await self.session.exec(
+            select(MultiSettings).where(
+                col(MultiSettings.name) == name,
+                col(MultiSettings.value) == value,
+            )
+        )
+        existing = result.first()
 
         if existing:
             return existing
 
         setting = MultiSettings(name=name, value=value)
-        self.session.add(setting)
-        self.session.commit()
+        await self.create(setting)
         return setting
 
-    def remove_value(self, name: str, value: Any) -> bool:
+    async def remove_value(self, name: str, value: Any) -> bool:
         """Remove a value from a multi-setting."""
-        query = select(self.model).where(
-            self.model.name == name,
-            self.model.value == value,
+        result = await self.session.exec(
+            select(MultiSettings).where(
+                col(MultiSettings.name) == name,
+                col(MultiSettings.value) == value,
+            )
         )
-        setting = self.session.exec(query).first()
+        setting = result.first()
 
         if setting:
-            self.session.delete(setting)
-            self.session.commit()
+            await self.delete(setting)
             return True
         return False
 
-    def clear_all_values(self, name: str) -> int:
+    async def clear_all_values(self, name: str) -> int:
         """Clear all values for a multi-setting."""
-        query = select(self.model).where(self.model.name == name)
-        settings = self.session.exec(query).all()
+        result = await self.session.exec(
+            select(MultiSettings).where(col(MultiSettings.name) == name)
+        )
+        settings = result.all()
 
         count = len(settings)
         for setting in settings:
-            self.session.delete(setting)
+            await self.session.delete(setting)
 
         if count > 0:
-            self.session.commit()
+            await self.session.commit()
 
         return count
 
-    def set_values(self, name: str, values: list[Any]) -> list[MultiSettings]:
+    async def set_values(self, name: str, values: list[Any]) -> list[MultiSettings]:
         """Replace all values for a multi-setting."""
         # Clear existing values
-        self.clear_all_values(name)
+        await self.clear_all_values(name)
 
         # Add new values
         settings = []
         for value in values:
-            setting = self.add_value(name, value)
+            setting = await self.add_value(name, value)
             settings.append(setting)
 
         return settings

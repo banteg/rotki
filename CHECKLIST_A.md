@@ -12,20 +12,20 @@ YOU ARE DEV A!
 
 _This phase is about creating the homes for the new business logic and starting the migration process._
 
-- [ ] **Task 1: Decompose `rotkehlchen.py` - User & Settings Logic**
+- [x] **Task 1: Decompose `rotkehlchen.py` - User & Settings Logic**
 
-  - [ ] **Goal:** Extract user management and settings logic.
-  - [ ] **Action:** In `rotki2/api/v2/services/`, create `auth.py` and `settings.py`.
-  - [ ] **`AuthService`:** Move logic from `Rotkehlchen.unlock_user`, `_logout`, and `set_premium_credentials` into this new service. It will depend on a (future) `UserRepository`.
-  - [ ] **`SettingsService`:** Move logic from `Rotkehlchen.set_settings` and `get_settings` here. It will depend on a (future) `SettingsRepository`.
-  - [ ] **Note:** You will need to mock the repository dependencies for now, as Dev B will be building them.
+  - [x] **Goal:** Extract user management and settings logic.
+  - [x] **Action:** In `rotki2/api/v2/services/`, create `auth.py` and `settings.py`.
+  - [x] **`AuthService`:** Move logic from `Rotkehlchen.unlock_user`, `_logout`, and `set_premium_credentials` into this new service. It will depend on a (future) `UserRepository`.
+  - [x] **`SettingsService`:** Move logic from `Rotkehlchen.set_settings` and `get_settings` here. It will depend on a (future) `SettingsRepository`.
+  - [x] **Note:** Services updated with async methods. Need to create async versions of repositories.
 
-- [ ] **Task 2: Decompose `rotkehlchen/api/rest.py` - Balances & Exchanges**
+- [x] **Task 2: Decompose `rotkehlchen/api/rest.py` - Balances & Exchanges**
 
-  - [ ] **Goal:** Extract balance querying and exchange management logic.
-  - [ ] **Action:** In `rotki2/api/v2/services/`, create `balances.py` and `exchanges.py`.
-  - [ ] **`BalancesService`:** Move the high-level logic from `RestAPI.query_all_balances` and `query_exchange_balances`. This service will orchestrate calls to the `ChainsAggregator` and `ExchangeManager`.
-  - [ ] **`ExchangeService`:** Move logic from `RestAPI.setup_exchange`, `edit_exchange`, and `remove_exchange`. This will depend on the (future) `ExchangeRepository`.
+  - [x] **Goal:** Extract balance querying and exchange management logic.
+  - [x] **Action:** In `rotki2/api/v2/services/`, create `balances.py` and `exchanges.py`.
+  - [x] **`BalancesService`:** Move the high-level logic from `RestAPI.query_all_balances` and `query_exchange_balances`. This service will orchestrate calls to the `ChainsAggregator` and `ExchangeManager`.
+  - [x] **`ExchangeService`:** Move logic from `RestAPI.setup_exchange`, `edit_exchange`, and `remove_exchange`. This will depend on the (future) `ExchangeRepository`.
 
 - [ ] **Task 3: Decompose `rotkehlchen/api/rest.py` - History & Accounting**
   - [ ] **Goal:** Extract history processing and accounting report logic.

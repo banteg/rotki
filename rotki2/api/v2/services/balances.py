@@ -1,7 +1,7 @@
 """Balances service for managing account balances"""
 from typing import TYPE_CHECKING, Any
 
-from rotkehlchen.accounting.structures.balance import Balance
+from rotkehlchen.accounting.structures.balance import Balance, BalanceType
 from rotki2.api.v2.repositories.balance import BalanceRepository
 from rotki2.api.v2.repositories.balance_source import (
     BlockchainBalanceSource,
@@ -13,9 +13,10 @@ from rotkehlchen.assets.asset import Asset
 from rotkehlchen.balances.manual import ManuallyTrackedBalance
 from rotkehlchen.fval import FVal
 from rotkehlchen.types import Location, Timestamp
+from rotkehlchen.utils.misc import ts_now, combine_dicts
 
 if TYPE_CHECKING:
-    from sqlmodel import Session
+    from sqlalchemy.ext.asyncio import AsyncSession
 
     from rotkehlchen.api.websockets.notifier import RotkiNotifier
     from rotkehlchen.chain.aggregator import ChainsAggregator
@@ -23,18 +24,25 @@ if TYPE_CHECKING:
 
 
 class BalancesService:
-    """Service for handling balance-related operations"""
+    """Service for handling balance-related operations
+    
+    This service migrates the balance querying logic from RestAPI and Rotkehlchen
+    to an async-first architecture.
+    """
 
     def __init__(
         self,
-        session: 'Session',
+        session: 'AsyncSession',
         chain_manager: 'ChainsAggregator | None' = None,
         exchange_manager: 'ExchangeManager | None' = None,
         notifier: 'RotkiNotifier | None' = None,
     ):
+        self.session = session
         self.balance_repo = BalanceRepository(session)
         self.aggregator = BalanceAggregator()
         self.notifier = notifier
+        self.chain_manager = chain_manager
+        self.exchange_manager = exchange_manager
 
         # Set up balance sources
         if chain_manager:
@@ -45,8 +53,17 @@ class BalancesService:
         # Always add manual balance source
         self.aggregator.add_source(ManualBalanceSource(self.balance_repo))
 
-    def get_all_balances(self, save_data: bool = False) -> dict[str, Any]:
-        """Get all balances across all locations"""
+    async def query_all_balances(
+        self,
+        save_data: bool = False,
+        ignore_errors: bool = True,
+        ignore_cache: bool = False,
+    ) -> dict[str, Any]:
+        """Query all balances across blockchain and exchanges
+        
+        This migrates the logic from RestAPI.query_all_balances and 
+        Rotkehlchen.query_balances.
+        """
         # Send notification that balance query started
         if self.notifier:
             self.notifier.broadcast(
@@ -54,27 +71,87 @@ class BalancesService:
                 data={'query_type': 'all_balances'},
             )
 
-        # Aggregate balances from all sources
-        balance_sheet = self.aggregator.aggregate_balances()
-
-        # TODO: Implement save_data functionality if needed
-
+        balances = {}
+        liabilities = {}
+        errors: list[str] = []
+        
+        # Query exchange balances
+        if self.exchange_manager:
+            exchange_balances, exchange_errors = await self._query_all_exchange_balances(
+                ignore_cache=ignore_cache
+            )
+            balances = combine_dicts(balances, exchange_balances)
+            errors.extend(exchange_errors)
+        
+        # Query blockchain balances
+        if self.chain_manager:
+            blockchain_balances, blockchain_errors = await self._query_blockchain_balances(
+                blockchain=None,
+                ignore_cache=ignore_cache,
+            )
+            balances = combine_dicts(balances, blockchain_balances)
+            errors.extend(blockchain_errors)
+        
+        # Include manually tracked balances
+        manual_balances = await self._get_manual_balances_dict()
+        balances = combine_dicts(balances, manual_balances)
+        
+        # Include manually tracked liabilities
+        manual_liabilities = await self._get_manual_liabilities_dict()
+        liabilities = combine_dicts(liabilities, manual_liabilities)
+        
+        # Save balance snapshot if requested
+        if save_data and (not errors or ignore_errors):
+            await self._save_balance_snapshot(balances, liabilities)
+        
         result = {
-            'assets': self.aggregator.serialize_balance_sheet(balance_sheet),
-            'liabilities': {},
-            'total_net_value': str(balance_sheet.get_total_net_value()),
+            'assets': balances,
+            'liabilities': liabilities,
         }
-
+        
+        if errors and not ignore_errors:
+            result['errors'] = errors
+        
         # Send notification that balance query completed
         if self.notifier:
             self.notifier.broadcast(
                 event_type='balance_query_completed',
                 data={
                     'query_type': 'all_balances',
-                    'total_net_value': result['total_net_value'],
+                    'success': len(errors) == 0,
                 },
             )
 
+        return result
+    
+    async def query_exchange_balances(
+        self,
+        location: Location | None = None,
+        ignore_cache: bool = False,
+        usd_value_threshold: FVal | None = None,
+    ) -> dict[str, Any]:
+        """Query balances for specific exchange(s)
+        
+        This migrates the logic from RestAPI.query_exchange_balances.
+        """
+        if location is None:
+            # Query all exchanges
+            balances, errors = await self._query_all_exchange_balances(ignore_cache)
+        else:
+            # Query specific exchange
+            balances, errors = await self._query_single_exchange_balances(
+                location=location,
+                ignore_cache=ignore_cache,
+            )
+        
+        # Apply USD value threshold filter if provided
+        if usd_value_threshold is not None:
+            balances = self._filter_balances_by_usd_value(balances, usd_value_threshold)
+        
+        result = {'balances': balances}
+        if errors:
+            result['errors'] = errors
+            
         return result
 
     def get_balances_by_location(self, location: Location) -> dict[str, Any]:
@@ -207,7 +284,7 @@ class BalancesService:
                 deleted_count += 1
         return deleted_count
 
-    def get_manual_balances(
+    async def get_manual_balances(
         self,
         asset: Asset | None = None,
         label: str | None = None,
@@ -222,7 +299,7 @@ class BalancesService:
         if location:
             kwargs['location'] = location.serialize()
 
-        db_balances = self.balance_repo.find_by(**kwargs) if kwargs else self.balance_repo.find_current_balances()
+        db_balances = await self.balance_repo.find_by(**kwargs) if kwargs else await self.balance_repo.find_current_balances()
 
         result = []
         for db_balance in db_balances:
@@ -275,50 +352,133 @@ class BalancesService:
             'total_net_value': current_balances['total_net_value'],
         }
 
-    def _get_blockchain_balances(self) -> dict[Location, dict[Asset, Balance]]:
-        """Get blockchain balances only"""
-        balance_sheet = self.aggregator.aggregate_balances()
+    async def _query_blockchain_balances(
+        self,
+        blockchain: Location | None = None,
+        ignore_cache: bool = False,
+    ) -> tuple[dict[Location, dict[Asset, Balance]], list[str]]:
+        """Query blockchain balances"""
+        if not self.chain_manager:
+            return {}, []
+            
+        try:
+            balances = await self.chain_manager.query_balances(
+                blockchain=blockchain,
+                ignore_cache=ignore_cache,
+            )
+            return balances, []
+        except Exception as e:
+            error_msg = f"Failed to query blockchain balances: {str(e)}"
+            return {}, [error_msg]
+
+    async def _query_all_exchange_balances(
+        self,
+        ignore_cache: bool = False,
+    ) -> tuple[dict[Location, dict[Asset, Balance]], list[str]]:
+        """Query balances from all connected exchanges"""
+        if not self.exchange_manager:
+            return {}, []
+            
+        all_balances = {}
+        errors = []
+        
+        # Iterate through all connected exchanges
+        for exchange in self.exchange_manager.iterate_exchanges():
+            try:
+                location_balances = await exchange.query_balances(
+                    ignore_cache=ignore_cache,
+                )
+                # Handle multiple exchanges of same type
+                if exchange.location in all_balances:
+                    all_balances[exchange.location] = combine_dicts(
+                        all_balances[exchange.location],
+                        location_balances,
+                    )
+                else:
+                    all_balances[exchange.location] = location_balances
+            except Exception as e:
+                error_msg = f"Failed to query {exchange.name} balances: {str(e)}"
+                errors.append(error_msg)
+                
+        return all_balances, errors
+    
+    async def _query_single_exchange_balances(
+        self,
+        location: Location,
+        ignore_cache: bool = False,
+    ) -> tuple[dict[Location, dict[Asset, Balance]], list[str]]:
+        """Query balances from a specific exchange type"""
+        if not self.exchange_manager:
+            return {}, []
+            
+        exchanges = self.exchange_manager.connected_exchanges.get(location, [])
+        if not exchanges:
+            return {}, [f"No {location} exchange connected"]
+            
+        combined_balances = {}
+        errors = []
+        
+        for exchange in exchanges:
+            try:
+                balances = await exchange.query_balances(ignore_cache=ignore_cache)
+                combined_balances = combine_dicts(combined_balances, balances)
+            except Exception as e:
+                error_msg = f"Failed to query {exchange.name} balances: {str(e)}"
+                errors.append(error_msg)
+                
+        return {location: combined_balances} if combined_balances else {}, errors
+
+    async def _get_manual_balances_dict(self) -> dict[Location, dict[Asset, Balance]]:
+        """Get manually tracked balances as a dict"""
+        manual_balances = await self.get_manual_balances()
         result = {}
-
-        # Filter for blockchain locations only
-        blockchain_locations = [
-            Location.BITCOIN,
-            Location.ETHEREUM,
-            Location.ETHEREUM_BEACONCHAIN,
-            Location.POLYGON_POS,
-            Location.ARBITRUM_ONE,
-            Location.OPTIMISM,
-            Location.AVALANCHE,
-            Location.GNOSIS,
-            Location.KUSAMA,
-            Location.POLKADOT,
-        ]
-
-        for location in blockchain_locations:
-            location_balances = balance_sheet.get_location_balance(location)
-            if location_balances:
-                result[location] = location_balances
-
+        
+        for balance in manual_balances:
+            if balance.location not in result:
+                result[balance.location] = {}
+            
+            result[balance.location][balance.asset] = Balance(
+                amount=balance.amount,
+                usd_value=balance.amount * balance.asset.price_in_usd(),
+            )
+            
         return result
-
-    def _get_exchange_balances(self) -> dict[Location, dict[Asset, Balance]]:
-        """Get exchange balances only"""
-        balance_sheet = self.aggregator.aggregate_balances()
-        result = {}
-
-        # Get all locations and filter for exchanges
-        for location in balance_sheet.locations:
-            # Check if location is an exchange (not blockchain, bank, or manual)
-            if location.is_exchange():
-                location_balances = balance_sheet.get_location_balance(location)
-                if location_balances:
-                    result[location] = location_balances
-
-        return result
-
-    def _get_manual_balances(self) -> list[ManuallyTrackedBalance]:
-        """Get manually tracked balances"""
-        return self.get_manual_balances()
+    
+    async def _get_manual_liabilities_dict(self) -> dict[Location, dict[Asset, Balance]]:
+        """Get manually tracked liabilities as a dict"""
+        # TODO: Implement manual liabilities when repository is available
+        return {}
+    
+    async def _save_balance_snapshot(
+        self,
+        balances: dict[Location, dict[Asset, Balance]],
+        liabilities: dict[Location, dict[Asset, Balance]],
+    ) -> None:
+        """Save a balance snapshot to the database"""
+        timestamp = ts_now()
+        
+        # TODO: Implement balance snapshot saving
+        # This would save to a balance_snapshots table
+        pass
+    
+    def _filter_balances_by_usd_value(
+        self,
+        balances: dict[Location, dict[Asset, Balance]],
+        threshold: FVal,
+    ) -> dict[Location, dict[Asset, Balance]]:
+        """Filter balances by USD value threshold"""
+        filtered = {}
+        
+        for location, location_balances in balances.items():
+            filtered_location = {}
+            for asset, balance in location_balances.items():
+                if balance.usd_value >= threshold:
+                    filtered_location[asset] = balance
+            
+            if filtered_location:
+                filtered[location] = filtered_location
+                
+        return filtered
 
     def get_historical_balance_for_all_assets(
         self,

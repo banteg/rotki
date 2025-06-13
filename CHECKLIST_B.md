@@ -10,26 +10,34 @@ YOU ARE DEV B!
 
 _This phase focuses on creating the new, type-safe data access layer._
 
-- [ ] **Task 1: Complete SQLModel Definitions**
+- [x] **Task 1: Complete SQLModel Definitions**
 
-  - [ ] **Goal:** Ensure every database table has a corresponding SQLModel class.
-  - [ ] **Action:** Run the `rotki2/verify_sqlmodel_migration.py` script. For every table listed as "missing", create a corresponding `SQLModel` class in `rotki2/db/models/`. Pay close attention to relationships, constraints, and types.
+  - [x] **Goal:** Ensure every database table has a corresponding SQLModel class.
+  - [x] **Action:** Run the `rotki2/verify_sqlmodel_migration.py` script. For every table listed as "missing", create a corresponding `SQLModel` class in `rotki2/db/models/`. Pay close attention to relationships, constraints, and types.
+  - [x] **Status:** Verified all 52 tables have SQLModel definitions. 79 models exist (including additional models).
 
-- [ ] **Task 2: Implement the `AsyncSession` Dependency**
+- [x] **Task 2: Implement the `AsyncSession` Dependency**
 
-  - [ ] **Goal:** Provide a reliable, async database session to all repositories.
-  - [ ] **Action:** In `rotki2/api/v2/dependencies.py`, implement the `get_async_session()` dependency using the factories in `rotki2/db/async_connection.py`. This will be the sole way the v2 stack accesses the database.
+  - [x] **Goal:** Provide a reliable, async database session to all repositories.
+  - [x] **Action:** In `rotki2/api/v2/dependencies.py`, implement the `get_async_session()` dependency using the factories in `rotki2/db/async_connection.py`. This will be the sole way the v2 stack accesses the database.
+  - [x] **Status:** `get_async_session()` dependency implemented. Updated app lifespan to initialize async_session_factory on startup.
 
-- [ ] **Task 3: Create All Repository Shells**
+- [ ] **Task 3: Create/Update All Repository Files to be Async**
 
-  - [ ] **Goal:** Create a file for every repository that will be needed.
-  - [ ] **Action:** For every major table or logical group of tables, create a repository file in `rotki2/api/v2/repositories/` (e.g., `user_repository.py`, `settings_repository.py`, `exchange_repository.py`). Each should inherit from `AsyncBaseRepository` and be initialized with an `AsyncSession`.
+  - [ ] **Goal:** Ensure every repository in rotki2 is async (no sync versions, no async_ prefix).
+  - [ ] **Action:** For every major table or logical group of tables, create/update repository files in `rotki2/api/v2/repositories/`. Each should inherit from `AsyncBaseRepository` and be initialized with an `AsyncSession`. **Important:** In rotki2, ALL repositories are async by default - no async_ prefix needed.
+  - [ ] **Current Status:**
+    - **Legacy async_ files to rename/consolidate:** async_accounting_rule, async_addressbook, async_cache, async_ens, async_eth2, async_history_events, async_loopring
+    - **Sync repositories to convert:** Most existing repositories need conversion to async
+    - **Updated to async:** settings.py, tag.py, blockchain_account.py
+    - **Missing repositories to create:** timed_balances, xpubs, zksynclite, calendar, user_credentials, external_services, margin_positions, cowswap_orders, conflicts
 
 - [ ] **Task 4: Port Data Access Logic into Repositories**
   - [ ] **Goal:** Systematically move all SQL queries from the old `db` modules into the new async repositories.
-  - [ ] **Action:** Pick a legacy file, like `rotkehlchen/db/history_events.py`. For each method, create a corresponding `async def` method in `async_history_events.py`.
+  - [ ] **Action:** Pick a legacy file, like `rotkehlchen/db/history_events.py`. For each method, create a corresponding `async def` method in the appropriate repository file (e.g., `history_events.py`, not `async_history_events.py`).
   - [ ] **Priority:** Focus on implementing the `get_` and `query_` methods first, as Developer A will need these to build the services. `add_`, `edit_`, and `delete_` can follow.
   - [ ] **Conversion:** Replace all `cursor.execute("...")` calls with `await self.session.exec(select(...))` using SQLModel's syntax.
+  - [ ] **Note:** Remember, all rotki2 repositories are async - no special prefix needed.
 
 #### Phase B2: API Endpoint Implementation
 

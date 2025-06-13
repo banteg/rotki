@@ -77,6 +77,14 @@ async def lifespan(app: FastAPI):  # noqa: RUF029
     # Store the notifier for WebSocket connections
     app.state.rotki_notifier = rotkehlchen.rotki_notifier
 
+    # Initialize async database session factory
+    from rotki2.db.async_connection import create_async_db_engine, create_async_session_factory
+    if rotkehlchen.user_is_logged_in:
+        async_engine = create_async_db_engine(rotkehlchen.data.db_path)
+        app.state.async_session_factory = create_async_session_factory(async_engine)
+        app.state.async_engine = async_engine
+        log.info('Initialized async database session factory')
+
     # Start the main loop
     main_loop_greenlet = rotkehlchen.start()
     app.state.main_loop_greenlet = main_loop_greenlet
@@ -85,6 +93,12 @@ async def lifespan(app: FastAPI):  # noqa: RUF029
 
     # Cleanup on shutdown
     log.info('Shutting down Rotki v2 API server')
+    
+    # Close async database engine if it exists
+    if hasattr(app.state, 'async_engine'):
+        await app.state.async_engine.dispose()
+        log.info('Closed async database engine')
+    
     rotkehlchen.shutdown()
     gevent.wait([main_loop_greenlet])
 

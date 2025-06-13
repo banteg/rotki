@@ -59,9 +59,14 @@ def extract_tables_from_schema(schema_file: Path) -> dict[str, dict[str, any]]:
 def extract_sqlmodel_tables() -> set[str]:
     """Extract table names from SQLModel definitions."""
     tables = set()
-    models_dir = Path('/workspace/rotkehlchen/db/models/user')
-
-    for py_file in models_dir.glob('*.py'):
+    base_dir = Path('/workspace/rotki2/db/models')
+    
+    # Search recursively in all subdirectories
+    for py_file in base_dir.rglob('*.py'):
+        # Skip __init__.py files
+        if py_file.name == '__init__.py':
+            continue
+            
         with open(py_file) as f:
             content = f.read()
 
