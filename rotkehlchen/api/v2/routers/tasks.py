@@ -49,7 +49,7 @@ async def get_tasks(
 ) -> TasksResponse:
     """Get all tasks"""
     tasks = []
-    
+
     # Get running tasks
     running = task_manager.get_running_tasks()
     for task_id, task_info in running.items():
@@ -63,7 +63,7 @@ async def get_tasks(
             'result': None,
             'error': None,
         })
-    
+
     # Get completed tasks
     completed = task_manager.get_completed_tasks()
     for task_id, task_info in completed.items():
@@ -77,7 +77,7 @@ async def get_tasks(
             'result': task_info.get('result'),
             'error': task_info.get('error'),
         })
-    
+
     return TasksResponse(result=tasks)
 
 
@@ -100,19 +100,19 @@ async def create_task(
             directory=task_data.params.get('directory', '/tmp'),
         ),
     }
-    
+
     if task_data.task_type not in task_mapping:
         raise HTTPException(
             status_code=400,
             detail=f'Unknown task type: {task_data.task_type}',
         )
-    
+
     # Create the task
     task_id = task_manager.create_task(
         task_type=task_data.task_type,
         task_fn=task_mapping[task_data.task_type],
     )
-    
+
     return TasksResponse(
         result={
             'task_id': task_id,
@@ -144,7 +144,7 @@ async def get_task(
             'result': None,
             'error': None,
         })
-    
+
     # Check completed tasks
     completed = task_manager.get_completed_tasks()
     if task_id in completed:
@@ -159,7 +159,7 @@ async def get_task(
             'result': task_info.get('result'),
             'error': task_info.get('error'),
         })
-    
+
     raise HTTPException(
         status_code=404,
         detail=f'Task {task_id} not found',
@@ -174,13 +174,13 @@ async def cancel_task(
 ) -> TasksResponse:
     """Cancel a running task"""
     success = task_manager.cancel_task(task_id)
-    
+
     if not success:
         raise HTTPException(
             status_code=404,
             detail=f'Task {task_id} not found or already completed',
         )
-    
+
     return TasksResponse(
         result={},
         message=f'Task {task_id} cancelled successfully',

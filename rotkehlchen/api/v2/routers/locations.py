@@ -1,5 +1,5 @@
 """Locations router for managing locations"""
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -7,9 +7,6 @@ from sqlmodel import Session
 
 from rotkehlchen.api.v2.dependencies import get_db_session, require_logged_in_user
 from rotkehlchen.api.v2.services.locations import LocationsService
-
-if TYPE_CHECKING:
-    pass
 
 router = APIRouter()
 
@@ -32,7 +29,7 @@ async def get_all_locations(
     """Get all supported locations"""
     service = get_locations_service()
     locations = service.get_all_locations()
-    
+
     return LocationsResponse(result=locations)
 
 
@@ -52,7 +49,7 @@ async def get_associated_locations(
     """Get locations with associated data"""
     service = get_locations_service(session)
     associated = service.get_associated_locations()
-    
+
     return LocationsResponse(result=associated)
 
 

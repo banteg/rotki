@@ -1,15 +1,11 @@
 """Note-related models for user database using SQLModel"""
 
-from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import CHAR, INTEGER, TEXT, CheckConstraint, Column, ForeignKey
-from sqlmodel import Field, Relationship
+from sqlalchemy import INTEGER, TEXT, CheckConstraint, Column
+from sqlmodel import Field
 
 from rotkehlchen.db.models.types import BooleanType, TimestampType
 from rotkehlchen.db.models.user.base import Base
-
-if TYPE_CHECKING:
-    from rotkehlchen.db.models.user.enums import Location
 
 
 class UserNote(Base, table=True):

@@ -17,7 +17,7 @@ router = APIRouter()
 
 class ImportRequest(BaseModel):
     """Request model for data import"""
-    source: str = "rotki"  # rotki, cointracking, crypto.com, etc.
+    source: str = 'rotki'  # rotki, cointracking, crypto.com, etc.
     filepath: str | None = None
     timestamp_format: str | None = None
 
@@ -45,27 +45,27 @@ async def import_data(
     _: Annotated[str, Depends(require_logged_in_user)],
     service: Annotated[DataService, Depends(get_data_service)],
     file: UploadFile = File(...),
-    source: str = "rotki",
+    source: str = 'rotki',
 ) -> DataResponse:
     """Import data from file"""
     try:
         # Read file content
         content = await file.read()
-        
+
         # Process based on source type
-        if source == "rotki":
+        if source == 'rotki':
             # Import rotki JSON data
             data = json.loads(content)
             result = service.import_rotki_data(data)
-        elif source == "cointracking":
+        elif source == 'cointracking':
             # Import CSV data from CoinTracking
             result = service.import_cointracking_csv(content.decode('utf-8'))
-        elif source == "cryptocom":
+        elif source == 'cryptocom':
             # Import Crypto.com CSV
             result = service.import_cryptocom_csv(content.decode('utf-8'))
         else:
-            raise ValueError(f"Unsupported import source: {source}")
-        
+            raise ValueError(f'Unsupported import source: {source}')
+
         return DataResponse(
             result=result,
             message=f'Data imported successfully from {source}',
@@ -73,7 +73,7 @@ async def import_data(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f'Import failed: {str(e)}',
+            detail=f'Import failed: {e!s}',
         ) from e
 
 
@@ -88,7 +88,7 @@ async def export_data(
         export_path = service.export_user_data(
             directory_path=request.directory_path,
         )
-        
+
         return DataResponse(
             result={'file': export_path},
             message='Data exported successfully',
@@ -96,7 +96,7 @@ async def export_data(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Export failed: {str(e)}',
+            detail=f'Export failed: {e!s}',
         ) from e
 
 
@@ -135,7 +135,7 @@ async def create_backup(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Backup failed: {str(e)}',
+            detail=f'Backup failed: {e!s}',
         ) from e
 
 
@@ -155,11 +155,12 @@ async def restore_backup(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Restore failed: {str(e)}',
+            detail=f'Restore failed: {e!s}',
         ) from e
 
+
 # v1 compatibility endpoint
-@router.delete("/database/backups")
+@router.delete('/database/backups')
 async def delete_database_backups(
     _: Annotated[str, Depends(require_logged_in_user)],
     service: Annotated[DataService, Depends(get_data_service)],
@@ -168,11 +169,11 @@ async def delete_database_backups(
     try:
         deleted_count = service.delete_all_backups()
         return DataResponse(
-            result={"deleted": deleted_count},
-            message=f"Deleted {deleted_count} backup files",
+            result={'deleted': deleted_count},
+            message=f'Deleted {deleted_count} backup files',
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete backups: {str(e)}",
+            detail=f'Failed to delete backups: {e!s}',
         ) from e

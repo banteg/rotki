@@ -1,7 +1,7 @@
 """Cache-related models for user database using SQLModel"""
 
 
-from sqlalchemy import INTEGER, TEXT, VARCHAR, Column, UniqueConstraint
+from sqlalchemy import TEXT, VARCHAR, Column
 from sqlmodel import Field
 
 from rotkehlchen.db.models.types import TimestampType
@@ -37,7 +37,7 @@ class MultiSettings(Base, table=True):
     # Note: The original SQL table doesn't have a primary key,
     # but we use the UNIQUE constraint columns as a composite primary key
     # to satisfy SQLAlchemy's requirements
-    
+
     name: str = Field(sa_column=Column(VARCHAR(24), primary_key=True, nullable=False))
     value: str | None = Field(default=None, sa_column=Column(TEXT, primary_key=True, nullable=False))
 

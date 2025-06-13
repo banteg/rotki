@@ -3,17 +3,18 @@ from typing import TYPE_CHECKING, Any
 
 # ResolverName type - simple string alias for ENS names
 ResolverName = str
+from rotkehlchen.chain.evm.names import search_for_addresses_names
 from rotkehlchen.chain.evm.types import string_to_evm_address
 from rotkehlchen.db.drivers.gevent import DBConnection
 from rotkehlchen.db.filtering import AddressbookFilterQuery
-from rotkehlchen.types import AddressbookEntry, AddressbookType
 from rotkehlchen.errors.misc import InputError, RemoteError
 from rotkehlchen.types import (
+    AddressbookEntry,
+    AddressbookType,
     ChecksumEvmAddress,
     OptionalChainAddress,
     SupportedBlockchain,
 )
-from rotkehlchen.chain.evm.names import search_for_addresses_names
 
 if TYPE_CHECKING:
     from rotkehlchen.addressbook.addressbook import AddressbookPrioritizer
@@ -155,7 +156,7 @@ class NamesService:
         entries_total = self.addressbook_repo.get_entries_count(book_type=book_type)
 
         serialized = [entry.serialize() for entry in entries]
-        
+
         return {
             'entries': serialized,
             'entries_found': entries_found,
@@ -172,7 +173,7 @@ class NamesService:
         for entry_data in entries:
             # Parse blockchain if provided
             blockchain = None
-            if 'blockchain' in entry_data and entry_data['blockchain']:
+            if entry_data.get('blockchain'):
                 try:
                     blockchain = SupportedBlockchain(entry_data['blockchain'])
                 except ValueError as e:
@@ -211,7 +212,7 @@ class NamesService:
         for entry_data in entries:
             # Parse blockchain if provided
             blockchain = None
-            if 'blockchain' in entry_data and entry_data['blockchain']:
+            if entry_data.get('blockchain'):
                 try:
                     blockchain = SupportedBlockchain(entry_data['blockchain'])
                 except ValueError as e:

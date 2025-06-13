@@ -158,7 +158,7 @@ class ExchangeService:
                 'address': 'bc1q...',
             },
         ]
-    
+
     def edit_exchange(
         self,
         name: str,
@@ -175,20 +175,17 @@ class ExchangeService:
         location_enum = Location.deserialize(location)
         if location_enum not in SUPPORTED_EXCHANGES:
             raise ValueError(f'Unsupported exchange: {location}')
-        
+
         # In real implementation, would update credentials in DB
-        pass
-    
+
     def purge_all_exchange_data(self) -> None:
         """Purge all exchange data from database"""
         # Would delete all cached exchange data from DB
-        pass
-    
+
     def purge_exchange_data(self, location: Location) -> None:
         """Purge specific exchange data from database"""
         # Would delete cached data for specific exchange from DB
-        pass
-    
+
     def get_binance_pairs(self) -> list[str]:
         """Get all available Binance pairs"""
         # In real implementation, would fetch from Binance API
@@ -197,13 +194,13 @@ class ExchangeService:
             'XRPUSDT', 'DOTUSDT', 'UNIUSDT', 'LINKUSDT', 'LTCUSDT',
             'SOLUSDT', 'MATICUSDT', 'AVAXUSDT', 'ATOMUSDT', 'FILUSDT',
         ]
-    
+
     def get_user_binance_pairs(self, name: str) -> list[str]:
         """Get user-configured Binance pairs"""
         # In real implementation, would fetch from user settings
         # For now, return a subset of pairs
         return ['BTCUSDT', 'ETHUSDT', 'BNBUSDT']
-    
+
     def get_exchange_savings_history(
         self,
         location: Location,
@@ -232,7 +229,7 @@ class ExchangeService:
                 'BTC': '0.001',
             },
         }
-    
+
     def query_exchange_events(
         self,
         location: Location,
@@ -243,7 +240,7 @@ class ExchangeService:
         """Query history events for an exchange"""
         # Would query exchange events from database
         events = []
-        
+
         # Simulate some exchange events
         base_events = [
             {
@@ -273,11 +270,11 @@ class ExchangeService:
                 'fee_asset': 'ETH',
             },
         ]
-        
+
         # Filter by event type if specified
         for event in base_events:
             if event_type is None or event['event_type'] == event_type:
                 if event['timestamp'] >= from_timestamp and event['timestamp'] <= to_timestamp:
                     events.append(event)
-        
+
         return events

@@ -42,18 +42,18 @@ def _create_api_keys_table(write_cursor: 'DBCursor') -> None:
             FOREIGN KEY(username) REFERENCES user_accounts(username) ON DELETE CASCADE
         );
     """)
-    
+
     # Create indexes for better query performance
     write_cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_api_keys_username 
         ON api_keys(username);
     """)
-    
+
     write_cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash 
         ON api_keys(key_hash);
     """)
-    
+
     write_cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_api_keys_expires_at 
         ON api_keys(expires_at);
@@ -87,16 +87,16 @@ def run_migration(db: 'DBHandler') -> None:
     It ensures all necessary tables and indexes are created.
     """
     log.info('Starting API keys table migration')
-    
+
     try:
         # First ensure user_accounts table exists
         check_and_create_user_accounts_table(db)
-        
+
         # Then create the api_keys table
         add_api_keys_table(db)
-        
+
         log.info('API keys table migration completed successfully')
-        
+
     except Exception as e:
         log.error(f'Failed to run API keys table migration: {e}')
         raise
@@ -124,7 +124,7 @@ def create_api_key(
         The ID of the created API key
     """
     from datetime import datetime
-    
+
     with db.user_write() as write_cursor:
         write_cursor.execute("""
             INSERT INTO api_keys (username, key_hash, name, created_at, expires_at)
@@ -150,7 +150,7 @@ def validate_api_key(db: 'DBHandler', key_hash: str) -> dict | None:
         Dictionary with key details if valid, None if invalid or expired
     """
     from datetime import datetime
-    
+
     with db.user_write() as write_cursor:
         # Get key details
         result = write_cursor.execute("""
@@ -158,25 +158,25 @@ def validate_api_key(db: 'DBHandler', key_hash: str) -> dict | None:
             FROM api_keys
             WHERE key_hash = ?
         """, (key_hash,)).fetchone()
-        
+
         if not result:
             return None
-        
+
         key_id, username, name, expires_at = result
-        
+
         # Check expiration
         if expires_at:
             expiry_dt = datetime.fromisoformat(expires_at)
             if expiry_dt < datetime.now():
                 return None
-        
+
         # Update last_used timestamp
         write_cursor.execute("""
             UPDATE api_keys
             SET last_used = ?
             WHERE id = ?
         """, (datetime.now().isoformat(), key_id))
-        
+
         return {
             'id': key_id,
             'username': username,
@@ -219,7 +219,7 @@ def list_user_api_keys(db: 'DBHandler', username: str) -> list[dict]:
             WHERE username = ?
             ORDER BY created_at DESC
         """, (username,)).fetchall()
-        
+
         return [
             {
                 'id': row[0],
@@ -235,14 +235,15 @@ def list_user_api_keys(db: 'DBHandler', username: str) -> list[dict]:
 if __name__ == '__main__':
     # This allows the script to be run standalone for testing
     import sys
+
     from rotkehlchen.db.dbhandler import DBHandler
-    
+
     if len(sys.argv) != 2:
         print('Usage: python add_api_keys_table.py <data_directory>')
         sys.exit(1)
-    
+
     data_dir = sys.argv[1]
     db = DBHandler(data_dir=data_dir)
-    
+
     run_migration(db)
     print('Migration completed successfully')

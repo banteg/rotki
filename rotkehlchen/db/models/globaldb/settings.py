@@ -1,11 +1,9 @@
 """Settings and configuration models for global database using SQLModel"""
 
-from typing import Optional
 
 from sqlalchemy import INTEGER, TEXT, VARCHAR, Column
 from sqlmodel import Field
 
-from rotkehlchen.db.models.types import BooleanType
 from rotkehlchen.db.models.globaldb.base import Base
 
 
@@ -14,7 +12,7 @@ class GlobalSettings(Base, table=True):
     __tablename__ = 'settings'
 
     name: str = Field(sa_column=Column(VARCHAR(24), primary_key=True, nullable=False))
-    value: Optional[str] = Field(default=None, sa_column=Column(TEXT))
+    value: str | None = Field(default=None, sa_column=Column(TEXT))
 
     def __repr__(self) -> str:
         return f"<GlobalSettings(name='{self.name}', value='{self.value}')>"

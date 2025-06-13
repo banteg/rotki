@@ -66,7 +66,7 @@ async def generate_report(
             to_timestamp=request.to_timestamp,
             report_name=request.report_name,
         )
-        
+
         return ReportResponse(
             result={'report_id': report_id},
             message='Report generation started',
@@ -74,7 +74,7 @@ async def generate_report(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to generate report: {str(e)}',
+            detail=f'Failed to generate report: {e!s}',
         ) from e
 
 
@@ -101,7 +101,7 @@ async def get_report(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Report not found',
         )
-    
+
     return ReportResponse(result=report)
 
 
@@ -119,13 +119,13 @@ async def get_report_data(
         offset=offset,
         limit=limit,
     )
-    
+
     if data is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Report not found or not ready',
         )
-    
+
     return ReportDataResponse(result=data)
 
 
@@ -137,13 +137,13 @@ async def delete_report(
 ) -> ReportResponse:
     """Delete a report"""
     success = service.delete_report(report_id)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Report not found',
         )
-    
+
     return ReportResponse(
         result={'success': True},
         message='Report deleted successfully',

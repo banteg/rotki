@@ -1,10 +1,10 @@
 """Trading-related models for user database using SQLModel"""
 
 
-from sqlalchemy import CHAR, INTEGER, TEXT, Column, ForeignKey
+from sqlalchemy import CHAR, TEXT, Column, ForeignKey
 from sqlmodel import Field
 
-from rotkehlchen.db.models.types import FValType, TimestampType
+from rotkehlchen.db.models.types import TimestampType
 from rotkehlchen.db.models.user.base import Base
 
 

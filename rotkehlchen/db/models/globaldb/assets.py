@@ -1,14 +1,12 @@
 """Asset-related models for global database using SQLModel"""
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import (
-    CHAR, INTEGER, TEXT, VARCHAR, Column, ForeignKey, Index, UniqueConstraint
-)
+from sqlalchemy import CHAR, INTEGER, TEXT, VARCHAR, Column, ForeignKey, Index, UniqueConstraint
 from sqlmodel import Field, Relationship
 
-from rotkehlchen.db.models.types import BooleanType, FValType, TimestampType
 from rotkehlchen.db.models.globaldb.base import Base
+from rotkehlchen.db.models.types import TimestampType
 
 if TYPE_CHECKING:
     from rotkehlchen.db.models.globaldb.enums import AssetType, TokenKind
@@ -22,14 +20,14 @@ class GlobalAsset(Base, table=True):
     )
 
     identifier: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
-    name: Optional[str] = Field(default=None, sa_column=Column(TEXT))
+    name: str | None = Field(default=None, sa_column=Column(TEXT))
     type: str = Field(
         sa_column=Column(
             CHAR(1),
             ForeignKey('asset_types.type'),
             nullable=False,
             server_default='A',
-        )
+        ),
     )
 
     # Relationships
@@ -53,7 +51,7 @@ class GlobalAsset(Base, table=True):
         back_populates='main_asset_ref',
         sa_relationship_kwargs={'uselist': False},
     )
-    multiasset_mappings: List['MultiassetMapping'] = Relationship(
+    multiasset_mappings: list['MultiassetMapping'] = Relationship(
         back_populates='asset_ref',
         cascade_delete=True,
     )
@@ -72,25 +70,25 @@ class CommonAssetDetails(Base, table=True):
             ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
-    symbol: Optional[str] = Field(default=None, sa_column=Column(TEXT))
-    coingecko: Optional[str] = Field(default=None, sa_column=Column(TEXT))
-    cryptocompare: Optional[str] = Field(default=None, sa_column=Column(TEXT))
-    forked: Optional[str] = Field(
+    symbol: str | None = Field(default=None, sa_column=Column(TEXT))
+    coingecko: str | None = Field(default=None, sa_column=Column(TEXT))
+    cryptocompare: str | None = Field(default=None, sa_column=Column(TEXT))
+    forked: str | None = Field(
         default=None,
         sa_column=Column(
             TEXT,
             ForeignKey('assets.identifier', ondelete='SET NULL', onupdate='CASCADE'),
-        )
+        ),
     )
-    started: Optional[int] = Field(default=None, sa_column=Column(TimestampType))
-    swapped_for: Optional[str] = Field(
+    started: int | None = Field(default=None, sa_column=Column(TimestampType))
+    swapped_for: str | None = Field(
         default=None,
         sa_column=Column(
             TEXT,
             ForeignKey('assets.identifier', ondelete='SET NULL', onupdate='CASCADE'),
-        )
+        ),
     )
 
     # Relationships
@@ -99,13 +97,13 @@ class CommonAssetDetails(Base, table=True):
         sa_relationship_kwargs={
             'foreign_keys': '[CommonAssetDetails.forked]',
             'remote_side': '[GlobalAsset.identifier]',
-        }
+        },
     )
     swapped_for_asset: Optional['GlobalAsset'] = Relationship(
         sa_relationship_kwargs={
             'foreign_keys': '[CommonAssetDetails.swapped_for]',
             'remote_side': '[GlobalAsset.identifier]',
-        }
+        },
     )
 
     def __repr__(self) -> str:
@@ -122,7 +120,7 @@ class EvmToken(Base, table=True):
             ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
     token_kind: str = Field(
         sa_column=Column(
@@ -130,17 +128,17 @@ class EvmToken(Base, table=True):
             ForeignKey('token_kinds.token_kind'),
             nullable=False,
             server_default='A',
-        )
+        ),
     )
     chain: int = Field(sa_column=Column(INTEGER, nullable=False))
     address: str = Field(sa_column=Column(VARCHAR(42), nullable=False))
-    decimals: Optional[int] = Field(default=None, sa_column=Column(INTEGER))
-    protocol: Optional[str] = Field(default=None, sa_column=Column(TEXT))
+    decimals: int | None = Field(default=None, sa_column=Column(INTEGER))
+    protocol: str | None = Field(default=None, sa_column=Column(TEXT))
 
     # Relationships
     asset: Optional['GlobalAsset'] = Relationship(back_populates='evm_token')
     token_kind_ref: Optional['TokenKind'] = Relationship()
-    underlying_tokens: List['UnderlyingTokensList'] = Relationship(
+    underlying_tokens: list['UnderlyingTokensList'] = Relationship(
         back_populates='parent_token',
         cascade_delete=True,
     )
@@ -159,9 +157,9 @@ class CustomAsset(Base, table=True):
             ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
-    notes: Optional[str] = Field(default=None, sa_column=Column(TEXT))
+    notes: str | None = Field(default=None, sa_column=Column(TEXT))
     type: str = Field(sa_column=Column(TEXT, nullable=False))
 
     # Relationships
@@ -187,7 +185,7 @@ class AssetCollection(Base, table=True):
             ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             unique=True,
             nullable=False,
-        )
+        ),
     )
 
     # Relationships
@@ -207,7 +205,7 @@ class MultiassetMapping(Base, table=True):
             ForeignKey('asset_collections.id', ondelete='CASCADE'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
     asset: str = Field(
         sa_column=Column(
@@ -215,7 +213,7 @@ class MultiassetMapping(Base, table=True):
             ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
 
     # Relationships
@@ -236,7 +234,7 @@ class UnderlyingTokensList(Base, table=True):
             ForeignKey('evm_tokens.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
     parent_token_entry: str = Field(
         sa_column=Column(
@@ -244,7 +242,7 @@ class UnderlyingTokensList(Base, table=True):
             ForeignKey('evm_tokens.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
     weight: str = Field(sa_column=Column(TEXT, nullable=False))
 
@@ -254,7 +252,7 @@ class UnderlyingTokensList(Base, table=True):
         back_populates='underlying_tokens',
     )
     underlying: Optional['EvmToken'] = Relationship(
-        sa_relationship_kwargs={'foreign_keys': '[UnderlyingTokensList.parent_token_entry]'}
+        sa_relationship_kwargs={'foreign_keys': '[UnderlyingTokensList.parent_token_entry]'},
     )
 
     def __repr__(self) -> str:
@@ -271,7 +269,7 @@ class UserOwnedAsset(Base, table=True):
             ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
 
     def __repr__(self) -> str:

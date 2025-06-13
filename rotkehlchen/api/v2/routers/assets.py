@@ -1013,7 +1013,7 @@ async def add_to_spam_whitelist(
     """Add a spam token to the false positive list - Compatible with v1 POST /api/1/assets/ignored/whitelist"""
     try:
         assets_service.add_to_spam_whitelist(token)
-        
+
         return AssetResponse(
             result={'success': True},
             message=f'Token {token} added to whitelist',
@@ -1034,7 +1034,7 @@ async def remove_from_spam_whitelist(
     """Remove a token from the false positive list - Compatible with v1 DELETE /api/1/assets/ignored/whitelist"""
     try:
         assets_service.remove_from_spam_whitelist(token)
-        
+
         return AssetResponse(
             result={'success': True},
             message=f'Token {token} removed from whitelist',
@@ -1053,7 +1053,7 @@ async def get_spam_whitelist(
 ) -> AssetResponse:
     """Get the list of false positive spam tokens - Compatible with v1 GET /api/1/assets/ignored/whitelist"""
     whitelist = assets_service.get_spam_whitelist()
-    
+
     return AssetResponse(result={'tokens': whitelist})
 
 
@@ -1066,7 +1066,7 @@ async def mark_tokens_as_spam(
     """Mark EVM tokens as spam - Compatible with v1 POST /api/1/assets/evm/spam/"""
     try:
         marked_count = assets_service.mark_tokens_as_spam(tokens)
-        
+
         return AssetResponse(
             result={'marked': marked_count},
             message=f'Marked {marked_count} tokens as spam',
@@ -1087,7 +1087,7 @@ async def unmark_token_as_spam(
     """Unmark an EVM token as spam - Compatible with v1 DELETE /api/1/assets/evm/spam/"""
     try:
         assets_service.unmark_token_as_spam(token)
-        
+
         return AssetResponse(
             result={'success': True},
             message=f'Token {token} unmarked as spam',

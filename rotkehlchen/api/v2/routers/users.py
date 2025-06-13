@@ -13,10 +13,7 @@ from rotkehlchen.api.v2.dependencies import (
 )
 from rotkehlchen.api.v2.services.auth import AuthService
 from rotkehlchen.api.v2.services.database import DatabaseService
-from rotkehlchen.db.settings import ModifiableDBSettings
 from rotkehlchen.errors.api import AuthenticationError
-from rotkehlchen.errors.misc import DBUpgradeError, SystemPermissionError
-from rotkehlchen.premium.premium import PremiumCredentials
 
 if TYPE_CHECKING:
     from rotkehlchen.rotkehlchen import Rotkehlchen

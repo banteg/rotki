@@ -1,7 +1,7 @@
 """External services router for managing API keys and external service configurations"""
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from rotkehlchen.api.v2.dependencies import require_logged_in_user
@@ -47,7 +47,7 @@ async def get_external_services_status(
 ) -> ExternalServicesResponse:
     """Get status of all external services"""
     status = services.get_all_services_status()
-    
+
     return ExternalServicesResponse(
         result={
             'services': status,
@@ -63,7 +63,7 @@ async def add_external_service_credentials(
 ) -> ExternalServicesResponse:
     """Add credentials for external services - Compatible with v1 PUT /api/1/external_services"""
     results = {}
-    
+
     for service_creds in credentials_data.services:
         try:
             service = ExternalService(service_creds.name)
@@ -76,7 +76,7 @@ async def add_external_service_credentials(
             results[service_creds.name] = {'success': True}
         except Exception as e:
             results[service_creds.name] = {'success': False, 'error': str(e)}
-    
+
     return ExternalServicesResponse(
         result=results,
         message='External service credentials updated',
@@ -91,7 +91,7 @@ async def delete_external_service_credentials(
 ) -> ExternalServicesResponse:
     """Delete credentials for external services - Compatible with v1 DELETE /api/1/external_services"""
     results = {}
-    
+
     for service_name in delete_data.services:
         try:
             service = ExternalService(service_name)
@@ -101,7 +101,7 @@ async def delete_external_service_credentials(
             results[service_name] = {'success': False, 'error': f'Unknown service: {service_name}'}
         except Exception as e:
             results[service_name] = {'success': False, 'error': str(e)}
-    
+
     return ExternalServicesResponse(
         result=results,
         message='External service credentials deleted',

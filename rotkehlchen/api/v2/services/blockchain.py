@@ -757,7 +757,7 @@ class BlockchainService:
             'to_timestamp': to_timestamp,
             'status': 'started',
         }
-    
+
     def add_xpub(
         self,
         blockchain: str,
@@ -768,71 +768,71 @@ class BlockchainService:
     ) -> dict[str, Any]:
         """Add a BTC/BCH xpub"""
         blockchain_obj = SupportedBlockchain(blockchain.upper())
-        
+
         with self.db.user_write() as write_cursor:
             # Check if xpub already exists
             result = write_cursor.execute(
                 'SELECT xpub FROM xpubs WHERE xpub = ? AND blockchain = ?',
                 (xpub, blockchain_obj.value),
             ).fetchone()
-            
+
             if result:
                 raise InputError(f'xpub {xpub} already exists for {blockchain}')
-            
+
             # Add xpub
             write_cursor.execute(
-                '''INSERT INTO xpubs (xpub, blockchain, label, derivation_path, type) 
-                   VALUES (?, ?, ?, ?, ?)''',
+                """INSERT INTO xpubs (xpub, blockchain, label, derivation_path, type) 
+                   VALUES (?, ?, ?, ?, ?)""",
                 (xpub, blockchain_obj.value, label, derivation_path, xpub_type),
             )
-            
+
             # Derive addresses from xpub
             # In real implementation, would derive addresses from xpub
             derived_addresses = ['bc1qaddress1', 'bc1qaddress2', 'bc1qaddress3']
-            
+
             # Add derived addresses to blockchain accounts
             for address in derived_addresses:
                 write_cursor.execute(
                     'INSERT OR IGNORE INTO blockchain_accounts (blockchain, account) VALUES (?, ?)',
                     (blockchain_obj.value, address),
                 )
-        
+
         return {
             'xpub': xpub,
-            'derivation_path': derivation_path or 'm/84\'/0\'/0\'',
+            'derivation_path': derivation_path or "m/84'/0'/0'",
             'derived_addresses': derived_addresses,
         }
-    
+
     def edit_xpub(self, blockchain: str, xpub: str, label: str | None) -> None:
         """Edit an xpub label"""
         blockchain_obj = SupportedBlockchain(blockchain.upper())
-        
+
         with self.db.user_write() as write_cursor:
             result = write_cursor.execute(
                 'UPDATE xpubs SET label = ? WHERE xpub = ? AND blockchain = ?',
                 (label, xpub, blockchain_obj.value),
             )
-            
+
             if result.rowcount == 0:
                 raise ValueError(f'xpub {xpub} not found for {blockchain}')
-    
+
     def delete_xpub(self, blockchain: str, xpub: str) -> bool:
         """Delete an xpub and its derived addresses"""
         blockchain_obj = SupportedBlockchain(blockchain.upper())
-        
+
         with self.db.user_write() as write_cursor:
             # Get derived addresses first
             addresses = write_cursor.execute(
                 'SELECT address FROM xpub_mappings WHERE xpub = ? AND blockchain = ?',
                 (xpub, blockchain_obj.value),
             ).fetchall()
-            
+
             # Delete xpub
             result = write_cursor.execute(
                 'DELETE FROM xpubs WHERE xpub = ? AND blockchain = ?',
                 (xpub, blockchain_obj.value),
             )
-            
+
             if result.rowcount > 0:
                 # Delete derived addresses
                 for (address,) in addresses:
@@ -840,13 +840,13 @@ class BlockchainService:
                         'DELETE FROM blockchain_accounts WHERE blockchain = ? AND account = ?',
                         (blockchain_obj.value, address),
                     )
-                
+
                 # Delete xpub mappings
                 write_cursor.execute(
                     'DELETE FROM xpub_mappings WHERE xpub = ? AND blockchain = ?',
                     (xpub, blockchain_obj.value),
                 )
-                
+
                 return True
-            
+
             return False

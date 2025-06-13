@@ -1,13 +1,10 @@
 """Airdrops service for managing airdrop information"""
-from typing import Any, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
+from typing import Any
 
 
 class AirdropsService:
     """Service for managing airdrop metadata"""
-    
+
     def __init__(self) -> None:
         # Simulated airdrop data
         self._airdrops = [
@@ -56,29 +53,29 @@ class AirdropsService:
                 'requirements': 'ENS domain holders',
             },
         ]
-    
+
     def get_all_airdrop_metadata(self) -> list[dict[str, Any]]:
         """Get metadata for all supported airdrops"""
         return self._airdrops
-    
+
     def get_airdrop_by_protocol(self, protocol: str) -> dict[str, Any] | None:
         """Get airdrop metadata by protocol name"""
         for airdrop in self._airdrops:
             if airdrop['protocol'] == protocol.lower():
                 return airdrop
         return None
-    
+
     def check_airdrop_eligibility(self, protocol: str, address: str) -> dict[str, Any]:
         """Check if an address is eligible for an airdrop"""
         # Would actually check eligibility
         airdrop = self.get_airdrop_by_protocol(protocol)
-        
+
         if not airdrop:
             return {
                 'eligible': False,
                 'reason': 'Unknown airdrop protocol',
             }
-        
+
         # Simulated eligibility check
         return {
             'eligible': True,

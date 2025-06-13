@@ -17,10 +17,10 @@ class UserAccount(Base, table=True):
     password_hash: str = Field(sa_column=Column(TEXT, nullable=False))
     created_at: datetime = Field(sa_column=Column(DATETIME, nullable=False))
     last_login: datetime | None = Field(default=None, sa_column=Column(DATETIME, nullable=True))
-    
+
     # Relationships
     api_keys: list['ApiKey'] = Relationship(back_populates='user', cascade_delete=True)
-    
+
     def __repr__(self) -> str:
         return f"<UserAccount(username='{self.username}')>"
 
@@ -42,9 +42,9 @@ class ApiKey(Base, table=True):
     created_at: datetime = Field(sa_column=Column(DATETIME, nullable=False))
     last_used: datetime | None = Field(default=None, sa_column=Column(DATETIME, nullable=True))
     expires_at: datetime | None = Field(default=None, sa_column=Column(DATETIME, nullable=True))
-    
+
     # Relationships
     user: Optional['UserAccount'] = Relationship(back_populates='api_keys')
-    
+
     def __repr__(self) -> str:
         return f"<ApiKey(id={self.id}, username='{self.username}', name='{self.name}')>"

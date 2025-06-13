@@ -3,7 +3,7 @@
 from sqlalchemy import INTEGER, TEXT, CheckConstraint, Column, UniqueConstraint
 from sqlmodel import Field
 
-from rotkehlchen.db.models.types import BooleanType, FValType
+from rotkehlchen.db.models.types import BooleanType
 from rotkehlchen.db.models.user.base import Base
 
 

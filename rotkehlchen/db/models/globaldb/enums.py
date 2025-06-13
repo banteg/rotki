@@ -1,6 +1,6 @@
 """Enum tables for global database using SQLModel"""
 
-from sqlalchemy import CHAR, INTEGER, VARCHAR, Column
+from sqlalchemy import CHAR, INTEGER, Column
 from sqlmodel import Field
 
 from rotkehlchen.db.models.globaldb.base import Base

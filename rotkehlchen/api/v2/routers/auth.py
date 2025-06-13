@@ -92,13 +92,13 @@ async def revoke_api_key(
     """Revoke an API key by ID"""
     # TODO: Verify the key belongs to the current user
     success = auth_service.revoke_api_key_by_id(key_id)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='API key not found',
         )
-    
+
     return APIKeyResponse(
         result={'success': True},
         message='API key revoked successfully',

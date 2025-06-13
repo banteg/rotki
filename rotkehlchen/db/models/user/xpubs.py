@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import INTEGER, TEXT, VARCHAR, Column, ForeignKey, ForeignKeyConstraint
+from sqlalchemy import INTEGER, TEXT, Column, ForeignKeyConstraint
 from sqlmodel import Field, Relationship
 
 from rotkehlchen.db.models.user.base import Base

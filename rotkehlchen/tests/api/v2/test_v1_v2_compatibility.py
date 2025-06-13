@@ -1,12 +1,11 @@
 """Tests to ensure v2 API maintains compatibility with v1 API responses"""
-import pytest
 from unittest.mock import MagicMock, patch
-from fastapi.testclient import TestClient
-from flask import Flask
-from flask.testing import FlaskClient
 
-from rotkehlchen.api.v2.app import create_app as create_v2_app
+import pytest
+from fastapi.testclient import TestClient
+
 from rotkehlchen.api.server import create_app as create_v1_app
+from rotkehlchen.api.v2.app import create_app as create_v2_app
 from rotkehlchen.api.v2.dependencies import get_rotkehlchen
 
 
@@ -43,13 +42,13 @@ class TestV1V2Compatibility:
     def v2_client(self, mock_rotkehlchen):
         """Create v2 API test client"""
         app = create_v2_app()
-        
+
         # Override the dependency
         def override_get_rotkehlchen():
             return mock_rotkehlchen
-        
+
         app.dependency_overrides[get_rotkehlchen] = override_get_rotkehlchen
-        
+
         client = TestClient(app)
         return client
 
@@ -59,12 +58,12 @@ class TestV1V2Compatibility:
         v1_response = v1_client.get('/api/1/ping')
         assert v1_response.status_code == 200
         v1_data = v1_response.get_json()
-        
+
         # V2 ping
         v2_response = v2_client.get('/api/v2/ping')
         assert v2_response.status_code == 200
         v2_data = v2_response.json()
-        
+
         # Both should return result: true
         assert v1_data.get('result') == v2_data.get('result') == True
 
@@ -72,31 +71,31 @@ class TestV1V2Compatibility:
         """Test that supported chains endpoint returns compatible data"""
         # Mock the supported chains
         from rotkehlchen.types import SupportedBlockchain
-        
+
         # V1 endpoint
         with patch('rotkehlchen.api.rest.SupportedBlockchain', SupportedBlockchain):
             v1_response = v1_client.get('/api/1/blockchains/supported')
             assert v1_response.status_code == 200
             v1_data = v1_response.get_json()
-        
+
         # V2 endpoint
         v2_response = v2_client.get('/api/v2/blockchain/supported', headers={'X-API-Key': 'test'})
         assert v2_response.status_code == 200
         v2_data = v2_response.json()
-        
+
         # Compare the structure
         assert 'result' in v1_data
         assert 'result' in v2_data
-        
+
         # Both should return a list of blockchains
         assert isinstance(v1_data['result'], list)
         assert isinstance(v2_data['result'], list)
-        
+
         # Each blockchain should have similar structure
         if len(v1_data['result']) > 0 and len(v2_data['result']) > 0:
             v1_chain = v1_data['result'][0]
             v2_chain = v2_data['result'][0]
-            
+
             # Common fields
             assert 'id' in v1_chain and 'id' in v2_chain
             assert 'name' in v1_chain and 'name' in v2_chain
@@ -122,19 +121,19 @@ class TestV1V2Compatibility:
             'liabilities': {},
             'total_net_value': '9000',
         }
-        
+
         # V1 returns wrapped in result/message
         v1_expected = {
             'result': mock_balance_data,
             'message': '',
         }
-        
+
         # V2 should return similar structure
         v2_expected = {
             'result': mock_balance_data,
             'message': '',
         }
-        
+
         # Verify the response wrapper is consistent
         assert v1_expected.keys() == v2_expected.keys()
 
@@ -159,7 +158,7 @@ class TestV1V2Compatibility:
             'counterparty': 'uniswap',
             'extra_data': {},
         }
-        
+
         # V2 should maintain the same structure
         v2_event = {
             'identifier': 123,
@@ -179,7 +178,7 @@ class TestV1V2Compatibility:
             'counterparty': 'uniswap',
             'extra_data': {},
         }
-        
+
         # All fields should match
         assert v1_event.keys() == v2_event.keys()
         for key in v1_event:
@@ -190,15 +189,15 @@ class TestV1V2Compatibility:
         # V1 error response for invalid endpoint
         v1_response = v1_client.get('/api/1/invalid_endpoint')
         v1_data = v1_response.get_json()
-        
+
         # V2 error response for invalid endpoint
         v2_response = v2_client.get('/api/v2/invalid_endpoint')
         v2_data = v2_response.json()
-        
+
         # Both should return 404
         assert v1_response.status_code == 404
         assert v2_response.status_code == 404
-        
+
         # V1 typically has result/message structure even for errors
         # V2 with FastAPI might have different structure, but we should maintain compatibility
         # This is an area where middleware could help maintain compatibility
@@ -234,7 +233,7 @@ class TestV1V2Compatibility:
             },
             'message': '',
         }
-        
+
         # V2 should maintain the same nested structure
         # The service implementation already matches this structure
         assert 'result' in v1_nft_response
@@ -252,7 +251,7 @@ class TestV1V2Compatibility:
             'version': 1,
             'icon': 'defi/uniswap.svg',
         }
-        
+
         # V2 maintains the same structure
         v2_protocol = {
             'identifier': 'uniswap',
@@ -262,7 +261,7 @@ class TestV1V2Compatibility:
             'version': 1,
             'icon': 'defi/uniswap.svg',
         }
-        
+
         assert v1_protocol.keys() == v2_protocol.keys()
 
     def test_addressbook_entry_compatibility(self):
@@ -273,14 +272,14 @@ class TestV1V2Compatibility:
             'name': 'My Main Wallet',
             'blockchain': 'ETH',
         }
-        
+
         # V2 maintains the same structure
         v2_entry = {
             'address': '0x1234567890123456789012345678901234567890',
             'name': 'My Main Wallet',
             'blockchain': 'ETH',
         }
-        
+
         assert v1_entry == v2_entry
 
     @pytest.mark.parametrize('endpoint_pair', [
@@ -292,12 +291,12 @@ class TestV1V2Compatibility:
     def test_endpoint_response_wrapper(self, endpoint_pair):
         """Test that v2 endpoints maintain v1 response wrapper structure"""
         v1_endpoint, v2_endpoint = endpoint_pair
-        
+
         # All v1 endpoints wrap responses in result/message structure
         expected_keys = {'result', 'message'}
-        
+
         # V2 should maintain this structure for compatibility
         # This is handled by the response models in v2
-        
+
         # The actual implementation ensures this through BaseModel responses
         # that include result and message fields

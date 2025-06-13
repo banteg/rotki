@@ -96,7 +96,7 @@ class EvmEventInfo(Base, table=True):
     event: 'HistoryEvent' = Relationship(back_populates='evm_event_info')
 
     def __repr__(self) -> str:
-        return f"<EvmEventInfo(identifier={self.identifier}, tx_hash={self.tx_hash.hex()})>"
+        return f'<EvmEventInfo(identifier={self.identifier}, tx_hash={self.tx_hash.hex()})>'
 
 
 class SkippedExternalEvent(Base, table=True):

@@ -1,8 +1,7 @@
 """Mapping-related models for global database using SQLModel"""
 
-from typing import Optional
 
-from sqlalchemy import CHAR, TEXT, VARCHAR, Column, ForeignKey, UniqueConstraint
+from sqlalchemy import CHAR, TEXT, Column
 from sqlmodel import Field
 
 from rotkehlchen.db.models.globaldb.base import Base
@@ -12,7 +11,7 @@ class LocationAssetMapping(Base, table=True):
     """Model for location asset mappings table"""
     __tablename__ = 'location_asset_mappings'
 
-    location: Optional[str] = Field(default=None, sa_column=Column(TEXT, primary_key=True, nullable=True))
+    location: str | None = Field(default=None, sa_column=Column(TEXT, primary_key=True, nullable=True))
     exchange_symbol: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
     local_id: str = Field(sa_column=Column(TEXT, nullable=False))
 

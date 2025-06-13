@@ -21,6 +21,24 @@ from rotkehlchen.db.models.user.accounts import (
 from rotkehlchen.db.models.user.address_book import AddressBook
 from rotkehlchen.db.models.user.base import Base
 
+# Cache models
+from rotkehlchen.db.models.user.cache import KeyValueCache, MultiSettings, UsedQueryRange
+
+# Calendar models
+from rotkehlchen.db.models.user.calendar import Calendar, CalendarReminder
+
+# Conflict models
+from rotkehlchen.db.models.user.conflicts import UnresolvedRemoteConflict
+
+# DeFi models
+from rotkehlchen.db.models.user.defi import CowswapOrder, GnosisPayData
+
+# ENS models
+from rotkehlchen.db.models.user.ens import ENSMapping
+
+# Enums
+from rotkehlchen.db.models.user.enums import BalanceCategory, Location, ZkSyncLiteTxType
+
 # EVM models
 from rotkehlchen.db.models.user.evm import (
     EvmInternalTransaction,
@@ -41,35 +59,6 @@ from rotkehlchen.db.models.user.history import (
     HistoryEventMapping,
     SkippedExternalEvent,
 )
-
-# Staking models
-from rotkehlchen.db.models.user.staking import (
-    Eth2DailyStakingDetails,
-    Eth2Validator,
-    EthStakingEventInfo,
-    EthValidatorsDataCache,
-)
-
-# zkSync Lite models
-from rotkehlchen.db.models.user.zksynclite import ZkSyncLiteSwap, ZkSyncLiteTransaction
-
-# Cache models
-from rotkehlchen.db.models.user.cache import KeyValueCache, MultiSettings, UsedQueryRange
-
-# Calendar models
-from rotkehlchen.db.models.user.calendar import Calendar, CalendarReminder
-
-# Conflict models
-from rotkehlchen.db.models.user.conflicts import UnresolvedRemoteConflict
-
-# DeFi models
-from rotkehlchen.db.models.user.defi import CowswapOrder, GnosisPayData
-
-# ENS models
-from rotkehlchen.db.models.user.ens import ENSMapping
-
-# Enums
-from rotkehlchen.db.models.user.enums import BalanceCategory, Location, ZkSyncLiteTxType
 
 # Core models
 from rotkehlchen.db.models.user.models import (
@@ -95,11 +84,22 @@ from rotkehlchen.db.models.user.notes import UserNote
 # Service models
 from rotkehlchen.db.models.user.services import ExternalServiceCredentials
 
+# Staking models
+from rotkehlchen.db.models.user.staking import (
+    Eth2DailyStakingDetails,
+    Eth2Validator,
+    EthStakingEventInfo,
+    EthValidatorsDataCache,
+)
+
 # Trading models
 from rotkehlchen.db.models.user.trading import MarginPosition
 
 # Xpub models
 from rotkehlchen.db.models.user.xpubs import Xpub, XpubMapping
+
+# zkSync Lite models
+from rotkehlchen.db.models.user.zksynclite import ZkSyncLiteSwap, ZkSyncLiteTransaction
 
 __all__ = [
     # NFT models

@@ -2,7 +2,6 @@
 
 Handles all ENS-related database operations.
 """
-from typing import Optional
 
 from sqlmodel import Session, select
 
@@ -15,10 +14,10 @@ from rotkehlchen.utils.misc import ts_now
 
 class ENSRepository(BaseRepository[ENSMapping]):
     """Repository for ENS mappings."""
-    
+
     def __init__(self, session: Session):
         super().__init__(session, ENSMapping)
-    
+
     def add_ens_mapping(
         self,
         address: ChecksumEvmAddress,
@@ -32,10 +31,10 @@ class ENSRepository(BaseRepository[ENSMapping]):
         """
         if now is None:
             now = ts_now()
-            
+
         # Check if mapping exists
         existing = self.session.get(ENSMapping, address)
-        
+
         if existing:
             # Update existing mapping
             existing.ens_name = name
@@ -53,7 +52,7 @@ class ENSRepository(BaseRepository[ENSMapping]):
                 last_avatar_update=0,
             )
             return self.create(mapping)
-    
+
     def get_reverse_ens(
         self,
         addresses: list[ChecksumEvmAddress],
@@ -66,10 +65,10 @@ class ENSRepository(BaseRepository[ENSMapping]):
         """
         if not addresses:
             return {}
-            
+
         statement = select(ENSMapping).where(ENSMapping.address.in_(addresses))
         results = self.session.exec(statement)
-        
+
         output = {}
         for mapping in results:
             address = ChecksumEvmAddress(mapping.address)
@@ -81,19 +80,19 @@ class ENSRepository(BaseRepository[ENSMapping]):
                     name=mapping.ens_name,
                     last_update=Timestamp(mapping.last_update),
                 )
-        
+
         return output
-    
+
     def get_address_for_name(self, name: str) -> ChecksumEvmAddress | None:
         """Returns the address for the given name if cached."""
         statement = select(ENSMapping).where(ENSMapping.ens_name == name)
         result = self.session.exec(statement).first()
-        
+
         if result is None:
             return None
-            
+
         return ChecksumEvmAddress(result.address)
-    
+
     def update_values(
         self,
         ens_lookup_results: dict[ChecksumEvmAddress, str | None],
@@ -101,26 +100,26 @@ class ENSRepository(BaseRepository[ENSMapping]):
     ) -> dict[ChecksumEvmAddress, str]:
         """Update the ENS mapping values in the DB and return updates mappings to return via api."""
         now = ts_now()
-        
+
         for address, name in ens_lookup_results.items():
             # If name conflicts with existing mapping for another address, remove the old one
             if name is not None:
                 existing_with_name = self.session.exec(
-                    select(ENSMapping).where(ENSMapping.ens_name == name)
+                    select(ENSMapping).where(ENSMapping.ens_name == name),
                 ).first()
-                
+
                 if existing_with_name and existing_with_name.address != address:
                     self.session.delete(existing_with_name)
                     self.session.commit()
-            
+
             # Add or update the mapping
             self.add_ens_mapping(address=address, name=name, now=now)
-            
+
             if name is not None:
                 mappings_to_send[address] = name
-        
+
         return mappings_to_send
-    
+
     def get_last_avatar_update(self, ens_name: str) -> Timestamp:
         """
         Returns the timestamp when the avatar for the given ens name was updated last time.
@@ -130,19 +129,19 @@ class ENSRepository(BaseRepository[ENSMapping]):
         """
         statement = select(ENSMapping).where(ENSMapping.ens_name == ens_name)
         result = self.session.exec(statement).first()
-        
+
         if result is None:
             raise InputError(f'ens name {ens_name} is not being tracked')
-        
+
         return Timestamp(result.last_avatar_update)
-    
+
     def find_by(self, **kwargs) -> list[ENSMapping]:
         """Find ENS mappings by criteria."""
         statement = select(ENSMapping)
-        
+
         for key, value in kwargs.items():
             if hasattr(ENSMapping, key):
                 statement = statement.where(getattr(ENSMapping, key) == value)
-        
+
         results = self.session.exec(statement)
         return list(results.all())

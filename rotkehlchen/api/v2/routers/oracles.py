@@ -41,28 +41,26 @@ async def get_supported_oracles(
 ) -> OraclesResponse:
     """Get list of supported oracles - Compatible with v1 GET /api/1/oracles"""
     supported_oracles = oracles.get_supported_oracles()
-    
+
     return OraclesResponse(result=supported_oracles)
-
-
 
 
 @router.get('/{oracle}/cache')
 async def get_oracle_cache(
     _: Annotated[str, Depends(require_logged_in_user)],
     oracles: Annotated[OraclesService, Depends(get_oracles_service)],
-    oracle: str = Path(..., description="Oracle name"),
+    oracle: str = Path(..., description='Oracle name'),
     async_query: bool = False,
 ) -> OraclesResponse:
     """Get cache for a specific oracle - Compatible with v1 GET /api/1/oracles/<oracle>/cache"""
     cache_data = oracles.get_oracle_cache(oracle, async_query)
-    
+
     if cache_data is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f'Oracle {oracle} not found',
         )
-    
+
     return OraclesResponse(result=cache_data)
 
 
@@ -71,7 +69,7 @@ async def create_oracle_cache(
     cache_data: OracleCacheCreateRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
     oracles: Annotated[OraclesService, Depends(get_oracles_service)],
-    oracle: str = Path(..., description="Oracle name"),
+    oracle: str = Path(..., description='Oracle name'),
 ) -> OraclesResponse:
     """Create cache for a specific oracle - Compatible with v1 POST /api/1/oracles/<oracle>/cache"""
     try:
@@ -82,7 +80,7 @@ async def create_oracle_cache(
             purge_old=cache_data.purge_old,
             async_query=cache_data.async_query,
         )
-        
+
         return OraclesResponse(
             result=result,
             message='Oracle cache created successfully',
@@ -99,7 +97,7 @@ async def delete_oracle_cache(
     cache_data: OracleCacheDeleteRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
     oracles: Annotated[OraclesService, Depends(get_oracles_service)],
-    oracle: str = Path(..., description="Oracle name"),
+    oracle: str = Path(..., description='Oracle name'),
 ) -> OraclesResponse:
     """Delete cache for a specific oracle - Compatible with v1 DELETE /api/1/oracles/<oracle>/cache"""
     try:
@@ -108,7 +106,7 @@ async def delete_oracle_cache(
             from_asset=cache_data.from_asset,
             to_asset=cache_data.to_asset,
         )
-        
+
         return OraclesResponse(
             result={'success': True},
             message='Oracle cache deleted successfully',

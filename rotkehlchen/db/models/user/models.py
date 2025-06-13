@@ -9,16 +9,14 @@ from sqlalchemy import (
     VARCHAR,
     Column,
     ForeignKey,
-    ForeignKeyConstraint,
 )
 from sqlmodel import Field, Relationship
 
-from rotkehlchen.db.models.types import FValType, TimestampType
+from rotkehlchen.db.models.types import TimestampType
 from rotkehlchen.db.models.user.base import Base
 
 if TYPE_CHECKING:
 
-    from rotkehlchen.db.models.user.accounts import BlockchainAccount
     from rotkehlchen.db.models.user.enums import BalanceCategory, Location
     from rotkehlchen.db.models.user.history import HistoryEvent
     from rotkehlchen.db.models.user.nfts import NFT

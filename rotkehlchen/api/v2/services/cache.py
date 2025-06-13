@@ -7,11 +7,11 @@ if TYPE_CHECKING:
 
 class CacheService:
     """Service for managing application caches"""
-    
+
     def __init__(self) -> None:
         # Would be initialized from app state
-        self._rotkehlchen: 'Rotkehlchen | None' = None
-    
+        self._rotkehlchen: Rotkehlchen | None = None
+
     def get_valid_cache_types(self) -> list[str]:
         """Get list of valid cache types"""
         return [
@@ -26,7 +26,7 @@ class CacheService:
             'history',
             'defi',
         ]
-    
+
     def clear_cache(self, cache_type: str) -> None:
         """Clear a specific cache type"""
         if cache_type == 'icons':
@@ -51,53 +51,43 @@ class CacheService:
             self._clear_defi_cache()
         else:
             raise ValueError(f'Unknown cache type: {cache_type}')
-    
+
     def _clear_icons_cache(self) -> None:
         """Clear icons cache"""
         # Would clear actual icons cache
-        pass
-    
+
     def _clear_assets_cache(self) -> None:
         """Clear assets cache"""
         # Would clear actual assets cache
-        pass
-    
+
     def _clear_prices_cache(self) -> None:
         """Clear prices cache"""
         # Would clear actual prices cache
-        pass
-    
+
     def _clear_general_cache(self) -> None:
         """Clear general cache"""
         # Would clear actual general cache
-        pass
-    
+
     def _clear_globaldb_cache(self) -> None:
         """Clear global database cache"""
         # Would clear actual globaldb cache
-        pass
-    
+
     def _clear_nfts_cache(self) -> None:
         """Clear NFTs cache"""
         # Would clear actual NFTs cache
-        pass
-    
+
     def _clear_addressbook_cache(self) -> None:
         """Clear addressbook cache"""
         # Would clear actual addressbook cache
-        pass
-    
+
     def _clear_avatars_cache(self) -> None:
         """Clear avatars cache"""
         # Would clear actual avatars cache
-        pass
-    
+
     def _clear_history_cache(self) -> None:
         """Clear history cache"""
         # Would clear actual history cache
-        pass
-    
+
     def _clear_defi_cache(self) -> None:
         """Clear DeFi cache"""
         # Would clear actual DeFi cache
-        pass

@@ -14,7 +14,6 @@ from rotkehlchen.chain.evm.types import string_to_evm_address
 from rotkehlchen.db.drivers.gevent import DBConnection
 from rotkehlchen.errors.misc import InputError
 from rotkehlchen.premium.premium import premium_create_and_verify
-from rotkehlchen.types import ChecksumEvmAddress
 
 if TYPE_CHECKING:
     from rotkehlchen.chain.aggregator import ChainsAggregator
@@ -73,7 +72,7 @@ async def get_module_balances(
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f'Invalid address format: {str(e)}',
+                detail=f'Invalid address format: {e!s}',
             ) from e
 
     try:
@@ -91,7 +90,7 @@ async def get_module_balances(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get module balances: {str(e)}',
+            detail=f'Failed to get module balances: {e!s}',
         ) from e
 
 
@@ -113,7 +112,7 @@ async def get_module_balances_versioned(
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f'Invalid address format: {str(e)}',
+                detail=f'Invalid address format: {e!s}',
             ) from e
 
     try:
@@ -132,7 +131,7 @@ async def get_module_balances_versioned(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get module balances: {str(e)}',
+            detail=f'Failed to get module balances: {e!s}',
         ) from e
 
 
@@ -161,7 +160,7 @@ async def get_module_stats(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get module stats: {str(e)}',
+            detail=f'Failed to get module stats: {e!s}',
         ) from e
 
 
@@ -180,7 +179,7 @@ async def get_liquity_balances(
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f'Invalid address format: {str(e)}',
+                detail=f'Invalid address format: {e!s}',
             ) from e
 
     try:
@@ -194,7 +193,7 @@ async def get_liquity_balances(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get Liquity balances: {str(e)}',
+            detail=f'Failed to get Liquity balances: {e!s}',
         ) from e
 
 
@@ -212,7 +211,7 @@ async def get_liquity_staking(
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f'Invalid address format: {str(e)}',
+                detail=f'Invalid address format: {e!s}',
             ) from e
 
     try:
@@ -226,7 +225,7 @@ async def get_liquity_staking(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get Liquity staking: {str(e)}',
+            detail=f'Failed to get Liquity staking: {e!s}',
         ) from e
 
 
@@ -244,7 +243,7 @@ async def get_liquity_pool(
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f'Invalid address format: {str(e)}',
+                detail=f'Invalid address format: {e!s}',
             ) from e
 
     try:
@@ -258,7 +257,7 @@ async def get_liquity_pool(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get Liquity pool: {str(e)}',
+            detail=f'Failed to get Liquity pool: {e!s}',
         ) from e
 
 
@@ -279,8 +278,9 @@ async def get_liquity_stats(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get Liquity stats: {str(e)}',
+            detail=f'Failed to get Liquity stats: {e!s}',
         ) from e
+
 
 # v1 compatibility endpoints for DeFi modules
 @router.delete('/blockchains/eth/modules/data')
@@ -298,7 +298,7 @@ async def purge_all_defi_data(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to purge DeFi data: {str(e)}',
+            detail=f'Failed to purge DeFi data: {e!s}',
         ) from e
 
 
@@ -323,7 +323,7 @@ async def purge_module_data(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to purge module data: {str(e)}',
+            detail=f'Failed to purge module data: {e!s}',
         ) from e
 
 
@@ -382,7 +382,7 @@ async def get_module_balances(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get module balances: {str(e)}',
+            detail=f'Failed to get module balances: {e!s}',
         ) from e
 
 
@@ -405,7 +405,7 @@ async def get_module_balances_versioned(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get versioned module balances: {str(e)}',
+            detail=f'Failed to get versioned module balances: {e!s}',
         ) from e
 
 
@@ -427,7 +427,7 @@ async def get_module_stats(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get module stats: {str(e)}',
+            detail=f'Failed to get module stats: {e!s}',
         ) from e
 
 
@@ -443,7 +443,7 @@ async def get_pickle_dill(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get Pickle DILL balance: {str(e)}',
+            detail=f'Failed to get Pickle DILL balance: {e!s}',
         ) from e
 
 
@@ -459,5 +459,5 @@ async def get_loopring_balances(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get Loopring balances: {str(e)}',
+            detail=f'Failed to get Loopring balances: {e!s}',
         ) from e

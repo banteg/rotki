@@ -1,7 +1,7 @@
 """Airdrops router for managing airdrop metadata"""
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from rotkehlchen.api.v2.dependencies import require_logged_in_user
@@ -28,7 +28,7 @@ async def get_airdrop_metadata(
 ) -> AirdropsResponse:
     """Get metadata for all supported airdrops - Compatible with v1 GET /api/1/airdrops/metadata"""
     metadata = service.get_all_airdrop_metadata()
-    
+
     return AirdropsResponse(result={'airdrops': metadata})
 
 

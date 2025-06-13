@@ -2,6 +2,9 @@
 import time
 from typing import TYPE_CHECKING, Any
 
+from sqlmodel import Session
+
+from rotkehlchen.api.v2.repositories.history import HistoryEventFilter, HistoryRepository
 from rotkehlchen.assets.asset import Asset
 from rotkehlchen.db.drivers.gevent import DBConnection
 from rotkehlchen.db.filtering import HistoryEventFilterQuery
@@ -10,8 +13,6 @@ from rotkehlchen.errors.misc import InputError
 from rotkehlchen.fval import FVal
 from rotkehlchen.history.events.structures.base import HistoryEventType
 from rotkehlchen.types import Location, Timestamp
-from sqlmodel import Session
-from rotkehlchen.api.v2.repositories.history import HistoryRepository, HistoryEventFilter
 
 if TYPE_CHECKING:
     from rotkehlchen.api.websockets.notifier import RotkiNotifier
@@ -54,7 +55,7 @@ class HistoryService:
             location_objects = None
             if locations:
                 location_objects = [Location.deserialize(loc) for loc in locations]
-            
+
             # Create filter for repository
             filters = HistoryEventFilter(
                 from_ts=from_timestamp,
@@ -63,7 +64,7 @@ class HistoryService:
                 locations=location_objects,
                 assets=assets,
             )
-            
+
             # Get events from repository
             events_db = self.history_repo.get_history_events(
                 filters=filters,
@@ -249,7 +250,7 @@ class HistoryService:
         if self.history_manager is None or self.task_manager is None:
             # Fallback to mock implementation
             return 12345  # Mock task ID
-        
+
         # Send notification that history processing started
         if self.notifier:
             self.notifier.broadcast(
@@ -259,7 +260,7 @@ class HistoryService:
                     'to_timestamp': to_timestamp,
                 },
             )
-        
+
         # Start the actual history processing task
         task_id = self.task_manager.start_task(
             task_type='history_processing',
@@ -267,7 +268,7 @@ class HistoryService:
             from_ts=from_timestamp,
             to_ts=to_timestamp,
         )
-        
+
         return task_id
 
     def get_processing_status(self) -> dict[str, Any]:
@@ -315,7 +316,7 @@ class HistoryService:
                 })
 
         return str(csv_path)
-    
+
     def download_history(
         self,
         from_timestamp: int,
@@ -326,7 +327,7 @@ class HistoryService:
         import tempfile
         temp_dir = tempfile.gettempdir()
         return self.export_history(temp_dir)
-    
+
     def get_actionable_items(self) -> list[dict[str, Any]]:
         """Get actionable items from history"""
         # Would analyze history for actionable items
@@ -344,7 +345,7 @@ class HistoryService:
                 'action': 'Categorize event',
             },
         ]
-    
+
     def get_debug_info(self) -> dict[str, Any]:
         """Get debug information about history processing"""
         return {
@@ -356,7 +357,7 @@ class HistoryService:
                 'entries': 1000,
             },
         }
-    
+
     def get_event_details(
         self,
         event_identifier: str,
@@ -381,7 +382,7 @@ class HistoryService:
             },
             'from_cache': not ignore_cache,
         }
-    
+
     def get_event_type_mappings(self) -> dict[str, Any]:
         """Get mappings of event types to human-readable names"""
         return {
@@ -404,7 +405,7 @@ class HistoryService:
                 'payback_debt': 'Payback Debt',
             },
         }
-    
+
     def query_history(
         self,
         from_timestamp: int,
@@ -420,10 +421,10 @@ class HistoryService:
             limit=None,  # Get all events
             offset=0,
         )
-        
+
         # Sort by timestamp
         events.sort(key=lambda x: x['timestamp'], reverse=not ascending)
-        
+
         # Group by event IDs if requested
         if group_by_event_ids:
             grouped = {}
@@ -437,13 +438,13 @@ class HistoryService:
                 'entries_total': len(events),
                 'entries_found': len(events),
             }
-        
+
         return {
             'events': events,
             'entries_total': len(events),
             'entries_found': len(events),
         }
-    
+
     def get_unique_counterparties(self) -> list[str]:
         """Get all unique counterparties from history events"""
         with self.db_connection.read_ctx() as cursor:
@@ -451,9 +452,9 @@ class HistoryService:
                 'SELECT DISTINCT counterparty FROM history_events '
                 'WHERE counterparty IS NOT NULL ORDER BY counterparty',
             ).fetchall()
-            
+
             return [row[0] for row in result]
-    
+
     def get_unique_products(self) -> list[dict[str, Any]]:
         """Get all unique products from history events"""
         # In real implementation, would query product data
@@ -463,12 +464,12 @@ class HistoryService:
             {'counterparty': 'compound', 'products': ['lending', 'borrowing']},
             {'counterparty': 'aave', 'products': ['v2', 'v3']},
         ]
-    
+
     def export_debug_data(self, directory_path: str) -> str:
         """Export PnL debug data to a directory"""
         import json
         from pathlib import Path
-        
+
         # Create debug data structure
         debug_data = {
             'timestamp': int(time.time()),
@@ -476,14 +477,14 @@ class HistoryService:
             'processed_actions': [],
             'pnl_totals': {},
         }
-        
+
         # Get all history events
         events_db, _ = self.history_events_db.get_history_events(
             filter_query=HistoryEventFilterQuery.make(),
             has_premium=True,
             limit=None,
         )
-        
+
         for event in events_db:
             debug_data['events'].append({
                 'identifier': event.identifier,
@@ -493,54 +494,54 @@ class HistoryService:
                 'amount': str(event.balance.amount),
                 'usd_value': str(event.balance.usd_value) if event.balance.usd_value else '0',
             })
-        
+
         # Save to file
         debug_path = Path(directory_path) / 'rotki_pnl_debug.json'
         with open(debug_path, 'w', encoding='utf-8') as f:
             json.dump(debug_data, f, indent=2)
-        
+
         return str(debug_path)
-    
+
     def import_debug_data(self, filepath: str) -> dict[str, Any]:
         """Import PnL debug data from a file"""
         import json
         from pathlib import Path
-        
+
         # Read debug data
         debug_path = Path(filepath)
         if not debug_path.exists():
             raise ValueError(f'File {filepath} does not exist')
-        
-        with open(debug_path, 'r', encoding='utf-8') as f:
+
+        with open(debug_path, encoding='utf-8') as f:
             debug_data = json.load(f)
-        
+
         # Process imported data
         imported_events = len(debug_data.get('events', []))
-        
+
         return {
             'imported_events': imported_events,
             'timestamp': debug_data.get('timestamp'),
             'success': True,
         }
-    
+
     def export_events_to_directory(self, directory_path: str) -> str:
         """Export history events to a file in a directory"""
         import json
         from pathlib import Path
-        
+
         # Get all history events
         events_db, _ = self.history_events_db.get_history_events(
             filter_query=HistoryEventFilterQuery.make(),
             has_premium=True,
             limit=None,
         )
-        
+
         # Convert to exportable format
         export_data = {
             'version': 1,
             'events': [],
         }
-        
+
         for event in events_db:
             export_data['events'].append({
                 'identifier': event.identifier,
@@ -557,26 +558,26 @@ class HistoryService:
                 'counterparty': event.counterparty.serialize() if event.counterparty else None,
                 'extra_data': event.extra_data,
             })
-        
+
         # Save to file
         export_path = Path(directory_path) / 'history_events_export.json'
         with open(export_path, 'w', encoding='utf-8') as f:
             json.dump(export_data, f, indent=2)
-        
+
         return str(export_path)
-    
+
     def export_events_as_csv(self) -> str:
         """Export history events as CSV data"""
         import csv
         import io
-        
+
         # Get all history events
         events_db, _ = self.history_events_db.get_history_events(
             filter_query=HistoryEventFilterQuery.make(),
             has_premium=True,
             limit=None,
         )
-        
+
         # Create CSV in memory
         output = io.StringIO()
         fieldnames = [
@@ -586,7 +587,7 @@ class HistoryService:
         ]
         writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
-        
+
         for event in events_db:
             writer.writerow({
                 'timestamp': event.timestamp,
@@ -601,9 +602,9 @@ class HistoryService:
                 'event_identifier': event.event_identifier,
                 'identifier': event.identifier,
             })
-        
+
         return output.getvalue()
-    
+
     def get_skipped_external_events(self) -> dict[str, Any]:
         """Get summary of skipped external events"""
         with self.db_connection.read_ctx() as cursor:
@@ -612,32 +613,32 @@ class HistoryService:
                 'SELECT location, COUNT(*) FROM skipped_external_events '
                 'GROUP BY location',
             ).fetchall()
-            
+
             skipped_by_location = {}
             total_skipped = 0
-            
+
             for row in result:
                 location = row[0]
                 count = row[1]
                 skipped_by_location[location] = count
                 total_skipped += count
-        
+
         return {
             'total_skipped': total_skipped,
             'skipped_by_location': skipped_by_location,
         }
-    
+
     def export_skipped_events(self, directory_path: str) -> str:
         """Export skipped events to a file"""
         import json
         from pathlib import Path
-        
+
         with self.db_connection.read_ctx() as cursor:
             # Get all skipped events
             result = cursor.execute(
                 'SELECT location, data, timestamp FROM skipped_external_events',
             ).fetchall()
-            
+
             skipped_events = []
             for row in result:
                 skipped_events.append({
@@ -645,7 +646,7 @@ class HistoryService:
                     'data': json.loads(row[1]) if row[1] else {},
                     'timestamp': row[2],
                 })
-        
+
         # Save to file
         export_path = Path(directory_path) / 'skipped_events_export.json'
         with open(export_path, 'w', encoding='utf-8') as f:
@@ -653,27 +654,27 @@ class HistoryService:
                 'version': 1,
                 'skipped_events': skipped_events,
             }, f, indent=2)
-        
+
         return str(export_path)
-    
+
     def download_skipped_events_csv(self) -> str:
         """Generate CSV data for skipped events"""
         import csv
         import io
         import json
-        
+
         with self.db_connection.read_ctx() as cursor:
             # Get all skipped events
             result = cursor.execute(
                 'SELECT location, data, timestamp FROM skipped_external_events',
             ).fetchall()
-        
+
         # Create CSV in memory
         output = io.StringIO()
         fieldnames = ['timestamp', 'location', 'reason', 'data']
         writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
-        
+
         for row in result:
             data = json.loads(row[1]) if row[1] else {}
             writer.writerow({
@@ -682,9 +683,9 @@ class HistoryService:
                 'reason': data.get('reason', 'Unknown'),
                 'data': json.dumps(data),
             })
-        
+
         return output.getvalue()
-    
+
     def reprocess_skipped_events(self) -> dict[str, Any]:
         """Reprocess all skipped events"""
         with self.db_connection.read_ctx() as cursor:
@@ -692,9 +693,9 @@ class HistoryService:
             result = cursor.execute(
                 'SELECT COUNT(*) FROM skipped_external_events',
             ).fetchone()
-            
+
             total_skipped = result[0] if result else 0
-        
+
         # In real implementation, would trigger reprocessing task
         # For now, simulate starting the task
         return {

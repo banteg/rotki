@@ -20,10 +20,10 @@ class TestResponseFormat:
     def test_success_response_format(self, client: TestClient) -> None:
         """Test successful response format matches v1"""
         response = client.get('/api/v2/ping')
-        
+
         assert response.status_code == 200
         data = response.json()
-        
+
         # v1 returns {"result": true} for ping
         assert 'result' in data
         assert data['result'] is True
@@ -33,10 +33,10 @@ class TestResponseFormat:
         """Test error response format matches v1"""
         # Try to access protected endpoint without auth
         response = client.get('/api/v2/settings')
-        
+
         assert response.status_code == 401
         data = response.json()
-        
+
         # v1 error format: {"result": null, "message": "error message"}
         assert 'detail' in data  # FastAPI default
         # TODO: Update FastAPI error handler to match v1 format
@@ -49,14 +49,14 @@ class TestResponseFormat:
             return_value='test_user',
         ):
             response = client.get('/api/v2/settings')
-            
+
             assert response.status_code == 200
             data = response.json()
-            
+
             # Check response structure
             assert 'result' in data
             assert isinstance(data['result'], dict)
-            
+
             # Check required settings fields
             settings = data['result']
             required_fields = [
@@ -81,9 +81,9 @@ class TestResponseFormat:
                 'max_log_backup_files',
                 'sql_vm_instructions_cb',
             ]
-            
+
             for field in required_fields:
-                assert field in settings, f"Missing required field: {field}"
+                assert field in settings, f'Missing required field: {field}'
 
     def test_balances_response_format(self, client: TestClient) -> None:
         """Test balances response format"""
@@ -92,20 +92,20 @@ class TestResponseFormat:
             return_value='test_user',
         ):
             response = client.get('/api/v2/balances')
-            
+
             assert response.status_code == 200
             data = response.json()
-            
+
             # Check response structure
             assert 'result' in data
             assert isinstance(data['result'], dict)
-            
+
             # Check required balance fields
             result = data['result']
             assert 'assets' in result
             assert 'liabilities' in result
             assert 'total_net_value' in result
-            
+
             # Assets should be a dict of location -> asset -> balance
             assert isinstance(result['assets'], dict)
             assert isinstance(result['liabilities'], dict)
@@ -117,10 +117,10 @@ class TestResponseFormat:
             'rotkehlchen.api.v2.dependencies.get_database_service',
         ):
             response = client.get('/api/v2/users')
-            
+
             assert response.status_code == 200
             data = response.json()
-            
+
             # Check response structure
             assert 'result' in data
             assert isinstance(data['result'], dict)
@@ -134,10 +134,10 @@ class TestResponseFormat:
             return_value='test_user',
         ):
             response = client.get('/api/v2/history/events?limit=10&offset=0')
-            
+
             assert response.status_code == 200
             data = response.json()
-            
+
             # Check pagination structure
             assert 'result' in data
             result = data['result']
@@ -153,10 +153,10 @@ class TestResponseFormat:
             return_value='test_user',
         ):
             response = client.post('/api/v2/history/process')
-            
+
             assert response.status_code == 200
             data = response.json()
-            
+
             # Check async task response
             assert 'result' in data
             assert 'task_id' in data['result']
@@ -173,10 +173,10 @@ class TestResponseFormat:
                 return_value={'result': {'success': True}, 'message': 'User logged out successfully'},
             ):
                 response = client.post('/api/v2/users/logout')
-                
+
                 assert response.status_code == 200
                 data = response.json()
-                
+
                 # Some endpoints return success flag
                 assert 'result' in data
                 assert 'success' in data['result']

@@ -35,7 +35,7 @@ async def get_importers(
 ) -> ImportExportResponse:
     """Get available data importers"""
     importers = service.get_available_importers()
-    
+
     return ImportExportResponse(result={'importers': importers})
 
 
@@ -52,7 +52,7 @@ async def import_data(
             data=import_data.data,
             file_path=import_data.file_path,
         )
-        
+
         return ImportExportResponse(
             result=result,
             message=f'Successfully imported data from {import_data.source}',
@@ -75,13 +75,13 @@ async def import_file(
     try:
         # Read file content
         content = await file.read()
-        
+
         result = service.import_from_file(
             filename=file.filename,
             content=content,
             source=source,
         )
-        
+
         return ImportExportResponse(
             result=result,
             message=f'Successfully imported data from {file.filename}',

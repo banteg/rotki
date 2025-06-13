@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rotkehlchen.api.rest import RestAPI
 from rotkehlchen.api.v2.app import create_app
 from rotkehlchen.api.v2.config import Settings
 from rotkehlchen.tests.utils.api import api_url_for
@@ -28,12 +27,12 @@ class TestEndpointParity:
     ) -> None:
         """Compare v1 and v2 responses, ignoring specified fields"""
         ignore_fields = ignore_fields or []
-        
+
         # Remove ignored fields
         for field in ignore_fields:
             v1_response.pop(field, None)
             v2_response.pop(field, None)
-        
+
         # Deep comparison
         assert v1_response == v2_response, (
             f"Responses don't match:\n"
@@ -46,13 +45,13 @@ class TestEndpointParity:
         # v1 response
         response = requests.get(api_url_for(rotkehlchen_api_server, 'ping'))
         v1_data = response.json()
-        
-        # v2 response  
+
+        # v2 response
         from fastapi.testclient import TestClient
         client = TestClient(v2_app)
         v2_response = client.get('/api/v2/ping')
         v2_data = v2_response.json()
-        
+
         self.compare_responses(v1_data, v2_data)
 
     def test_info_endpoint(self, rotkehlchen_api_server, v2_app) -> None:
@@ -60,17 +59,17 @@ class TestEndpointParity:
         # Mock to ensure consistent data
         with patch('rotkehlchen.utils.version_check.get_current_version') as mock_version:
             mock_version.return_value = MagicMock(our_version='1.2.3')
-            
+
             # v1 response
             response = requests.get(api_url_for(rotkehlchen_api_server, 'info'))
             v1_data = response.json()
-            
+
             # v2 response
             from fastapi.testclient import TestClient
             client = TestClient(v2_app)
             v2_response = client.get('/api/v2/info')
             v2_data = v2_response.json()
-            
+
             # Both should have result with version and data_directory
             assert 'result' in v1_data
             assert 'result' in v2_data
@@ -86,26 +85,26 @@ class TestEndpointParity:
             password='test',
             create_new=True,
         )
-        
+
         # v1 response
         response = requests.get(api_url_for(rotkehlchen_api_server, 'settingsresource'))
         v1_data = response.json()
-        
+
         # v2 response with mocked auth
         from fastapi.testclient import TestClient
         client = TestClient(v2_app)
-        
+
         with patch('rotkehlchen.api.v2.dependencies.require_logged_in_user', return_value='test'):
             v2_response = client.get('/api/v2/settings')
             v2_data = v2_response.json()
-        
+
         # Check structure
         assert 'result' in v1_data
         assert 'result' in v2_data
-        
+
         v1_settings = v1_data['result']
         v2_settings = v2_data['result']
-        
+
         # Check all v1 fields exist in v2
         for key in v1_settings:
             assert key in v2_settings, f"Missing field '{key}' in v2 settings"
@@ -116,15 +115,15 @@ class TestEndpointParity:
         response = requests.get(api_url_for(rotkehlchen_api_server, 'settingsresource'))
         if response.status_code != 200:
             v1_error = response.json()
-            
+
             # v2 error
             from fastapi.testclient import TestClient
             client = TestClient(v2_app)
             v2_response = client.get('/api/v2/settings')
-            
+
             if v2_response.status_code != 200:
                 v2_error = v2_response.json()
-                
+
                 # v1 format: {"result": null, "message": "..."}
                 # v2 FastAPI default: {"detail": "..."}
                 # Need to update v2 error handler to match v1
@@ -134,21 +133,21 @@ class TestEndpointParity:
         # Test with users endpoint
         response = requests.get(api_url_for(rotkehlchen_api_server, 'usersresource'))
         v1_data = response.json()
-        
+
         from fastapi.testclient import TestClient
         client = TestClient(v2_app)
-        
+
         with patch('rotkehlchen.api.v2.routers.users.get_users') as mock_get_users:
             # Mock to return same data
             mock_get_users.return_value = {'result': {'users': []}}
             v2_response = client.get('/api/v2/users')
             v2_data = v2_response.json()
-        
+
         # Both should have result.users as list
         assert 'result' in v1_data
         assert 'users' in v1_data['result']
         assert isinstance(v1_data['result']['users'], list)
-        
+
         assert 'result' in v2_data
         assert 'users' in v2_data['result']
         assert isinstance(v2_data['result']['users'], list)

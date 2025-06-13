@@ -1,6 +1,5 @@
 """Contract-related models for global database using SQLModel"""
 
-from typing import Optional
 
 from sqlalchemy import INTEGER, TEXT, VARCHAR, Column, ForeignKey, UniqueConstraint
 from sqlmodel import Field
@@ -19,9 +18,9 @@ class ContractData(Base, table=True):
             INTEGER,
             ForeignKey('contract_abi.id', onupdate='CASCADE', ondelete='SET NULL'),
             nullable=False,
-        )
+        ),
     )
-    deployed_block: Optional[int] = Field(default=None, sa_column=Column(INTEGER))
+    deployed_block: int | None = Field(default=None, sa_column=Column(INTEGER))
 
     def __repr__(self) -> str:
         return f"<ContractData(chain_id={self.chain_id}, address='{self.address}')>"
@@ -36,7 +35,7 @@ class ContractABI(Base, table=True):
 
     id: int = Field(sa_column=Column(INTEGER, primary_key=True, nullable=False))
     value: str = Field(sa_column=Column(TEXT, nullable=False))
-    name: Optional[str] = Field(default=None, sa_column=Column(TEXT))
+    name: str | None = Field(default=None, sa_column=Column(TEXT))
 
     def __repr__(self) -> str:
         return f"<ContractABI(id={self.id}, name='{self.name}')>"

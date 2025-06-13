@@ -38,7 +38,7 @@ class DeFiService:
                 'version': protocol.version,
                 'icon': f'defi/{identifier}.svg',  # Assuming icon path pattern
             })
-        
+
         return sorted(protocols, key=lambda x: x['name'])
 
     def get_module_balances(
@@ -86,7 +86,7 @@ class DeFiService:
             return self._serialize_module_balances(balances, module_name)
 
         except RemoteError as e:
-            raise InputError(f'Failed to query {module_name} balances: {str(e)}') from e
+            raise InputError(f'Failed to query {module_name} balances: {e!s}') from e
 
     def get_liquity_balances(self, addresses: list[ChecksumEvmAddress] | None = None) -> dict[str, Any]:
         """Get Liquity protocol balances (troves)"""
@@ -105,7 +105,7 @@ class DeFiService:
                 'total_debt_lusd': str(balances.get('total_debt_lusd', '0')),
             }
         except Exception as e:
-            raise InputError(f'Failed to query Liquity balances: {str(e)}') from e
+            raise InputError(f'Failed to query Liquity balances: {e!s}') from e
 
     def get_liquity_staking(self, addresses: list[ChecksumEvmAddress] | None = None) -> dict[str, Any]:
         """Get Liquity staking positions"""
@@ -120,7 +120,7 @@ class DeFiService:
             staking = module.get_staking(addresses)
             return self._serialize_liquity_staking(staking)
         except Exception as e:
-            raise InputError(f'Failed to query Liquity staking: {str(e)}') from e
+            raise InputError(f'Failed to query Liquity staking: {e!s}') from e
 
     def get_liquity_pool(self, addresses: list[ChecksumEvmAddress] | None = None) -> dict[str, Any]:
         """Get Liquity stability pool positions"""
@@ -135,7 +135,7 @@ class DeFiService:
             pool = module.get_stability_pool_positions(addresses)
             return self._serialize_liquity_pool(pool)
         except Exception as e:
-            raise InputError(f'Failed to query Liquity pool: {str(e)}') from e
+            raise InputError(f'Failed to query Liquity pool: {e!s}') from e
 
     def get_liquity_stats(self) -> dict[str, Any]:
         """Get Liquity protocol statistics"""
@@ -155,7 +155,7 @@ class DeFiService:
                 'total_stakes_snapshot': str(stats.get('total_stakes_snapshot', '0')),
             }
         except Exception as e:
-            raise InputError(f'Failed to query Liquity stats: {str(e)}') from e
+            raise InputError(f'Failed to query Liquity stats: {e!s}') from e
 
     def get_module_stats(self, module_name: str) -> dict[str, Any]:
         """Get statistics for a specific module"""
@@ -170,14 +170,14 @@ class DeFiService:
             stats = module.get_stats()
             return stats
         except Exception as e:
-            raise InputError(f'Failed to query {module_name} stats: {str(e)}') from e
+            raise InputError(f'Failed to query {module_name} stats: {e!s}') from e
 
     def _get_module(self, module_name: str) -> 'EthereumModule | None':
         """Get an Ethereum module by name"""
         if self.chains_aggregator is None:
             return None
 
-        eth_manager: 'EthereumManager' = self.chains_aggregator.get_chain_manager('ETH')
+        eth_manager: EthereumManager = self.chains_aggregator.get_chain_manager('ETH')
         if eth_manager is None:
             return None
 
@@ -205,12 +205,12 @@ class DeFiService:
                 else:
                     # Convert to dict representation
                     serialized[key] = str(value)
-            
+
             return {
                 'module': module_name,
                 'balances': serialized,
             }
-        
+
         # Some modules might return lists or other formats
         return {
             'module': module_name,

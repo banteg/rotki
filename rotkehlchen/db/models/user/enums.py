@@ -1,6 +1,6 @@
 """Enum tables for user database using SQLModel"""
 
-from sqlalchemy import CHAR, INTEGER, VARCHAR, Column
+from sqlalchemy import CHAR, INTEGER, Column
 from sqlmodel import Field
 
 from rotkehlchen.db.models.user.base import Base

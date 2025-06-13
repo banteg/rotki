@@ -16,4 +16,4 @@ class UnresolvedRemoteConflict(Base, table=True):
     type: int = Field(sa_column=Column(INTEGER, nullable=False))
 
     def __repr__(self) -> str:
-        return f"<UnresolvedRemoteConflict(id={self.identifier}, type={self.type})>"
+        return f'<UnresolvedRemoteConflict(id={self.identifier}, type={self.type})>'

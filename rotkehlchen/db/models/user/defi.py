@@ -1,10 +1,10 @@
 """DeFi protocol-related models for user database using SQLModel"""
 
 
-from sqlalchemy import BLOB, INTEGER, TEXT, Column, ForeignKey
+from sqlalchemy import BLOB, INTEGER, TEXT, Column
 from sqlmodel import Field
 
-from rotkehlchen.db.models.types import FValType, TimestampType
+from rotkehlchen.db.models.types import TimestampType
 from rotkehlchen.db.models.user.base import Base
 
 

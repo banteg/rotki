@@ -1,8 +1,9 @@
 """Tests for the watchers endpoints"""
-import pytest
 from unittest.mock import MagicMock, patch
 
-from rotkehlchen.api.v2.routers.watchers import WatchersService, PremiumSyncService
+import pytest
+
+from rotkehlchen.api.v2.routers.watchers import PremiumSyncService, WatchersService
 from rotkehlchen.errors.api import PremiumApiError, PremiumAuthenticationError
 
 
@@ -54,12 +55,12 @@ class TestWatchersService:
             'watchers': [
                 {'identifier': '1', 'type': 'makervault', 'args': {'vault_id': 123}},
                 {'identifier': '2', 'type': 'compound', 'args': {'address': '0xabc'}},
-            ]
+            ],
         }
         mock_premium.watcher_query.return_value = expected_result
-        
+
         result = watchers_service.get_watchers()
-        
+
         assert result == expected_result
         mock_premium.watcher_query.assert_called_once_with(method='GET', data=None)
 
@@ -67,7 +68,7 @@ class TestWatchersService:
         """Test get_watchers with remote error"""
         from rotkehlchen.errors.misc import RemoteError
         mock_premium.watcher_query.side_effect = RemoteError('Connection failed')
-        
+
         with pytest.raises(PremiumApiError, match='Failed to fetch watchers: Connection failed'):
             watchers_service.get_watchers()
 
@@ -79,9 +80,9 @@ class TestWatchersService:
         ]
         expected_result = {'success': True}
         mock_premium.watcher_query.return_value = expected_result
-        
+
         result = watchers_service.add_watchers(watchers_data)
-        
+
         assert result == expected_result
         mock_premium.watcher_query.assert_called_once_with(
             method='PUT',
@@ -93,7 +94,7 @@ class TestWatchersService:
         watchers_data = [
             {'args': {'vault_id': 123}},  # Missing type
         ]
-        
+
         with pytest.raises(ValueError, match='Each watcher must have "type" and "args" fields'):
             watchers_service.add_watchers(watchers_data)
 
@@ -104,9 +105,9 @@ class TestWatchersService:
         ]
         expected_result = {'success': True}
         mock_premium.watcher_query.return_value = expected_result
-        
+
         result = watchers_service.edit_watchers(watchers_data)
-        
+
         assert result == expected_result
         mock_premium.watcher_query.assert_called_once_with(
             method='PATCH',
@@ -118,7 +119,7 @@ class TestWatchersService:
         watchers_data = [
             {'type': 'makervault', 'args': {'vault_id': 456}},  # Missing identifier
         ]
-        
+
         with pytest.raises(ValueError, match='Each watcher must have an "identifier" field for editing'):
             watchers_service.edit_watchers(watchers_data)
 
@@ -127,9 +128,9 @@ class TestWatchersService:
         identifiers = ['1', '2', '3']
         expected_result = {'success': True}
         mock_premium.watcher_query.return_value = expected_result
-        
+
         result = watchers_service.delete_watchers(identifiers)
-        
+
         assert result == expected_result
         mock_premium.watcher_query.assert_called_once_with(
             method='DELETE',
@@ -148,7 +149,7 @@ class TestPremiumSyncService:
     def test_sync_data_upload_success(self, premium_sync_service, mock_premium):
         """Test successful data upload"""
         success, message = premium_sync_service.sync_data('upload')
-        
+
         assert success is True
         assert message == 'Upload successful'
         mock_premium.premium_sync_manager.upload_data.assert_called_once()
@@ -156,7 +157,7 @@ class TestPremiumSyncService:
     def test_sync_data_download_success(self, premium_sync_service, mock_premium):
         """Test successful data download"""
         success, message = premium_sync_service.sync_data('download')
-        
+
         assert success is True
         assert message == 'Download successful'
         mock_premium.premium_sync_manager.download_data.assert_called_once()
@@ -170,23 +171,23 @@ class TestPremiumSyncService:
         """Test sync_data when premium_sync_manager is not available"""
         del mock_premium.premium_sync_manager
         service = PremiumSyncService(premium=mock_premium)
-        
+
         with pytest.raises(PremiumApiError, match='Premium sync manager not available'):
             service.sync_data('upload')
 
     def test_sync_data_exception(self, premium_sync_service, mock_premium):
         """Test sync_data with exception during sync"""
         mock_premium.premium_sync_manager.upload_data.side_effect = Exception('Network error')
-        
+
         success, message = premium_sync_service.sync_data('upload')
-        
+
         assert success is False
         assert message == 'Sync failed: Network error'
 
     def test_get_sync_status_success(self, premium_sync_service):
         """Test successful get_sync_status"""
         result = premium_sync_service.get_sync_status()
-        
+
         assert result == {
             'last_upload': 1234567890,
             'last_download': 1234567891,
@@ -197,14 +198,14 @@ class TestPremiumSyncService:
         """Test get_sync_status when premium_sync_manager is not available"""
         del mock_premium.premium_sync_manager
         service = PremiumSyncService(premium=mock_premium)
-        
+
         with pytest.raises(PremiumApiError, match='Premium sync manager not available'):
             service.get_sync_status()
 
     def test_get_sync_status_exception(self, premium_sync_service, mock_premium):
         """Test get_sync_status with exception"""
         mock_premium.premium_sync_manager.last_data_upload_ts = None  # Simulate attribute error
-        
+
         with pytest.raises(PremiumApiError, match='Failed to get sync status'):
             premium_sync_service.get_sync_status()
 
@@ -225,14 +226,14 @@ class TestWatchersEndpoints:
         """Test GET /watchers endpoint"""
         with patch('rotkehlchen.api.v2.routers.watchers.premium_create_and_verify') as mock_create_premium, \
              patch('rotkehlchen.api.v2.routers.watchers.get_rotkehlchen', return_value=mock_rotkehlchen):
-            
+
             mock_premium = MagicMock()
             mock_premium.is_active.return_value = True
             mock_premium.watcher_query.return_value = {'watchers': []}
             mock_create_premium.return_value = mock_premium
-            
+
             response = test_client.get('/api/v2/watchers')
-            
+
             assert response.status_code == 200
             assert response.json() == {'result': {'watchers': []}, 'message': ''}
 
@@ -240,53 +241,53 @@ class TestWatchersEndpoints:
         """Test PUT /watchers endpoint"""
         with patch('rotkehlchen.api.v2.routers.watchers.premium_create_and_verify') as mock_create_premium, \
              patch('rotkehlchen.api.v2.routers.watchers.get_rotkehlchen', return_value=mock_rotkehlchen):
-            
+
             mock_premium = MagicMock()
             mock_premium.is_active.return_value = True
             mock_premium.watcher_query.return_value = {'success': True}
             mock_create_premium.return_value = mock_premium
-            
+
             request_data = {
                 'watchers': [
-                    {'type': 'makervault', 'args': {'vault_id': 123}}
-                ]
+                    {'type': 'makervault', 'args': {'vault_id': 123}},
+                ],
             }
-            
+
             response = test_client.put('/api/v2/watchers', json=request_data)
-            
+
             assert response.status_code == 200
             assert response.json() == {
                 'result': {'success': True},
-                'message': 'Watchers added successfully'
+                'message': 'Watchers added successfully',
             }
 
     async def test_sync_data_endpoint(self, test_client, mock_rotkehlchen):
         """Test PUT /watchers/sync endpoint"""
         with patch('rotkehlchen.api.v2.routers.watchers.premium_create_and_verify') as mock_create_premium, \
              patch('rotkehlchen.api.v2.routers.watchers.get_rotkehlchen', return_value=mock_rotkehlchen):
-            
+
             mock_premium = MagicMock()
             mock_premium.is_active.return_value = True
             mock_premium.premium_sync_manager = MagicMock()
             mock_premium.premium_sync_manager.upload_data.return_value = (True, 'Upload successful')
             mock_create_premium.return_value = mock_premium
-            
+
             request_data = {'action': 'upload'}
-            
+
             response = test_client.put('/api/v2/watchers/sync', json=request_data)
-            
+
             assert response.status_code == 200
             assert response.json() == {
                 'result': {'success': True},
-                'message': 'Upload successful'
+                'message': 'Upload successful',
             }
 
     async def test_watchers_no_premium(self, test_client, mock_rotkehlchen):
         """Test watchers endpoint without premium subscription"""
         with patch('rotkehlchen.api.v2.routers.watchers.premium_create_and_verify', return_value=None), \
              patch('rotkehlchen.api.v2.routers.watchers.get_rotkehlchen', return_value=mock_rotkehlchen):
-            
+
             response = test_client.get('/api/v2/watchers')
-            
+
             assert response.status_code == 402
             assert 'No premium subscription found' in response.json()['detail']

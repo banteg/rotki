@@ -1,15 +1,12 @@
 """Exchange rates service for currency conversions"""
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 from rotkehlchen.types import Timestamp
-
-if TYPE_CHECKING:
-    pass
 
 
 class ExchangeRatesService:
     """Service for managing exchange rates"""
-    
+
     def __init__(self) -> None:
         # Would be initialized from app state
         # Simulated exchange rates
@@ -23,7 +20,7 @@ class ExchangeRatesService:
             'CNY': 7.24,
             'KRW': 1301.50,
         }
-    
+
     def get_all_exchange_rates(self) -> dict[str, Any]:
         """Get all available exchange rates"""
         return {
@@ -31,7 +28,7 @@ class ExchangeRatesService:
             'rates': self._base_rates,
             'last_updated': 1700000000,
         }
-    
+
     def get_exchange_rates(
         self,
         currencies: list[str] | None = None,
@@ -41,7 +38,7 @@ class ExchangeRatesService:
         if target_currency != 'USD':
             # Would implement conversion logic
             raise ValueError(f'Target currency {target_currency} not yet supported')
-        
+
         if currencies is None:
             rates = self._base_rates
         else:
@@ -51,13 +48,13 @@ class ExchangeRatesService:
                     rates[currency] = self._base_rates[currency]
                 else:
                     raise ValueError(f'Unknown currency: {currency}')
-        
+
         return {
             'base_currency': target_currency,
             'rates': rates,
             'timestamp': 1700000000,
         }
-    
+
     def get_historical_exchange_rates(
         self,
         currencies: list[str] | None = None,
@@ -70,5 +67,5 @@ class ExchangeRatesService:
         result = self.get_exchange_rates(currencies, target_currency)
         result['timestamp'] = timestamp or 1700000000
         result['historical'] = True
-        
+
         return result

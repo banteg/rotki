@@ -40,7 +40,7 @@ async def get_queried_addresses(
 ) -> QueriedAddressesResponse:
     """Get all queried addresses per module - Compatible with v1 GET /api/1/queried_addresses"""
     addresses = service.get_all_queried_addresses()
-    
+
     return QueriedAddressesResponse(
         result=addresses,  # v1 returns module->addresses mapping directly
     )
@@ -58,7 +58,7 @@ async def add_queried_addresses(
             addresses=data.addresses,
             blockchain=data.blockchain,
         )
-        
+
         return QueriedAddressesResponse(
             result={'added': added},
             message=f'Added {added} addresses for querying',
@@ -82,7 +82,7 @@ async def remove_queried_addresses(
             addresses=data.addresses,
             blockchain=data.blockchain,
         )
-        
+
         return QueriedAddressesResponse(
             result={'removed': removed},
             message=f'Removed {removed} addresses from querying',
@@ -93,8 +93,9 @@ async def remove_queried_addresses(
             detail=str(e),
         ) from e
 
+
 # v1 compatibility endpoints
-@router.put("/")
+@router.put('/')
 async def add_queried_address_v1(
     data: QueriedAddressModuleRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
@@ -106,10 +107,10 @@ async def add_queried_address_v1(
             module=data.module,
             address=data.address,
         )
-        
+
         return QueriedAddressesResponse(
-            result={"success": success},
-            message=f"Address {data.address} added to module {data.module}" if success else "Failed to add address",
+            result={'success': success},
+            message=f'Address {data.address} added to module {data.module}' if success else 'Failed to add address',
         )
     except ValueError as e:
         raise HTTPException(
@@ -118,7 +119,7 @@ async def add_queried_address_v1(
         ) from e
 
 
-@router.delete("/")
+@router.delete('/')
 async def remove_queried_address_v1(
     module: str,
     address: str,
@@ -131,10 +132,10 @@ async def remove_queried_address_v1(
             module=module,
             address=address,
         )
-        
+
         return QueriedAddressesResponse(
-            result={"success": success},
-            message=f"Address {address} removed from module {module}" if success else "Failed to remove address",
+            result={'success': success},
+            message=f'Address {address} removed from module {module}' if success else 'Failed to remove address',
         )
     except ValueError as e:
         raise HTTPException(

@@ -1,12 +1,11 @@
 """Cache-related models for global database using SQLModel"""
 
-from typing import Optional
 
-from sqlalchemy import CHAR, INTEGER, TEXT, Column, ForeignKey
+from sqlalchemy import CHAR, TEXT, Column, ForeignKey
 from sqlmodel import Field
 
-from rotkehlchen.db.models.types import FValType, TimestampType
 from rotkehlchen.db.models.globaldb.base import Base
+from rotkehlchen.db.models.types import TimestampType
 
 
 class PriceHistory(Base, table=True):
@@ -19,7 +18,7 @@ class PriceHistory(Base, table=True):
             ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
     to_asset: str = Field(
         sa_column=Column(
@@ -27,7 +26,7 @@ class PriceHistory(Base, table=True):
             ForeignKey('assets.identifier', ondelete='CASCADE', onupdate='CASCADE'),
             primary_key=True,
             nullable=False,
-        )
+        ),
     )
     source_type: str = Field(
         sa_column=Column(
@@ -36,7 +35,7 @@ class PriceHistory(Base, table=True):
             primary_key=True,
             nullable=False,
             server_default='A',
-        )
+        ),
     )
     timestamp: int = Field(sa_column=Column(TimestampType, primary_key=True, nullable=False))
     price: str = Field(sa_column=Column(TEXT, nullable=False))

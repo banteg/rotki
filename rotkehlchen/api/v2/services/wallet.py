@@ -1,26 +1,23 @@
 """Wallet service for wallet operations"""
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 from rotkehlchen.fval import FVal
-
-if TYPE_CHECKING:
-    pass
 
 
 class WalletService:
     """Service for wallet operations"""
-    
+
     def __init__(self) -> None:
         # Would be initialized with blockchain connections
         pass
-    
+
     def get_balance(self, address: str, blockchain: str) -> dict[str, Any]:
         """Get balance for a single address"""
         # Would query blockchain
         # Simulated response
         if blockchain not in ['ethereum', 'bitcoin', 'polygon', 'optimism']:
             raise ValueError(f'Unsupported blockchain: {blockchain}')
-        
+
         return {
             'address': address,
             'blockchain': blockchain,
@@ -40,7 +37,7 @@ class WalletService:
             ] if blockchain == 'ethereum' else [],
             'total_usd': '4500' if blockchain == 'ethereum' else '2500',
         }
-    
+
     def get_balances(
         self,
         addresses: list[str],
@@ -50,19 +47,19 @@ class WalletService:
         """Get balances for multiple addresses"""
         balances = []
         total_usd = FVal(0)
-        
+
         for address in addresses:
             balance = self.get_balance(address, blockchain)
             balances.append(balance)
             total_usd += FVal(balance['total_usd'])
-        
+
         return {
             'balances': balances,
             'total_usd': str(total_usd),
             'blockchain': blockchain,
             'from_cache': not ignore_cache,
         }
-    
+
     def get_interacted_addresses(self, address: str, blockchain: str) -> dict[str, Any]:
         """Get addresses that have interacted with the given address"""
         # Would query blockchain transactions
@@ -86,7 +83,7 @@ class WalletService:
             ],
             'total_interactions': 15,
         }
-    
+
     def prepare_native_transfer(
         self,
         from_address: str,
@@ -112,7 +109,7 @@ class WalletService:
             }
         else:
             raise ValueError(f'Native transfers not supported for {blockchain}')
-    
+
     def prepare_token_transfer(
         self,
         from_address: str,

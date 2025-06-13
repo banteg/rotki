@@ -1,7 +1,7 @@
 """Accounting router for accounting rules and configurations"""
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
 from rotkehlchen.api.v2.dependencies import (
@@ -79,7 +79,7 @@ async def create_accounting_rule(
             method=request.method,
             accounting_treatment=request.accounting_treatment,
         )
-        
+
         return AccountingResponse(
             result={'rule_id': rule_id},
             message='Accounting rule created successfully',
@@ -110,13 +110,13 @@ async def update_accounting_rule(
         method=request.method,
         accounting_treatment=request.accounting_treatment,
     )
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Accounting rule not found',
         )
-    
+
     return AccountingResponse(
         result={'success': True},
         message='Accounting rule updated successfully',
@@ -131,13 +131,13 @@ async def delete_accounting_rule(
 ) -> AccountingResponse:
     """Delete an accounting rule"""
     success = service.delete_accounting_rule(rule_id)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Accounting rule not found',
         )
-    
+
     return AccountingResponse(
         result={'success': True},
         message='Accounting rule deleted successfully',
@@ -167,7 +167,7 @@ async def create_linked_rule(
             setting_name=request.setting_name,
             value=request.value,
         )
-        
+
         return AccountingResponse(
             result={'success': True},
             message='Linked rule created successfully',
@@ -188,13 +188,13 @@ async def delete_linked_rule(
 ) -> AccountingResponse:
     """Delete a linked accounting setting"""
     success = service.delete_linked_rule(property_name, setting_name)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Linked rule not found',
         )
-    
+
     return AccountingResponse(
         result={'success': True},
         message='Linked rule deleted successfully',
@@ -216,7 +216,7 @@ async def query_accounting_rules_v1(
         event_subtypes=event_subtypes,
         counterparties=counterparties,
     )
-    
+
     return AccountingResponse(result={'entries': rules, 'entries_total': len(rules)})
 
 
@@ -236,7 +236,7 @@ async def add_accounting_rule_v1(
         count_cost_basis_pnl=rule_data.count_cost_basis_pnl,
         accounting_treatment=rule_data.accounting_treatment,
     )
-    
+
     return AccountingResponse(
         result={'identifier': rule_id},
         message='Accounting rule added successfully',
@@ -261,13 +261,13 @@ async def edit_accounting_rule_v1(
         count_cost_basis_pnl=rule_data.count_cost_basis_pnl,
         accounting_treatment=rule_data.accounting_treatment,
     )
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Accounting rule not found',
         )
-    
+
     return AccountingResponse(
         result={'success': True},
         message='Accounting rule updated successfully',
@@ -282,13 +282,13 @@ async def delete_accounting_rule_v1(
 ) -> AccountingResponse:
     """Delete an accounting rule - Compatible with v1 DELETE /api/1/accounting/rules"""
     success = service.delete_accounting_rule(identifier)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Accounting rule not found',
         )
-    
+
     return AccountingResponse(
         result={'success': True},
         message='Accounting rule deleted successfully',
@@ -302,7 +302,7 @@ async def get_accounting_rule_info(
 ) -> AccountingResponse:
     """Get info on linkable accounting rule properties - Compatible with v1 GET /api/1/accounting/rules/info"""
     info = service.get_accounting_rule_info()
-    
+
     return AccountingResponse(result=info)
 
 
@@ -314,14 +314,14 @@ async def import_accounting_rules_upload(
 ) -> AccountingResponse:
     """Import accounting rules via file upload - Compatible with v1 POST /api/1/accounting/rules/import"""
     # Save uploaded file temporarily
-    import tempfile
     import os
-    
+    import tempfile
+
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
-    
+
     try:
         result = service.import_accounting_rules(tmp_path)
         return AccountingResponse(
@@ -340,7 +340,7 @@ async def import_accounting_rules_path(
 ) -> AccountingResponse:
     """Import accounting rules via file path - Compatible with v1 PUT /api/1/accounting/rules/import"""
     result = service.import_accounting_rules(filepath)
-    
+
     return AccountingResponse(
         result=result,
         message='Accounting rules imported successfully',
@@ -355,7 +355,7 @@ async def export_accounting_rules(
 ) -> AccountingResponse:
     """Export accounting rules - Compatible with v1 POST /api/1/accounting/rules/export"""
     file_path = service.export_accounting_rules(directory_path)
-    
+
     return AccountingResponse(
         result={'file': file_path},
         message='Accounting rules exported successfully',
@@ -369,7 +369,7 @@ async def list_accounting_rule_conflicts(
 ) -> AccountingResponse:
     """List accounting rule conflicts - Compatible with v1 POST /api/1/accounting/rules/conflicts"""
     conflicts = service.get_accounting_rule_conflicts()
-    
+
     return AccountingResponse(result={'conflicts': conflicts})
 
 
@@ -390,7 +390,7 @@ async def resolve_accounting_rule_conflicts(
         conflicts=conflict_data.conflicts,
         resolution=conflict_data.resolution,
     )
-    
+
     return AccountingResponse(
         result={'resolved': resolved},
         message=f'Resolved {resolved} conflicts',

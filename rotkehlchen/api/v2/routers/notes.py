@@ -1,5 +1,5 @@
 """Notes router for managing user notes"""
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -8,9 +8,6 @@ from sqlmodel import Session
 from rotkehlchen.api.v2.dependencies import get_db_session, require_logged_in_user
 from rotkehlchen.api.v2.services.notes import NotesService
 from rotkehlchen.types import Timestamp
-
-if TYPE_CHECKING:
-    pass
 
 router = APIRouter()
 
@@ -57,7 +54,7 @@ async def get_notes(
     """Get all user notes"""
     service = get_notes_service(session)
     notes = service.get_all_notes()
-    
+
     return NotesResponse(result=notes)
 
 
@@ -69,13 +66,13 @@ async def create_note(
 ) -> NotesResponse:
     """Create a new note"""
     service = get_notes_service(session)
-    
+
     note = service.create_note(
         title=note_data.title,
         content=note_data.content,
         location=note_data.location,
     )
-    
+
     return NotesResponse(
         result=note,
         message='Note created successfully',
@@ -91,20 +88,20 @@ async def update_note(
 ) -> NotesResponse:
     """Update an existing note"""
     service = get_notes_service(session)
-    
+
     note = service.update_note(
         note_id=note_id,
         title=note_update.title,
         content=note_update.content,
         location=note_update.location,
     )
-    
+
     if not note:
         raise HTTPException(
             status_code=404,
             detail=f'Note with id {note_id} not found',
         )
-    
+
     return NotesResponse(
         result=note,
         message='Note updated successfully',
@@ -119,15 +116,15 @@ async def delete_note(
 ) -> NotesResponse:
     """Delete a note"""
     service = get_notes_service(session)
-    
+
     success = service.delete_note(note_id)
-    
+
     if not success:
         raise HTTPException(
             status_code=404,
             detail=f'Note with id {note_id} not found',
         )
-    
+
     return NotesResponse(
         result={},
         message='Note deleted successfully',

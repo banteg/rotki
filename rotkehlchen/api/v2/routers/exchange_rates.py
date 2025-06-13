@@ -36,7 +36,7 @@ async def get_exchange_rates(
 ) -> ExchangeRatesResponse:
     """Get current exchange rates for fiat currencies"""
     rates = service.get_all_exchange_rates()
-    
+
     return ExchangeRatesResponse(result=rates)
 
 
@@ -59,7 +59,7 @@ async def get_specific_exchange_rates(
                 currencies=request_data.currencies,
                 target_currency=request_data.target_currency,
             )
-        
+
         return ExchangeRatesResponse(result=rates)
     except ValueError as e:
         raise HTTPException(

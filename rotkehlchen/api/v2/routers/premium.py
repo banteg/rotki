@@ -40,7 +40,7 @@ async def get_premium_status(
 ) -> PremiumResponse:
     """Get premium subscription status"""
     status = premium.get_premium_status()
-    
+
     return PremiumResponse(result=status)
 
 
@@ -56,7 +56,7 @@ async def set_premium_credentials(
             api_key=credentials.api_key,
             api_secret=credentials.api_secret,
         )
-        
+
         if result['success']:
             return PremiumResponse(
                 result=result,
@@ -81,7 +81,7 @@ async def remove_premium_credentials(
 ) -> PremiumResponse:
     """Remove premium credentials"""
     premium.remove_premium_credentials()
-    
+
     return PremiumResponse(
         result={'success': True},
         message='Premium credentials removed successfully',
@@ -95,7 +95,7 @@ async def get_sync_status(
 ) -> PremiumResponse:
     """Get premium sync status"""
     sync_status = premium.get_sync_status()
-    
+
     return PremiumResponse(result=sync_status)
 
 
@@ -111,19 +111,19 @@ async def perform_premium_sync(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail='Premium subscription required',
         )
-    
+
     if sync_request.action not in ['upload', 'download']:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='Action must be either "upload" or "download"',
         )
-    
+
     try:
         result = premium.sync_data(
             upload_data=(sync_request.action == 'upload'),
             download_data=(sync_request.action == 'download'),
         )
-        
+
         return PremiumResponse(
             result=result,
             message=f'Premium {sync_request.action} completed',
@@ -131,5 +131,5 @@ async def perform_premium_sync(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Sync failed: {str(e)}',
+            detail=f'Sync failed: {e!s}',
         ) from e

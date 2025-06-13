@@ -6,7 +6,7 @@ from sqlalchemy import INTEGER, TEXT, Column, ForeignKey
 from sqlmodel import Field, Relationship
 
 from rotkehlchen.db.models.transient.base import Base
-from rotkehlchen.db.models.types import FValType, TimestampType
+from rotkehlchen.db.models.types import TimestampType
 
 
 class PnlReport(Base, table=True):

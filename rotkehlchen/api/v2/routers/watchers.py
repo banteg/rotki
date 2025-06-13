@@ -17,13 +17,13 @@ router = APIRouter()
 
 class WatcherModel(BaseModel):
     """Model for a watcher"""
-    type: str = Field(..., description="Type of the watcher")
-    args: dict[str, Any] = Field(..., description="Arguments for the watcher")
+    type: str = Field(..., description='Type of the watcher')
+    args: dict[str, Any] = Field(..., description='Arguments for the watcher')
 
 
 class WatcherEditModel(WatcherModel):
     """Model for editing a watcher"""
-    identifier: str = Field(..., description="Unique identifier of the watcher")
+    identifier: str = Field(..., description='Unique identifier of the watcher')
 
 
 class WatchersResponse(BaseModel):
@@ -44,12 +44,12 @@ class WatchersEditRequest(BaseModel):
 
 class WatchersDeleteRequest(BaseModel):
     """Request model for deleting watchers"""
-    watchers: list[str] = Field(..., description="List of watcher identifiers to delete")
+    watchers: list[str] = Field(..., description='List of watcher identifiers to delete')
 
 
 class PremiumSyncRequest(BaseModel):
     """Request model for premium sync"""
-    action: str = Field(..., pattern="^(upload|download)$", description="Sync action: upload or download")
+    action: str = Field(..., pattern='^(upload|download)$', description='Sync action: upload or download')
 
 
 def get_watchers_service(
@@ -60,7 +60,7 @@ def get_watchers_service(
     premium = None
     if rotkehlchen.data and rotkehlchen.data.db:
         premium = premium_create_and_verify(rotkehlchen.data.db)
-    
+
     return WatchersService(premium=premium)
 
 
@@ -72,7 +72,7 @@ def get_premium_sync_service(
     premium = None
     if rotkehlchen.data and rotkehlchen.data.db:
         premium = premium_create_and_verify(rotkehlchen.data.db)
-    
+
     return PremiumSyncService(premium=premium)
 
 
@@ -89,7 +89,7 @@ def require_premium_user():
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail=str(e),
             ) from e
-    
+
     return Depends(check_premium)
 
 
@@ -110,7 +110,7 @@ async def get_watchers(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get watchers: {str(e)}',
+            detail=f'Failed to get watchers: {e!s}',
         ) from e
 
 
@@ -139,7 +139,7 @@ async def add_watchers(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to add watchers: {str(e)}',
+            detail=f'Failed to add watchers: {e!s}',
         ) from e
 
 
@@ -168,7 +168,7 @@ async def edit_watchers(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to edit watchers: {str(e)}',
+            detail=f'Failed to edit watchers: {e!s}',
         ) from e
 
 
@@ -195,7 +195,7 @@ async def delete_watchers(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to delete watchers: {str(e)}',
+            detail=f'Failed to delete watchers: {e!s}',
         ) from e
 
 
@@ -213,7 +213,7 @@ async def sync_premium_data(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=message,
             )
-        
+
         return WatchersResponse(
             result={'success': success},
             message=message,
@@ -236,7 +236,7 @@ async def sync_premium_data(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to sync data: {str(e)}',
+            detail=f'Failed to sync data: {e!s}',
         ) from e
 
 
@@ -262,5 +262,5 @@ async def get_sync_status(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get sync status: {str(e)}',
+            detail=f'Failed to get sync status: {e!s}',
         ) from e

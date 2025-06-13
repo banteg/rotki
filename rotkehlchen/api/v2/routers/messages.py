@@ -42,7 +42,7 @@ async def get_messages(
     """Get all messages for the user"""
     service = get_messages_service(rotkehlchen)
     messages = service.get_all_messages(unread_only=unread_only)
-    
+
     return MessagesResponse(result=messages)
 
 
@@ -65,13 +65,13 @@ async def mark_message_read(
     """Mark a message as read"""
     service = get_messages_service(rotkehlchen)
     success = service.mark_message_read(message_id)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f'Message {message_id} not found',
         )
-    
+
     return MessagesResponse(
         result={'success': True},
         message=f'Message {message_id} marked as read',

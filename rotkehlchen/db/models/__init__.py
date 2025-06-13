@@ -13,7 +13,7 @@ from rotkehlchen.db.models.user.models import (
 
 __all__ = [
     'ApiKey',
-    'Asset', 
+    'Asset',
     'ManuallyTrackedBalance',
     'Settings',
     'Tag',

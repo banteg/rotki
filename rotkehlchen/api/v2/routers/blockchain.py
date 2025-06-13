@@ -152,7 +152,7 @@ async def add_blockchain_accounts(
     accounts = account_data.accounts or []
     labels = account_data.labels or []
     tags_list = account_data.tags_list or []
-    
+
     added_accounts = blockchain_service.add_blockchain_accounts(
         blockchain=blockchain,
         accounts=accounts,
@@ -241,7 +241,7 @@ async def get_blockchain_nodes(
         ) from None
 
     nodes = blockchain_service.get_blockchain_nodes(blockchain)
-    
+
     return BlockchainResponse(result={'nodes': nodes})
 
 
@@ -268,7 +268,7 @@ async def add_blockchain_node(
         weight=node_data.weight,
         active=node_data.active,
     )
-    
+
     return BlockchainResponse(
         result={'node': node},
         message='Node added successfully',
@@ -299,7 +299,7 @@ async def update_blockchain_node(
         weight=node_data.weight,
         active=node_data.active,
     )
-    
+
     return BlockchainResponse(
         result={'node': node},
         message='Node updated successfully',
@@ -323,13 +323,13 @@ async def delete_blockchain_node(
         ) from None
 
     success = blockchain_service.delete_blockchain_node(blockchain, identifier)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Node not found',
         )
-    
+
     return BlockchainResponse(
         result={'success': True},
         message='Node deleted successfully',
@@ -353,13 +353,13 @@ async def connect_blockchain_node(
         ) from None
 
     result = blockchain_service.connect_blockchain_node(blockchain, node_id)
-    
+
     if not result['success']:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=result.get('error', 'Failed to connect to node'),
         )
-    
+
     return BlockchainResponse(
         result=result,
         message='Connected to node successfully',
@@ -442,14 +442,14 @@ async def query_blockchain_transactions(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f'Unsupported blockchain: {blockchain}',
         ) from None
-    
+
     transactions = blockchain_service.query_blockchain_transactions(
         blockchain=blockchain,
         from_timestamp=from_timestamp,
         to_timestamp=to_timestamp,
         address=address,
     )
-    
+
     return BlockchainResponse(result={'transactions': transactions})
 
 
@@ -461,7 +461,7 @@ async def purge_blockchain_transactions(
 ) -> BlockchainResponse:
     """Purge transaction data - Compatible with v1 DELETE /api/1/blockchains/transactions"""
     purged = blockchain_service.purge_blockchain_transactions(blockchain)
-    
+
     return BlockchainResponse(
         result={'purged': purged},
         message='Transaction data purged',
@@ -475,7 +475,7 @@ async def get_all_evm_chains(
 ) -> BlockchainResponse:
     """Get details for all supported EVM chains - Compatible with v1 GET /api/1/blockchains/evm/all"""
     chains = blockchain_service.get_all_evm_chains()
-    
+
     return BlockchainResponse(result={'chains': chains})
 
 
@@ -487,7 +487,7 @@ async def decode_evm_transactions(
 ) -> BlockchainResponse:
     """Decode a list of EVM transactions - Compatible with v1 PUT /api/1/blockchains/evm/transactions"""
     results = blockchain_service.decode_evm_transactions(tx_hashes)
-    
+
     return BlockchainResponse(result=results)
 
 
@@ -500,7 +500,7 @@ async def decode_evmlike_transactions(
 ) -> BlockchainResponse:
     """Decode EVM-like transactions - Compatible with v1 PUT /api/1/blockchains/evmlike/transactions"""
     results = blockchain_service.decode_evmlike_transactions(blockchain, tx_hashes)
-    
+
     return BlockchainResponse(result=results)
 
 
@@ -511,7 +511,7 @@ async def decode_all_pending_evm_transactions(
 ) -> BlockchainResponse:
     """Decode all pending EVM transactions - Compatible with v1 POST /api/1/blockchains/evm/transactions/decode"""
     result = blockchain_service.decode_all_pending_evm_transactions()
-    
+
     return BlockchainResponse(result=result)
 
 
@@ -522,7 +522,7 @@ async def get_undecoded_evm_transactions_count(
 ) -> BlockchainResponse:
     """Get count of undecoded EVM transactions - Compatible with v1 GET /api/1/blockchains/evm/transactions/decode"""
     count = blockchain_service.get_undecoded_evm_transactions_count()
-    
+
     return BlockchainResponse(result=count)
 
 
@@ -534,7 +534,7 @@ async def decode_all_pending_evmlike_transactions(
 ) -> BlockchainResponse:
     """Decode all pending EVM-like transactions - Compatible with v1 POST /api/1/blockchains/evmlike/transactions/decode"""
     result = blockchain_service.decode_all_pending_evmlike_transactions(blockchain)
-    
+
     return BlockchainResponse(result=result)
 
 
@@ -546,7 +546,7 @@ async def get_undecoded_evmlike_transactions_count(
 ) -> BlockchainResponse:
     """Get count of undecoded EVM-like transactions - Compatible with v1 GET /api/1/blockchains/evmlike/transactions/decode"""
     count = blockchain_service.get_undecoded_evmlike_transactions_count(blockchain)
-    
+
     return BlockchainResponse(result=count)
 
 
@@ -559,13 +559,13 @@ async def get_erc20_details(
 ) -> BlockchainResponse:
     """Get info for an ERC20 token - Compatible with v1 GET /api/1/blockchains/evm/erc20details"""
     token_info = blockchain_service.get_erc20_token_info(address, chain_id)
-    
+
     if not token_info:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Token not found',
         )
-    
+
     return BlockchainResponse(result=token_info)
 
 
@@ -576,7 +576,7 @@ async def refresh_evm_accounts(
 ) -> BlockchainResponse:
     """Refresh all EVM accounts - Compatible with v1 POST /api/1/blockchains/evm/accounts"""
     result = blockchain_service.refresh_evm_accounts()
-    
+
     return BlockchainResponse(result=result)
 
 
@@ -590,7 +590,7 @@ async def add_evm_accounts(
 ) -> BlockchainResponse:
     """Add EVM accounts - Compatible with v1 PUT /api/1/blockchains/evm/accounts"""
     added = blockchain_service.add_evm_accounts(accounts, labels, tags)
-    
+
     return BlockchainResponse(
         result={'accounts': added},
         message=f'Added {len(added)} EVM accounts',
@@ -612,9 +612,9 @@ async def detect_blockchain_tokens(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f'Unsupported blockchain: {blockchain}',
         ) from None
-    
+
     result = blockchain_service.detect_blockchain_tokens(blockchain, addresses)
-    
+
     return BlockchainResponse(result=result)
 
 
@@ -627,7 +627,7 @@ async def add_transaction_by_hash(
 ) -> BlockchainResponse:
     """Add a single transaction by hash - Compatible with v1 PUT /api/1/blockchains/evm/transactions/add-hash"""
     result = blockchain_service.add_transaction_by_hash(chain_id, tx_hash)
-    
+
     return BlockchainResponse(result=result)
 
 
@@ -647,13 +647,13 @@ async def refetch_blockchain_transactions(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f'Unsupported blockchain: {blockchain}',
         ) from None
-    
+
     result = blockchain_service.refetch_blockchain_transactions(
         blockchain,
         from_timestamp,
         to_timestamp,
     )
-    
+
     return BlockchainResponse(result=result)
 
 
@@ -674,7 +674,7 @@ async def add_xpub(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='xpub operations only supported for BTC and BCH',
         )
-    
+
     result = blockchain_service.add_xpub(
         blockchain=blockchain,
         xpub=xpub,
@@ -682,7 +682,7 @@ async def add_xpub(
         xpub_type=xpub_type,
         derivation_path=derivation_path,
     )
-    
+
     return BlockchainResponse(result=result)
 
 
@@ -700,9 +700,9 @@ async def edit_xpub(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='xpub operations only supported for BTC and BCH',
         )
-    
+
     blockchain_service.edit_xpub(blockchain, xpub, label)
-    
+
     return BlockchainResponse(
         result={'success': True},
         message='xpub updated successfully',
@@ -722,15 +722,15 @@ async def delete_xpub(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='xpub operations only supported for BTC and BCH',
         )
-    
+
     success = blockchain_service.delete_xpub(blockchain, xpub)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='xpub not found',
         )
-    
+
     return BlockchainResponse(
         result={'success': True},
         message='xpub deleted successfully',

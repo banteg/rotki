@@ -1,7 +1,7 @@
 """Periodic router for managing periodic data refresh and premium sync"""
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from rotkehlchen.api.v2.dependencies import require_logged_in_user
@@ -37,7 +37,7 @@ async def get_periodic_status(
 ) -> PeriodicResponse:
     """Get status of periodic data refresh"""
     status = periodic.get_periodic_status()
-    
+
     return PeriodicResponse(
         result={
             'status': status,
@@ -54,33 +54,33 @@ async def trigger_periodic_refresh(
 ) -> PeriodicResponse:
     """Trigger periodic data refresh"""
     tasks_started = []
-    
+
     if refresh_data.refresh_balances:
         task_id = periodic.refresh_balances()
         tasks_started.append({'type': 'balances', 'task_id': task_id})
-    
+
     if refresh_data.refresh_blockchain:
         task_id = periodic.refresh_blockchain()
         tasks_started.append({'type': 'blockchain', 'task_id': task_id})
-    
+
     if refresh_data.refresh_exchanges:
         task_id = periodic.refresh_exchanges()
         tasks_started.append({'type': 'exchanges', 'task_id': task_id})
-    
+
     if refresh_data.refresh_nfts:
         task_id = periodic.refresh_nfts()
         tasks_started.append({'type': 'nfts', 'task_id': task_id})
-    
+
     if refresh_data.refresh_defi:
         task_id = periodic.refresh_defi()
         tasks_started.append({'type': 'defi', 'task_id': task_id})
-    
+
     if not tasks_started:
         return PeriodicResponse(
             result={'tasks': []},
             message='No refresh tasks requested',
         )
-    
+
     return PeriodicResponse(
         result={'tasks': tasks_started},
         message=f'Started {len(tasks_started)} refresh tasks',

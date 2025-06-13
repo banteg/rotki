@@ -46,7 +46,7 @@ class ZkSyncLiteTransaction(Base, table=True):
     swaps: list['ZkSyncLiteSwap'] = Relationship(back_populates='transaction')
 
     def __repr__(self) -> str:
-        return f"<ZkSyncLiteTransaction(identifier={self.identifier}, tx_hash={self.tx_hash.hex()})>"
+        return f'<ZkSyncLiteTransaction(identifier={self.identifier}, tx_hash={self.tx_hash.hex()})>'
 
 
 class ZkSyncLiteSwap(Base, table=True):

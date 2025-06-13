@@ -8,33 +8,33 @@ from starlette.websockets import WebSocketState
 
 class ConnectionManager:
     """Manages WebSocket connections"""
-    
+
     def __init__(self):
         self.active_connections: list[WebSocket] = []
-    
+
     async def connect(self, websocket: WebSocket):
         """Accept new WebSocket connection"""
         await websocket.accept()
         self.active_connections.append(websocket)
-    
+
     def disconnect(self, websocket: WebSocket):
         """Remove disconnected WebSocket"""
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-    
+
     async def send_personal_message(self, message: str, websocket: WebSocket):
         """Send message to specific connection"""
         if websocket.client_state == WebSocketState.CONNECTED:
             await websocket.send_text(message)
-    
+
     async def broadcast(self, message: str):
         """Broadcast message to all connections"""
         # Remove disconnected websockets
         self.active_connections = [
-            ws for ws in self.active_connections 
+            ws for ws in self.active_connections
             if ws.client_state == WebSocketState.CONNECTED
         ]
-        
+
         # Send to all active connections
         for connection in self.active_connections:
             try:
@@ -42,7 +42,7 @@ class ConnectionManager:
             except Exception:
                 # Connection might have been closed
                 pass
-    
+
     async def broadcast_json(self, data: dict[str, Any]):
         """Broadcast JSON data to all connections"""
         message = json.dumps(data)
@@ -56,21 +56,21 @@ manager = ConnectionManager()
 async def websocket_endpoint(websocket: WebSocket):
     """Main WebSocket endpoint handler"""
     await manager.connect(websocket)
-    
+
     try:
         # Send welcome message
         await websocket.send_json({
             'type': 'connection',
             'message': 'Connected to Rotki WebSocket',
         })
-        
+
         while True:
             # Receive and echo messages (or handle commands)
             data = await websocket.receive_text()
-            
+
             try:
                 message = json.loads(data)
-                
+
                 # Handle different message types
                 if message.get('type') == 'ping':
                     await websocket.send_json({'type': 'pong'})
@@ -87,19 +87,19 @@ async def websocket_endpoint(websocket: WebSocket):
                         'type': 'echo',
                         'data': message,
                     })
-                    
+
             except json.JSONDecodeError:
                 await websocket.send_json({
                     'type': 'error',
                     'message': 'Invalid JSON',
                 })
-                
+
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         # Could broadcast user left message here
     except Exception as e:
         manager.disconnect(websocket)
-        print(f"WebSocket error: {e}")
+        print(f'WebSocket error: {e}')
 
 
 # Event broadcasting functions that can be called from services

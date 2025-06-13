@@ -2,7 +2,15 @@
 
 from typing import Optional
 
-from sqlalchemy import BLOB, INTEGER, TEXT, CheckConstraint, Column, ForeignKey, ForeignKeyConstraint, UniqueConstraint
+from sqlalchemy import (
+    BLOB,
+    INTEGER,
+    TEXT,
+    CheckConstraint,
+    Column,
+    ForeignKey,
+    UniqueConstraint,
+)
 from sqlmodel import Field, Relationship
 
 from rotkehlchen.db.models.user.base import Base
@@ -37,7 +45,7 @@ class EvmTransaction(Base, table=True):
     optimism_transaction: Optional['OptimismTransaction'] = Relationship(back_populates='transaction')
 
     def __repr__(self) -> str:
-        return f"<EvmTransaction(identifier={self.identifier}, tx_hash={self.tx_hash.hex()}, chain_id={self.chain_id})>"
+        return f'<EvmTransaction(identifier={self.identifier}, tx_hash={self.tx_hash.hex()}, chain_id={self.chain_id})>'
 
 
 class EvmTxReceipt(Base, table=True):
@@ -64,7 +72,7 @@ class EvmTxReceipt(Base, table=True):
     logs: list['EvmTxReceiptLog'] = Relationship(back_populates='receipt')
 
     def __repr__(self) -> str:
-        return f"<EvmTxReceipt(tx_id={self.tx_id}, status={self.status})>"
+        return f'<EvmTxReceipt(tx_id={self.tx_id}, status={self.status})>'
 
 
 class EvmTxReceiptLog(Base, table=True):
@@ -91,7 +99,7 @@ class EvmTxReceiptLog(Base, table=True):
     topics: list['EvmTxReceiptLogTopic'] = Relationship(back_populates='log')
 
     def __repr__(self) -> str:
-        return f"<EvmTxReceiptLog(identifier={self.identifier}, log_index={self.log_index})>"
+        return f'<EvmTxReceiptLog(identifier={self.identifier}, log_index={self.log_index})>'
 
 
 class EvmTxReceiptLogTopic(Base, table=True):
@@ -113,7 +121,7 @@ class EvmTxReceiptLogTopic(Base, table=True):
     log_obj: 'EvmTxReceiptLog' = Relationship(back_populates='topics')
 
     def __repr__(self) -> str:
-        return f"<EvmTxReceiptLogTopic(log={self.log}, topic_index={self.topic_index})>"
+        return f'<EvmTxReceiptLogTopic(log={self.log}, topic_index={self.topic_index})>'
 
 
 class EvmInternalTransaction(Base, table=True):
@@ -139,7 +147,7 @@ class EvmInternalTransaction(Base, table=True):
     transaction: 'EvmTransaction' = Relationship(back_populates='internal_transactions')
 
     def __repr__(self) -> str:
-        return f"<EvmInternalTransaction(parent_tx={self.parent_tx}, trace_id={self.trace_id})>"
+        return f'<EvmInternalTransaction(parent_tx={self.parent_tx}, trace_id={self.trace_id})>'
 
 
 class EvmTxMapping(Base, table=True):
@@ -160,7 +168,7 @@ class EvmTxMapping(Base, table=True):
     transaction: 'EvmTransaction' = Relationship(back_populates='tx_mappings')
 
     def __repr__(self) -> str:
-        return f"<EvmTxMapping(tx_id={self.tx_id}, value={self.value})>"
+        return f'<EvmTxMapping(tx_id={self.tx_id}, value={self.value})>'
 
 
 class EvmTxAddressMapping(Base, table=True):
@@ -224,4 +232,4 @@ class EvmTransactionAuthorization(Base, table=True):
     transaction: 'EvmTransaction' = Relationship()
 
     def __repr__(self) -> str:
-        return f"<EvmTransactionAuthorization(tx_id={self.tx_id}, nonce={self.nonce})>"
+        return f'<EvmTransactionAuthorization(tx_id={self.tx_id}, nonce={self.nonce})>'

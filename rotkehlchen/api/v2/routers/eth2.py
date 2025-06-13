@@ -19,7 +19,7 @@ class ValidatorRequest(BaseModel):
     """Request model for adding validators"""
     validator_index: int | None = None
     public_key: str | None = None
-    ownership_proportion: str = "1.0"
+    ownership_proportion: str = '1.0'
 
 
 class ETH2Response(BaseModel):
@@ -64,8 +64,8 @@ async def add_validator(
                 ownership_proportion=request.ownership_proportion,
             )
         else:
-            raise ValueError("Either validator_index or public_key must be provided")
-        
+            raise ValueError('Either validator_index or public_key must be provided')
+
         return ETH2Response(
             result={'validator_id': validator_id},
             message='Validator added successfully',
@@ -85,13 +85,13 @@ async def remove_validator(
 ) -> ETH2Response:
     """Remove a tracked ETH2 validator"""
     success = service.remove_validator(validator_id)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Validator not found',
         )
-    
+
     return ETH2Response(
         result={'success': True},
         message='Validator removed successfully',
@@ -146,7 +146,7 @@ async def add_validator_v1(
     service: Annotated[ETH2Service, Depends(get_eth2_service)],
     validator_index: int | None = None,
     public_key: str | None = None,
-    ownership_proportion: str = "1.0",
+    ownership_proportion: str = '1.0',
 ) -> ETH2Response:
     """Add an ETH2 validator - Compatible with v1 PUT /api/1/blockchains/eth2/validators"""
     request = ValidatorRequest(

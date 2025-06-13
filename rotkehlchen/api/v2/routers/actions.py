@@ -34,7 +34,7 @@ async def get_ignored_actions(
 ) -> ActionsResponse:
     """Get all ignored actions"""
     ignored = service.get_ignored_actions()
-    
+
     return ActionsResponse(result={'ignored_actions': ignored})
 
 
@@ -50,7 +50,7 @@ async def add_ignored_actions(
             action_type=request_data.action_type,
             action_ids=request_data.action_ids,
         )
-        
+
         return ActionsResponse(
             result={'added': added},
             message=f'Added {added} actions to ignore list',
@@ -76,7 +76,7 @@ async def add_ignored_actions_v1(
             action_type=action_type,
             action_ids=action_ids,
         )
-        
+
         return ActionsResponse(
             result={'ignored_actions': added},
             message=f'Added {len(action_ids)} actions to ignore list',
@@ -101,7 +101,7 @@ async def remove_ignored_actions_v1(
             action_type=action_type,
             action_ids=action_ids,
         )
-        
+
         return ActionsResponse(
             result={'removed': removed},
             message=f'Removed {removed} actions from ignore list',
@@ -125,7 +125,7 @@ async def remove_ignored_actions(
             action_type=request_data.action_type,
             action_ids=request_data.action_ids,
         )
-        
+
         return ActionsResponse(
             result={'removed': removed},
             message=f'Removed {removed} actions from ignore list',
@@ -151,7 +151,7 @@ async def add_ignored_actions_v1(
             action_type=action_type,
             action_ids=action_ids,
         )
-        
+
         return ActionsResponse(
             result={'ignored_actions': added},
             message=f'Added {len(action_ids)} actions to ignore list',
@@ -176,7 +176,7 @@ async def remove_ignored_actions_v1(
             action_type=action_type,
             action_ids=action_ids,
         )
-        
+
         return ActionsResponse(
             result={'removed': removed},
             message=f'Removed {removed} actions from ignore list',

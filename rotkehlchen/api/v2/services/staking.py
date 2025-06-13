@@ -1,19 +1,16 @@
 """Staking service for managing staking operations"""
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 from rotkehlchen.types import Timestamp
-
-if TYPE_CHECKING:
-    pass
 
 
 class StakingService:
     """Service for managing staking information"""
-    
+
     def __init__(self) -> None:
         # Would be initialized with actual staking data sources
         self._kraken_staking_cache: dict[str, Any] = {}
-    
+
     def get_kraken_staking_info(
         self,
         from_timestamp: Timestamp | None = None,
@@ -43,7 +40,7 @@ class StakingService:
             'from_timestamp': from_timestamp or 0,
             'to_timestamp': to_timestamp or Timestamp(1700000000),
         }
-    
+
     def query_kraken_staking(
         self,
         from_timestamp: Timestamp | None = None,
@@ -55,12 +52,12 @@ class StakingService:
         result = self.get_kraken_staking_info(from_timestamp, to_timestamp)
         result['queried_at'] = Timestamp(1700000000)
         result['from_api'] = True
-        
+
         # Update cache
         self._kraken_staking_cache = result
-        
+
         return result
-    
+
     def get_staking_overview(self) -> dict[str, Any]:
         """Get overview of all staking positions"""
         # Would aggregate from multiple sources

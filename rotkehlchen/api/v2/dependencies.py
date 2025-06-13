@@ -1,7 +1,9 @@
 """FastAPI dependency injection"""
+from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, HTTPException, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlmodel import Session
 
 from rotkehlchen.api.v2.repositories.accounting_rule import AccountingRuleRepository
@@ -15,7 +17,6 @@ from rotkehlchen.api.v2.repositories.tag import TagRepository
 from rotkehlchen.api.v2.services.auth import AuthService
 from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.db.drivers.gevent import DBConnection
-from rotkehlchen.errors.api import AuthenticationError
 
 if TYPE_CHECKING:
     from rotkehlchen.accounting.accountant import Accountant
@@ -169,14 +170,14 @@ async def require_logged_in_user(  # noqa: RUF029
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='No user is logged in',
         )
-    
+
     # Check for API key authentication
     api_key = request.headers.get('X-API-Key')
     if api_key:
         # TODO: Implement API key authentication
         # This would involve checking the API key against the database
         pass
-    
+
     # Return the current username
     return rotkehlchen.data.username
 
@@ -243,3 +244,46 @@ def get_addressbook_repository(
 ) -> AddressBookRepository:
     """Get AddressBookRepository instance"""
     return AddressBookRepository(session)
+
+
+# Async database dependencies
+async def get_async_session(request: Request) -> AsyncGenerator[AsyncSession, None]:
+    """Get async database session.
+    
+    This dependency provides an async session for database operations.
+    It will be initialized once the async engine is set up in the application.
+    """
+    if not hasattr(request.app.state, 'async_session_factory'):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail='Async database not initialized',
+        )
+
+    session_factory: async_sessionmaker[AsyncSession] = request.app.state.async_session_factory
+
+    async with session_factory() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
+# Async repository dependencies
+def get_async_ens_repository(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> 'AsyncENSRepository':
+    """Get AsyncENSRepository instance"""
+    from rotkehlchen.api.v2.repositories.async_ens import AsyncENSRepository
+    return AsyncENSRepository(session)
+
+
+def get_async_addressbook_repository(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> 'AsyncAddressBookRepository':
+    """Get AsyncAddressBookRepository instance"""
+    from rotkehlchen.api.v2.repositories.async_addressbook import AsyncAddressBookRepository
+    return AsyncAddressBookRepository(session)

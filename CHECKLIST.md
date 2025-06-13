@@ -1,269 +1,165 @@
-### **Rotki v1 to v2 API Endpoint Migration Checklist**
+### Refactoring and Modernization Checklist
 
-#### **Users & Authentication**
+#### **Phase 0: Project Setup & Foundational Tooling**
 
-- [x] `GET /api/1/users` (List all user accounts) ✅ Migrated to `GET /api/v2/users/`
-- [x] `PUT /api/1/users` (Create a new user) ✅ Migrated to `POST /api/v2/users/`
-- [x] `GET /api/1/users/<string:name>` (Login user - Note: v2 uses `POST /api/v2/auth/login`) ✅ Migrated to `POST /api/v2/users/login`
-- [~] `PATCH /api/1/users/<string:name>` (Set premium credentials or logout) ⚠️ Logout migrated to `POST /api/v2/users/logout`, premium credentials still needed
-- [x] `PATCH /api/1/users/<string:name>/password` (Change user password) ✅ Migrated to `PATCH /api/v2/users/{username}/password`
-- [x] `DELETE /api/1/premium` (Remove premium API key) ✅ Migrated to `DELETE /api/v2/premium/`
-- [x] `PUT /api/1/premium/sync` (Trigger premium data sync) ✅ Migrated to `PUT /api/v2/premium/sync`
+- [x] **Dependency Management:** Add the necessary libraries for the new architecture.
 
-#### **Settings & Configuration**
+  - [x] Add `aiosqlite` to your project's dependencies (`pyproject.toml` or `requirements.txt`). This will be the async driver for SQLite.
+  - [x] Add `anyio` to your project's dependencies. This will be used for managing async tasks and concurrency, replacing `gevent`.
+  - [x] Add `SQLModel` as a dependency if it's not already explicitly there (it might be a sub-dependency of FastAPI).
 
-- [x] `GET /api/1/settings` (Get user settings) ✅ Migrated to `GET /api/v2/settings/`
-- [x] `PUT /api/1/settings` (Set user settings) ✅ Migrated to `PATCH /api/v2/settings/`
-- [x] `GET /api/1/settings/configuration` (Get runtime config arguments) ✅ Migrated to `GET /api/v2/settings/configuration`
+- [x] **Async Database Configuration:** Set up the core components for async database access.
 
-#### **Async Tasks**
+  - [x] Create a new module (e.g., `rotkehlchen/db/async_connection.py`) to manage the async database engine and session creation.
+  - [x] In this new module, define a function to create an `anyio`-compatible `AsyncEngine` from `sqlalchemy.ext.asyncio`. Configure it to use `aiosqlite` and to connect to the user's encrypted database file.
+  - [x] Implement an `async_sessionmaker` to create `AsyncSession` instances.
+  - [x] Create a FastAPI dependency (e.g., in `api/v2/dependencies.py`) called `get_async_session` that yields an `AsyncSession` for each request. This will be the standard way endpoints get a database session.
 
-- [x] `GET /api/1/tasks` (Get all async tasks) ✅ Migrated to `GET /api/v2/tasks/`
-- [x] `GET /api/1/tasks/<int:task_id>` (Get a specific async task outcome) ✅ Migrated to `GET /api/v2/tasks/{task_id}`
-- [x] `DELETE /api/1/tasks/<int:task_id>` (Cancel/delete an async task) ✅ Migrated to `DELETE /api/v2/tasks/{task_id}`
+- [x] **Base Repository:** Establish a reusable pattern for data access.
+  - [x] Create a `BaseRepository` class in `api/v2/repositories/base.py`.
+  - [x] This base class should accept an `AsyncSession` in its constructor.
+  - [x] Implement generic, `async` CRUD methods in the base class: `get()`, `get_all()`, `create()`, `update()`, `delete()`.
 
-#### **External Services & Oracles**
+#### **Phase 1: Standardize the Data Access Layer (DAL) - The Core Migration**
 
-- [x] `GET /api/1/external_services` (Get all external service credentials) ✅ Migrated to `GET /api/v2/external_services/`
-- [x] `PUT /api/1/external_services` (Add external service credentials) ✅ Migrated to `PUT /api/v2/external_services/`
-- [x] `DELETE /api/1/external_services` (Remove external service credentials) ✅ Migrated to `DELETE /api/v2/external_services/`
-- [x] `GET /api/1/oracles` (Get list of supported oracles) ✅ Migrated to `GET /api/v2/oracles/`
-- [x] `GET /api/1/oracles/<string:oracle>/cache` (Get cache for a specific oracle) ✅ Migrated to `GET /api/v2/oracles/{oracle}/cache`
-- [x] `POST /api/1/oracles/<string:oracle>/cache` (Create cache for a specific oracle) ✅ Migrated to `POST /api/v2/oracles/{oracle}/cache`
-- [x] `DELETE /api/1/oracles/<string:oracle>/cache` (Delete cache for a specific oracle) ✅ Migrated to `DELETE /api/v2/oracles/{oracle}/cache`
+This is the most critical and extensive phase. The goal is to replace all direct database interactions through `DBHandler` and raw SQL with the new async Repository pattern using SQLModel. **Repeat these steps for each data model/domain.**
 
-#### **Exchanges**
+##### **Pattern: Migrating a Single DB Module (Example: `db/ens.py`)**
 
-- [x] `GET /api/1/exchanges` (Get connected exchanges) ✅ Migrated to `GET /api/v2/exchanges/`
-- [x] `PUT /api/1/exchanges` (Add an exchange) ✅ Migrated to `POST /api/v2/exchanges/`
-- [x] `PATCH /api/1/exchanges` (Edit an exchange) ✅ Migrated to `PATCH /api/v2/exchanges/`
-- [x] `DELETE /api/1/exchanges` (Remove an exchange) ✅ Migrated to `DELETE /api/v2/exchanges/{name}`
-- [x] `GET /api/1/exchanges/balances` (Get all exchange balances) ✅ Migrated to `GET /api/v2/exchanges/balances`
-- [x] `GET /api/1/exchanges/balances/<string:location>` (Get balances for a specific exchange) ✅ Migrated to `GET /api/v2/exchanges/balances/{location}`
-- [x] `GET /api/1/exchanges/binance/pairs` (Get all available Binance pairs) ✅ Migrated to `GET /api/v2/exchanges/binance/pairs`
-- [x] `GET /api/1/exchanges/binance/pairs/<string:name>` (Get user-configured Binance pairs) ✅ Migrated to `GET /api/v2/exchanges/binance/pairs/{name}`
-- [x] `POST /api/1/exchanges/<string:location>/savings` (Get Binance savings history) ✅ Migrated to `POST /api/v2/exchanges/{location}/savings`
-- [x] `DELETE /api/1/exchanges/data` (Purge all exchange data) ✅ Migrated to `DELETE /api/v2/exchanges/data`
-- [x] `DELETE /api/1/exchanges/data/<string:location>` (Purge data for a specific exchange) ✅ Migrated to `DELETE /api/v2/exchanges/data/{location}`
-- [x] `POST /api/1/exchanges/events/query` (Query history events for an exchange) ✅ Migrated to `POST /api/v2/exchanges/events/query`
+- [x] **Step 1: Identify the Target Module.**
 
-#### **Assets & Pricing**
+  - [x] Select `db/ens.py` as the first module to migrate.
 
-- [x] `POST /api/1/assets/all` (Query all assets) ✅ Migrated to `POST /api/v2/assets/all`
-- [x] `GET /api/1/assets` (Get owned assets) ✅ Migrated to `GET /api/v2/assets/` and `GET /api/v2/assets/user`
-- [x] `PUT /api/1/assets/all` (Add a new asset) ✅ Migrated to `PUT /api/v2/assets/all`
-- [x] `PATCH /api/1/assets/all` (Edit an existing asset) ✅ Migrated to `PATCH /api/v2/assets/all`
-- [x] `DELETE /api/1/assets/all` (Delete a custom asset) ✅ Migrated to `DELETE /api/v2/assets/all`
-- [x] `POST /api/1/assets/mappings` (Get asset mappings) ✅ Migrated to `POST /api/v2/assets/mappings`
-- [x] `POST /api/1/assets/search` (Search for an asset by name/symbol) ✅ Migrated to `POST /api/v2/assets/search`
-- [x] `POST /api/1/assets/search/levenshtein` (Fuzzy search for an asset) ✅ Migrated to `POST /api/v2/assets/search/levenshtein`
-- [x] `GET /api/1/assets/types` (Get all supported asset types) ✅ Migrated to `GET /api/v2/assets/types`
-- [x] `PUT /api/1/assets/replace` (Merge two asset entries) ✅ Migrated to `PUT /api/v2/assets/replace`
-- [x] `GET /api/1/assets/updates` (Check for remote asset data updates) ✅ Migrated to `GET /api/v2/assets/updates`
-- [x] `POST /api/1/assets/updates` (Perform asset data updates) ✅ Migrated to `POST /api/v2/assets/updates`
-- [x] `DELETE /api/1/assets/updates` (Reset local asset data) ✅ Migrated to `DELETE /api/v2/assets/updates`
-- [x] `PUT /api/1/assets/user` (Import user-defined assets from a file) ✅ Migrated to `PUT /api/v2/assets/user`
-- [x] `GET /api/1/assets/custom` (Get all custom assets) ✅ Migrated to `GET /api/v2/assets/custom`
-- [x] `PUT /api/1/assets/custom` (Add a new custom asset) ✅ Migrated to `PUT /api/v2/assets/custom`
-- [x] `PATCH /api/1/assets/custom` (Edit a custom asset) ✅ Migrated to `PATCH /api/v2/assets/custom`
-- [x] `DELETE /api/1/assets/custom` (Delete a custom asset) ✅ Migrated to `DELETE /api/v2/assets/custom`
-- [x] `GET /api/1/assets/custom/types` (Get all custom asset types) ✅ Migrated to `GET /api/v2/assets/custom/types`
-- [x] `GET /api/1/exchange_rates` (Get exchange rates for given pairs) ✅ Migrated to `GET /api/v2/exchange_rates/`
-- [x] `POST /api/1/assets/prices/latest` (Get current prices for a list of assets) ✅ Migrated to `POST /api/v2/assets/prices/latest`
-- [x] `GET /api/1/assets/prices/latest/all` (Get all stored manual latest prices) ✅ Migrated to `GET /api/v2/assets/prices/latest/all`
-- [x] `PUT /api/1/assets/prices/latest` (Add a manual latest price) ✅ Migrated to `PUT /api/v2/assets/prices/latest`
-- [x] `DELETE /api/1/assets/prices/latest` (Delete a manual latest price) ✅ Migrated to `DELETE /api/v2/assets/prices/latest`
-- [x] `POST /api/1/assets/prices/historical` (Get historical prices for a list of assets and timestamps) ✅ Migrated to `POST /api/v2/assets/prices/historical`
-- [x] `GET /api/1/assets/prices/historical` (Get all stored manual historical prices) ✅ Migrated to `GET /api/v2/assets/prices/historical`
-- [x] `PUT /api/1/assets/prices/historical` (Add a manual historical price) ✅ Migrated to `PUT /api/v2/assets/prices/historical`
-- [x] `PATCH /api/1/assets/prices/historical` (Edit a manual historical price) ✅ Migrated to `PATCH /api/v2/assets/prices/historical`
-- [x] `DELETE /api/1/assets/prices/historical` (Delete a manual historical price) ✅ Migrated to `DELETE /api/v2/assets/prices/historical`
-- [x] `PUT /api/1/assets/icon/modify` (Upload an asset icon) ✅ Migrated to `PUT /api/v2/assets/icon/modify`
-- [x] `POST /api/1/assets/icon/modify` (Upload an asset icon via form) ✅ Migrated to `POST /api/v2/assets/icon/modify`
-- [x] `PATCH /api/1/assets/icon/modify` (Refresh an asset icon from a remote source) ✅ Migrated to `PATCH /api/v2/assets/icon/modify`
-- [x] `POST /api/1/assets/locationmappings` (Query location asset mappings) ✅ Migrated to `POST /api/v2/assets/locationmappings`
-- [x] `PUT /api/1/assets/locationmappings` (Add location asset mappings) ✅ Migrated to `PUT /api/v2/assets/locationmappings`
-- [x] `PATCH /api/1/assets/locationmappings` (Update location asset mappings) ✅ Migrated to `PATCH /api/v2/assets/locationmappings`
-- [x] `DELETE /api/1/assets/locationmappings` (Delete location asset mappings) ✅ Migrated to `DELETE /api/v2/assets/locationmappings`
-- [x] `POST /api/1/assets/counterpartymappings` (Query counterparty asset mappings) ✅ Migrated to `POST /api/v2/assets/counterpartymappings`
-- [x] `PUT /api/1/assets/counterpartymappings` (Add counterparty asset mappings) ✅ Migrated to `PUT /api/v2/assets/counterpartymappings`
-- [x] `PATCH /api/1/assets/counterpartymappings` (Update counterparty asset mappings) ✅ Migrated to `PATCH /api/v2/assets/counterpartymappings`
-- [x] `DELETE /api/1/assets/counterpartymappings` (Delete counterparty asset mappings) ✅ Migrated to `DELETE /api/v2/assets/counterpartymappings`
+- [x] **Step 2: Create the SQLModel.**
 
-#### **Balances**
+  - [x] In `db/models/user/ens.py`, define the `ENSMapping` class using `SQLModel`.
+  - [x] Ensure the model fields match the table schema, using appropriate types like `str`, `int`, and `Column` for constraints.
 
-- [x] `GET /api/1/balances` (Get all balances) ✅ Migrated to `GET /api/v2/balances/`
-- [x] `GET /api/1/balances/blockchains` (Get all blockchain balances) ✅ Migrated to `GET /api/v2/balances/blockchains`
-- [x] `GET /api/1/balances/blockchains/<string:blockchain>` (Get balances for a specific blockchain) ✅ Migrated to `GET /api/v2/balances/blockchains/{blockchain}`
-- [x] `GET /api/1/balances/manual` (Get all manually tracked balances) ✅ Migrated to `GET /api/v2/balances/manual`
-- [x] `PUT /api/1/balances/manual` (Add manually tracked balances) ✅ Migrated to `PUT /api/v2/balances/manual`
-- [x] `PATCH /api/1/balances/manual` (Edit manually tracked balances) ✅ Migrated to `PATCH /api/v2/balances/manual`
-- [x] `DELETE /api/1/balances/manual` (Remove manually tracked balances) ✅ Migrated to `DELETE /api/v2/balances/manual`
+- [x] **Step 3: Create the Async Repository.**
 
-#### **Blockchains & EVM**
+  - [x] Create a new file: `api/v2/repositories/ens.py`.
+  - [x] Inside, define `ENSRepository(BaseRepository[ENSMapping])`.
+  - [x] Its `__init__` should accept an `AsyncSession`.
 
-- [x] `GET /api/1/blockchains/supported` (Get a list of all supported blockchains) ✅ Migrated to `GET /api/v2/blockchain/supported`
-- [x] `POST /api/1/blockchains/transactions` (Query blockchain transactions for a time range) ✅ Migrated to `POST /api/v2/blockchain/transactions`
-- [x] `DELETE /api/1/blockchains/transactions` (Purge transaction data) ✅ Migrated to `DELETE /api/v2/blockchain/transactions`
-- [x] `GET /api/1/blockchains/evm/all` (Get details for all supported EVM chains) ✅ Migrated to `GET /api/v2/blockchain/evm/all`
-- [x] `PUT /api/1/blockchains/evm/transactions` (Decode a given list of EVM transactions) ✅ Migrated to `PUT /api/v2/blockchain/evm/transactions`
-- [x] `PUT /api/1/blockchains/evmlike/transactions` (Decode a given list of EVM-like transactions) ✅ Migrated to `PUT /api/v2/blockchain/evmlike/transactions`
-- [x] `POST /api/1/blockchains/evm/transactions/decode` (Decode all pending EVM transactions) ✅ Migrated to `POST /api/v2/blockchain/evm/transactions/decode`
-- [x] `GET /api/1/blockchains/evm/transactions/decode` (Get the count of undecoded EVM transactions) ✅ Migrated to `GET /api/v2/blockchain/evm/transactions/decode`
-- [x] `POST /api/1/blockchains/evmlike/transactions/decode` (Decode all pending EVM-like transactions) ✅ Migrated to `POST /api/v2/blockchain/evmlike/transactions/decode`
-- [x] `GET /api/1/blockchains/evmlike/transactions/decode` (Get the count of undecoded EVM-like transactions) ✅ Migrated to `GET /api/v2/blockchain/evmlike/transactions/decode`
-- [x] `GET /api/1/blockchains/evm/erc20details` (Get info for an ERC20 token) ✅ Migrated to `GET /api/v2/blockchain/evm/erc20details`
-- [x] `POST /api/1/blockchains/evm/accounts` (Refresh all EVM accounts) ✅ Migrated to `POST /api/v2/blockchain/evm/accounts`
-- [x] `PUT /api/1/blockchains/evm/accounts` (Add EVM accounts) ✅ Migrated to `PUT /api/v2/blockchain/evm/accounts`
-- [x] `GET /api/1/blockchains/<string:blockchain>/accounts` (Get accounts for a specific blockchain) ✅ Migrated to `GET /api/v2/blockchain/{blockchain}/accounts`
-- [x] `PUT /api/1/blockchains/<string:blockchain>/accounts` (Add accounts for a specific blockchain) ✅ Migrated to `POST /api/v2/blockchain/{blockchain}/accounts`
-- [x] `PATCH /api/1/blockchains/<string:blockchain>/accounts` (Edit accounts for a specific blockchain) ✅ Migrated to `PATCH /api/v2/blockchain/{blockchain}/accounts`
-- [x] `DELETE /api/1/blockchains/<string:blockchain>/accounts` (Delete accounts for a specific blockchain) ✅ Migrated to `DELETE /api/v2/blockchain/{blockchain}/accounts`
-- [x] `GET /api/1/blockchains/<string:blockchain>/nodes` (Get RPC nodes for a chain) ✅ Migrated to `GET /api/v2/blockchain/{blockchain}/nodes`
-- [x] `PUT /api/1/blockchains/<string:blockchain>/nodes` (Add a new RPC node) ✅ Migrated to `PUT /api/v2/blockchain/{blockchain}/nodes`
-- [x] `PATCH /api/1/blockchains/<string:blockchain>/nodes` (Edit an RPC node) ✅ Migrated to `PATCH /api/v2/blockchain/{blockchain}/nodes`
-- [x] `DELETE /api/1/blockchains/<string:blockchain>/nodes` (Delete an RPC node) ✅ Migrated to `DELETE /api/v2/blockchain/{blockchain}/nodes`
-- [x] `POST /api/1/blockchains/<string:blockchain>/nodes` (Attempt to connect to an RPC node) ✅ Migrated to `POST /api/v2/blockchain/{blockchain}/nodes`
-- [x] `POST /api/1/blockchains/<string:blockchain>/tokens/detect` (Detect tokens for a chain) ✅ Migrated to `POST /api/v2/blockchain/{blockchain}/tokens/detect`
-- [x] `PUT /api/1/blockchains/evm/transactions/add-hash` (Add a single transaction by hash) ✅ Migrated to `PUT /api/v2/blockchain/evm/transactions/add-hash`
-- [x] `POST /api/1/blockchains/transactions/refetch` (Force refetch EVM transactions for a time range) ✅ Migrated to `POST /api/v2/blockchain/transactions/refetch`
+- [x] **Step 4: Implement Repository Methods.**
 
-#### **ETH2 Staking**
+  - [x] For _every function_ in the old `db/ens.py`, create a corresponding `async def` method in `ENSRepository`.
+  - [x] **Example Migration (`add_ens_mapping`):**
+    - [x] The old method uses raw SQL: `INSERT INTO ens_mappings ... ON CONFLICT ...`.
+    - [x] The new `async def add_ens_mapping` method will use the session:
+      ```python
+      existing_mapping = await session.get(ENSMapping, address)
+      if existing_mapping:
+          existing_mapping.ens_name = name
+          existing_mapping.last_update = now
+      else:
+          existing_mapping = ENSMapping(...)
+      session.add(existing_mapping)
+      await session.commit()
+      ```
+  - [x] **Example Migration (`get_reverse_ens`):**
+    - [x] The old method uses raw SQL: `SELECT ... FROM ens_mappings WHERE address IN (...)`.
+    - [x] The new `async def get_reverse_ens` method will use a SQLModel `select`:
+      ```python
+      statement = select(ENSMapping).where(ENSMapping.address.in_(addresses))
+      results = await session.exec(statement)
+      # Process results into the required dictionary format
+      ```
 
-- [x] `GET /api/1/blockchains/eth2/validators` (Get all tracked ETH2 validators) ✅ Migrated to `GET /api/v2/blockchains/eth2/validators`
-- [x] `PUT /api/1/blockchains/eth2/validators` (Add an ETH2 validator) ✅ Migrated to `PUT /api/v2/blockchains/eth2/validators`
-- [x] `PATCH /api/1/blockchains/eth2/validators` (Edit an ETH2 validator) ✅ Migrated to `PATCH /api/v2/blockchains/eth2/validators`
-- [x] `DELETE /api/1/blockchains/eth2/validators` (Delete an ETH2 validator) ✅ Migrated to `DELETE /api/v2/blockchains/eth2/validators`
-- [x] `PUT /api/1/blockchains/eth2/stake/performance` (Get ETH2 staking performance) ✅ Migrated to `PUT /api/v2/blockchains/eth2/stake/performance`
-- [x] `POST /api/1/blockchains/eth2/stake/dailystats` (Get ETH2 daily staking statistics) ✅ Migrated to `POST /api/v2/blockchains/eth2/stake/dailystats`
-- [x] `PUT /api/1/blockchains/eth2/stake/events` (Redecode ETH2 block production events) ✅ Migrated to `PUT /api/v2/blockchains/eth2/stake/events`
-- [x] `DELETE /api/1/blockchains/eth2/stake/events` (Reset ETH2 staking data) ✅ Migrated to `DELETE /api/v2/blockchains/eth2/stake/events`
+- [x] **Step 5: Create a Service Layer.**
 
-#### **BTC / XPUBs**
+  - [x] Create a new file: `api/v2/services/ens.py`.
+  - [x] Define `ENSService`.
+  - [x] The service's `__init__` will take `ENSRepository` as a dependency.
+  - [x] Move any business logic from the original `db/ens.py` (like the logic in `update_values`) into methods within `ENSService`. These service methods will call the repository methods.
 
-- [x] `PUT /api/1/blockchains/<string:blockchain>/xpub` (Add a BTC/BCH xpub) ✅ Migrated to `PUT /api/v2/blockchain/{blockchain}/xpub`
-- [x] `PATCH /api/1/blockchains/<string:blockchain>/xpub` (Edit a BTC/BCH xpub) ✅ Migrated to `PATCH /api/v2/blockchain/{blockchain}/xpub`
-- [x] `DELETE /api/1/blockchains/<string:blockchain>/xpub` (Delete a BTC/BCH xpub) ✅ Migrated to `DELETE /api/v2/blockchain/{blockchain}/xpub`
+- [x] **Step 6: Update the API Endpoint.**
 
-#### **History & Accounting**
+  - [x] Locate the FastAPI endpoint(s) in `api/v2/routers/` that handle ENS lookups (e.g., in `api/v2/routers/names.py`).
+  - [x] Change the endpoint function to be `async def`.
+  - [x] Use FastAPI's `Depends` to inject the `ENSService`.
+  - [x] Replace the old call (e.g., `rotkehlchen.data.db.ens.get_reverse_ens(...)`) with a call to the new service (e.g., `await ens_service.get_reverse_lookup(...)`).
 
-- [x] `GET /api/1/history` (Process history for a time range) ✅ Migrated to `GET /api/v2/history/` and `POST /api/v2/history/process`
-- [x] `POST /api/1/history/debug` (Export PnL debug data) ✅ Migrated to `POST /api/v2/history/debug`
-- [x] `PUT /api/1/history/debug` (Import PnL debug data from file path) ✅ Migrated to `PUT /api/v2/history/debug`
-- [x] `PATCH /api/1/history/debug` (Import PnL debug data from file upload) ✅ Migrated to `PATCH /api/v2/history/debug`
-- [x] `GET /api/1/history/status` (Get history processing status) ✅ Migrated to `GET /api/v2/history/status`
-- [x] `GET /api/1/history/export` (Download history as CSV) ✅ Migrated to `GET /api/v2/history/download`
-- [x] `POST /api/1/history/events` (Query history events) ✅ Migrated to `GET /api/v2/history/events`
-- [x] `PUT /api/1/history/events` (Add a history event) ✅ Migrated to `POST /api/v2/history/events`
-- [x] `PATCH /api/1/history/events` (Edit a history event) ✅ Migrated to `PUT /api/v2/history/events/{event_id}`
-- [x] `DELETE /api/1/history/events` (Delete history events) ✅ Migrated to `DELETE /api/v2/history/events/{event_id}`
-- [x] `GET /api/1/history/events/details` (Get details for a specific event) ✅ Migrated to `GET /api/v2/history/events/details`
-- [x] `POST /api/1/history/events/export` (Export history events to a file in a directory) ✅ Migrated to `POST /api/v2/history/events/export`
-- [x] `PUT /api/1/history/events/export` (Download history events as a CSV file) ✅ Migrated to `PUT /api/v2/history/events/export`
-- [x] `GET /api/1/history/events/export/download` (Download an exported history events CSV) ✅ Migrated to `GET /api/v2/history/events/export/download`
-- [x] `GET /api/1/history/actionable_items` (Get missing prices/acquisitions for accounting) ✅ Migrated to `GET /api/v2/history/actionable_items`
-- [x] `GET /api/1/history/skipped_external_events` (Get summary of skipped events) ✅ Migrated to `GET /api/v2/history/skipped_external_events`
-- [x] `PUT /api/1/history/skipped_external_events` (Export skipped events to a file in a directory) ✅ Migrated to `PUT /api/v2/history/skipped_external_events`
-- [x] `PATCH /api/1/history/skipped_external_events` (Download skipped events as a CSV) ✅ Migrated to `PATCH /api/v2/history/skipped_external_events`
-- [x] `POST /api/1/history/skipped_external_events` (Reprocess skipped events) ✅ Migrated to `POST /api/v2/history/skipped_external_events`
-- [x] `GET /api/1/history/events/type_mappings` (Get mappings of event types) ✅ Migrated to `GET /api/v2/history/events/type_mappings`
-- [x] `GET /api/1/history/events/counterparties` (Get details for all EVM counterparties) ✅ Migrated to `GET /api/v2/history/events/counterparties`
-- [x] `GET /api/1/history/events/products` (Get products for all EVM counterparties) ✅ Migrated to `GET /api/v2/history/events/products`
-- [x] `GET /api/1/reports` (Get a list of all PnL reports) ✅ Migrated to `GET /api/v2/reports/`
-- [x] `GET /api/1/reports/<int:report_id>` (Get a specific PnL report) ✅ Migrated to `GET /api/v2/reports/{report_id}`
-- [x] `DELETE /api/1/reports/<int:report_id>` (Delete a PnL report) ✅ Migrated to `DELETE /api/v2/reports/{report_id}`
-- [x] `POST /api/1/reports/<int:report_id>/data` (Get data for a specific PnL report) ✅ Migrated to `GET /api/v2/reports/{report_id}/data`
-- [x] `POST /api/1/accounting/rules` (Query accounting rules) ✅ Migrated to `POST /api/v2/accounting/rules`
-- [x] `PUT /api/1/accounting/rules` (Add an accounting rule) ✅ Migrated to `PUT /api/v2/accounting/rules`
-- [x] `PATCH /api/1/accounting/rules` (Edit an accounting rule) ✅ Migrated to `PATCH /api/v2/accounting/rules`
-- [x] `DELETE /api/1/accounting/rules` (Delete an accounting rule) ✅ Migrated to `DELETE /api/v2/accounting/rules`
-- [x] `GET /api/1/accounting/rules/info` (Get info on linkable accounting rule properties) ✅ Migrated to `GET /api/v2/accounting/rules/info`
-- [x] `POST /api/1/accounting/rules/import` (Import accounting rules via file upload) ✅ Migrated to `POST /api/v2/accounting/rules/import`
-- [x] `PUT /api/1/accounting/rules/import` (Import accounting rules via file path) ✅ Migrated to `PUT /api/v2/accounting/rules/import`
-- [x] `POST /api/1/accounting/rules/export` (Export accounting rules) ✅ Migrated to `POST /api/v2/accounting/rules/export`
-- [x] `POST /api/1/accounting/rules/conflicts` (List accounting rule conflicts) ✅ Migrated to `POST /api/v2/accounting/rules/conflicts`
-- [x] `PATCH /api/1/accounting/rules/conflicts` (Solve accounting rule conflicts) ✅ Migrated to `PATCH /api/v2/accounting/rules/conflicts`
-- [x] `POST /api/1/balances/historical` (Get historical balance for all assets at a timestamp) ✅ Migrated to `POST /api/v2/balances/historical`
-- [x] `POST /api/1/balances/historical/asset` (Get historical amounts for a single asset) ✅ Migrated to `POST /api/v2/balances/historical/asset`
-- [x] `POST /api/1/balances/historical/netvalue` (Get historical net value) ✅ Migrated to `POST /api/v2/balances/historical/netvalue`
+- [x] **Step 7: Test the New Implementation.**
 
-#### **Ignored Assets & Actions**
+  - [x] Write unit tests for the `ENSRepository`, mocking the `AsyncSession`.
+  - [x] Write unit tests for the `ENSService`, mocking the `ENSRepository`.
+  - [x] Write integration tests for the new FastAPI endpoint to ensure it works end-to-end. Use the old tests for `db/ens.py` as a reference for expected behavior.
 
-- [x] `GET /api/1/assets/ignored` (Get all ignored assets) ✅ Migrated to `GET /api/v2/assets/ignored`
-- [x] `PUT /api/1/assets/ignored` (Add assets to ignored list) ✅ Migrated to `POST /api/v2/assets/ignored` with action='add'
-- [x] `DELETE /api/1/assets/ignored` (Remove assets from ignored list) ✅ Migrated to `POST /api/v2/assets/ignored` with action='remove'
-- [x] `POST /api/1/assets/ignored/whitelist` (Add a spam token to the false positive list) ✅ Migrated to `POST /api/v2/assets/ignored/whitelist`
-- [x] `DELETE /api/1/assets/ignored/whitelist` (Remove a token from the false positive list) ✅ Migrated to `DELETE /api/v2/assets/ignored/whitelist`
-- [x] `GET /api/1/assets/ignored/whitelist` (Get the list of false positive spam tokens) ✅ Migrated to `GET /api/v2/assets/ignored/whitelist`
-- [x] `POST /api/1/assets/evm/spam/` (Mark EVM tokens as spam) ✅ Migrated to `POST /api/v2/assets/evm/spam`
-- [x] `DELETE /api/1/assets/evm/spam/` (Unmark an EVM token as spam) ✅ Migrated to `DELETE /api/v2/assets/evm/spam`
-- [x] `PUT /api/1/actions/ignored` (Add action IDs to ignored list) ✅ Migrated to `PUT /api/v2/actions/ignored`
-- [x] `DELETE /api/1/actions/ignored` (Remove action IDs from ignored list) ✅ Migrated to `DELETE /api/v2/actions/ignored`
+- [ ] **Step 8: Repeat for All Other DB Modules.**
+  - [ ] Repeat the process for `db/addressbook.py` -> `AddressbookRepository`.
+  - [ ] Repeat the process for `db/loopring.py` -> `LoopringRepository`.
+  - [ ] Repeat the process for `db/accounting_rules.py` -> `AccountingRuleRepository`.
+  - [ ] Repeat the process for `db/history_events.py` -> `HistoryRepository`.
+  - [ ] ...and so on for every file in `rotkehlchen/db/` that performs queries. The final goal is to make `DBHandler` obsolete.
 
-#### **DeFi Modules**
+#### **Phase 2: Eradicate `gevent` and Embrace `anyio`**
 
-- [x] `DELETE /api/1/blockchains/eth/modules/data` (Purge all DeFi module data) ✅ Migrated to `DELETE /api/v2/blockchains/eth/modules/data`
-- [x] `DELETE /api/1/blockchains/eth/modules/<string:module_name>/data` (Purge data for a specific DeFi module) ✅ Migrated to `DELETE /api/v2/blockchains/eth/modules/{module_name}/data`
-- [x] `GET /api/1/blockchains/eth/modules` (Get list of supported DeFi modules) ✅ Migrated to `GET /api/v2/blockchains/eth/modules`
-- [x] `GET /api/1/blockchains/eth/modules/liquity/balances` (Get Liquity trove positions) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/liquity/balances`
-- [x] `GET /api/1/blockchains/eth/modules/liquity/staking` (Get Liquity staking positions) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/liquity/staking`
-- [x] `GET /api/1/blockchains/eth/modules/liquity/pool` (Get Liquity stability pool positions) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/liquity/pool`
-- [x] `GET /api/1/blockchains/eth/modules/<string:module>/balances` (Get module balances) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/{module}/balances`
-- [x] `GET /api/1/blockchains/eth/modules/<string:module>/v<string:version>/balances` (Get versioned module balances) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/{module}/v{version}/balances`
-- [x] `GET /api/1/blockchains/eth/modules/<string:module>/stats` (Get module statistics) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/{module}/stats`
-- [x] `GET /api/1/blockchains/eth/modules/pickle/dill` (Get Pickle DILL balance) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/pickle/dill`
-- [x] `GET /api/1/blockchains/eth/modules/loopring/balances` (Get Loopring balances) ✅ Migrated to `GET /api/v2/blockchains/eth/modules/loopring/balances`
-- [x] `GET /api/1/airdrops/metadata` (Get airdrops metadata) ✅ Migrated to `GET /api/v2/airdrops/metadata`
-- [x] `GET /api/1/defi/metadata` (Get DeFi protocols metadata) ✅ Migrated to `GET /api/v2/defi/metadata`
-- [x] `POST /api/1/protocols/data/refresh` (Refresh data for a DeFi protocol cache) ✅ Migrated to `POST /api/v2/protocols/data/refresh`
-- [x] `GET /api/1/protocols/data/refresh` (Get a list of protocols with refreshable cache) ✅ Migrated to `GET /api/v2/protocols/data/refresh`
+This can be done in parallel with Phase 1, but its full benefits are realized once the DAL migration is complete.
 
-#### **Names, Addresses & Avatars**
+- [ ] **Task Management:** Replace the `gevent`-based task manager.
 
-- [x] `GET /api/1/queried_addresses` (Get all queried addresses per module) ✅ Migrated to `GET /api/v2/queried_addresses/`
-- [x] `PUT /api/1/queried_addresses` (Add a queried address for a module) ✅ Migrated to `PUT /api/v2/queried_addresses/`
-- [x] `DELETE /api/1/queried_addresses` (Remove a queried address for a module) ✅ Migrated to `DELETE /api/v2/queried_addresses/`
-- [x] `POST /api/1/names` (Search for names across all sources) ✅ Migrated to `POST /api/v2/names/`
-- [x] `POST /api/1/names/ens/reverse` (Reverse lookup ENS names for addresses) ✅ Migrated to `POST /api/v2/names/ens/reverse`
-- [x] `POST /api/1/names/ens/resolve` (Resolve an ENS name to an address) ✅ Migrated to `POST /api/v2/names/ens/resolve`
-- [x] `GET /api/1/avatars/ens/<string:ens_name>` (Get an ENS avatar) ✅ Migrated to `GET /api/v2/names/avatars/ens/{ens_name}`
-- [x] `POST /api/1/names/addressbook/<string:book_type>` (Get address book entries) ✅ Migrated to `POST /api/v2/names/addressbook/{book_type}`
-- [x] `PUT /api/1/names/addressbook/<string:book_type>` (Add address book entries) ✅ Migrated to `PUT /api/v2/names/addressbook/{book_type}`
-- [x] `PATCH /api/1/names/addressbook/<string:book_type>` (Update address book entries) ✅ Migrated to `PATCH /api/v2/names/addressbook/{book_type}`
-- [x] `DELETE /api/1/names/addressbook/<string:book_type>` (Delete address book entries) ✅ Migrated to `DELETE /api/v2/names/addressbook/{book_type}`
+  - [ ] Analyze `greenlets/manager.py`. Its purpose is to spawn background tasks.
+  - [ ] Create a new task manager, `tasks/anyio_manager.py`, that uses an `anyio` task group (`anyio.create_task_group()`) to run background tasks.
+  - [ ] The new manager should provide similar functionality: starting tasks, tracking them, and retrieving results.
 
-#### **Data Import/Export & DB Management**
+- [ ] **Concurrency Primitives:** Replace `gevent` locks.
 
-- [x] `GET /api/1/database/info` (Get database info) ✅ Migrated to `GET /api/v2/data/database/info`
-- [x] `GET /api/1/database/backups` (Download a DB backup) ✅ Migrated to `GET /api/v2/data/database/backups`
-- [x] `PUT /api/1/database/backups` (Create a DB backup) ✅ Migrated to `POST /api/v2/data/database/backup`
-- [x] `DELETE /api/1/database/backups` (Delete DB backups) ✅ Migrated to `DELETE /api/v2/data/database/backups`
-- [x] `POST /api/1/import` (Import data from a file upload) ✅ Migrated to `POST /api/v2/data/import`
-- [x] `PUT /api/1/import` (Import data from a file path) ✅ Migrated to `POST /api/v2/data/import`
-- [x] `GET /api/1/snapshots/<int:timestamp>` (Get a DB snapshot) ✅ Migrated to `GET /api/v2/snapshots/{timestamp}`
-- [x] `PUT /api/1/snapshots` (Import a DB snapshot via file paths) ✅ Migrated to `PUT /api/v2/snapshots/`
-- [x] `POST /api/1/snapshots` (Import a DB snapshot via file upload) ✅ Migrated to `POST /api/v2/snapshots/`
-- [x] `PATCH /api/1/snapshots/<int:timestamp>` (Edit a DB snapshot) ✅ Migrated to `PATCH /api/v2/snapshots/{timestamp}`
-- [x] `DELETE /api/1/snapshots/<int:timestamp>` (Delete a DB snapshot) ✅ Migrated to `DELETE /api/v2/snapshots/{timestamp}`
+  - [ ] Search the codebase for `gevent.lock.Semaphore`.
+  - [ ] Replace each instance with an `anyio.Semaphore`. Note that `anyio` locks must be used within an `async` context (`async with lock:`).
 
-#### **Miscellaneous**
+- [ ] **Network Calls:** Refactor blocking network calls.
 
-- [x] `GET /api/1/ping` (Ping the server) ✅ Migrated to `GET /api/v2/info/ping`
-- [x] `GET /api/1/info` (Get application info) ✅ Migrated to `GET /api/v2/info/info`
-- [x] `GET /api/1/watchers` (Get premium watchers) ✅ Migrated to `GET /api/v2/watchers/`
-- [x] `PUT /api/1/watchers` (Add premium watchers) ✅ Migrated to `PUT /api/v2/watchers/`
-- [x] `PATCH /api/1/watchers` (Edit premium watchers) ✅ Migrated to `PATCH /api/v2/watchers/`
-- [x] `DELETE /api/1/watchers` (Delete premium watchers) ✅ Migrated to `DELETE /api/v2/watchers/`
-- [x] `POST /api/1/cache/<string:cache_type>/clear` (Clear icon or avatar cache) ✅ Migrated to `POST /api/v2/cache/{cache_type}/clear`
-- [x] `POST /api/1/wallet/transfer/token` (Prepare a token transfer) ✅ Migrated to `POST /api/v2/wallet/transfer/token`
-- [x] `POST /api/1/wallet/transfer/native` (Prepare a native asset transfer) ✅ Migrated to `POST /api/v2/wallet/transfer/native`
-- [x] `POST /api/1/wallet/interacted` (Check if two addresses have interacted) ✅ Migrated to `POST /api/v2/wallet/interacted`
-- [x] `POST /api/1/wallet/balance` (Fetch token balance for an address) ✅ Migrated to `POST /api/v2/wallet/balance`
-- [x] `POST /api/1/calendar` (Query calendar events) ✅ Migrated to `POST /api/v2/calendar/`
-- [x] `PUT /api/1/calendar` (Create a calendar entry) ✅ Migrated to `PUT /api/v2/calendar/`
-- [x] `DELETE /api/1/calendar` (Delete a calendar entry) ✅ Migrated to `DELETE /api/v2/calendar/`
-- [x] `PATCH /api/1/calendar` (Update a calendar entry) ✅ Migrated to `PATCH /api/v2/calendar/`
-- [x] `POST /api/1/calendar/reminders` (Query calendar reminders for an event) ✅ Migrated to `POST /api/v2/calendar/reminders`
-- [x] `PUT /api/1/calendar/reminders` (Create calendar reminders) ✅ Migrated to `PUT /api/v2/calendar/reminders`
-- [x] `DELETE /api/1/calendar/reminders` (Delete a calendar reminder) ✅ Migrated to `DELETE /api/v2/calendar/reminders`
-- [x] `PATCH /api/1/calendar/reminders` (Update a calendar reminder) ✅ Migrated to `PATCH /api/v2/calendar/reminders`
+  - [ ] Identify all places that use the synchronous `requests` library.
+  - [ ] Replace them with an async HTTP client like `httpx`.
+  - [ ] This is critical in modules under `exchanges/`, `externalapis/`, and `oracles/`.
+
+- [ ] **Entry Point:** Switch the web server to run in a standard `asyncio` context.
+  - [ ] Modify `api/v2/run.py` to use a standard `uvicorn` worker instead of a `gevent` worker. The `anyio` backend will handle the event loop.
+
+#### **Phase 3: Decompose God Objects (`Rotkehlchen` and `DBHandler`)**
+
+As you migrate the DAL in Phase 1, you will naturally start this process.
+
+- [ ] **`DBHandler` Decomposition:**
+
+  - [ ] For every method in `DBHandler`, ensure its functionality is fully moved into one or more `Repository` classes.
+  - [ ] For example, `get_manually_tracked_balances` should be in a `ManualBalanceRepository`. `add_exchange` should be part of an `ExchangeCredentialsRepository`.
+  - [ ] The ultimate goal is to delete `db/dbhandler.py`. Mark it as complete only when no part of the codebase imports it.
+
+- [ ] **`Rotkehlchen` Class Decomposition:**
+
+  - [ ] Analyze the public methods of `rotkehlchen/rotkehlchen.py`.
+  - [ ] Group methods by domain/feature (e.g., `process_history`, `query_balances`, `add_exchange`).
+  - [ ] For each group, create a corresponding `Service` class in `api/v2/services/`.
+  - [ ] Move the business logic from `rotkehlchen.py` into the new service.
+  - [ ] Refactor the service to take its dependencies (Repositories, other services) in its constructor. It should **not** have a reference to the main `rotkehlchen` object.
+  - [ ] Update the corresponding FastAPI endpoint in `api/v2/routers/` to depend on the new service.
+
+- [ ] **`DataHandler` Decomposition:**
+  - [ ] The `DataHandler` class is another potential god object. Apply the same decomposition process: identify responsibilities, create services, and refactor callers.
+
+#### **Phase 4: Finalize the API and Deprecate v1**
+
+- [ ] **Endpoint Parity Check:**
+
+  - [ ] Create a spreadsheet or document listing every single v1 API endpoint from `api/v1/resources.py`.
+  - [ ] For each v1 endpoint, map it to its new v2 equivalent in `api/v2/routers/`.
+  - [ ] Identify any v1 endpoints that have not been migrated and prioritize their implementation in v2.
+
+- [ ] **Update API Clients:**
+
+  - [ ] Ensure the frontend application (or any other API client) is updated to use only the v2 endpoints.
+
+- [ ] **Remove v1 API Code (Eventually):**
+  - [ ] Once you have confirmed no clients are using the v1 API, you can proceed with deletion.
+  - [ ] Mark the entire `api/v1/` directory for deletion.
+  - [ ] Mark `api/server.py` for deletion.
+
+#### **Phase 5: Final Review and Cleanup**
+
+- [ ] **Code Review:** Perform a full-codebase search for any remaining `gevent` imports or usages and remove them.
+- [ ] **Dependency Review:** Check `pyproject.toml` and remove `gevent` and `greenlet`.
+- [ ] **Configuration Cleanup:** Remove any configuration options that were specific to the old Flask/gevent setup.
+- [ ] **Final Testing:** Run the entire test suite to ensure no regressions were introduced during the final cleanup phase.
+- [ ] **Documentation:** Update any developer documentation, architecture diagrams, or READMEs to reflect the new `FastAPI` + `SQLModel` + `anyio` architecture.

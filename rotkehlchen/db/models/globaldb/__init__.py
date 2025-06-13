@@ -6,11 +6,6 @@ Example:
 """
 
 # Base class
-from rotkehlchen.db.models.globaldb.base import Base
-
-# Enums
-from rotkehlchen.db.models.globaldb.enums import AssetType, PriceHistorySourceType, TokenKind
-
 # Asset models
 from rotkehlchen.db.models.globaldb.assets import (
     AssetCollection,
@@ -22,6 +17,16 @@ from rotkehlchen.db.models.globaldb.assets import (
     UnderlyingTokensList,
     UserOwnedAsset,
 )
+from rotkehlchen.db.models.globaldb.base import Base
+
+# Cache models
+from rotkehlchen.db.models.globaldb.cache import GeneralCache, PriceHistory, UniqueCache
+
+# Contract models
+from rotkehlchen.db.models.globaldb.contracts import ContractABI, ContractData
+
+# Enums
+from rotkehlchen.db.models.globaldb.enums import AssetType, PriceHistorySourceType, TokenKind
 
 # Mapping models
 from rotkehlchen.db.models.globaldb.mappings import (
@@ -30,17 +35,11 @@ from rotkehlchen.db.models.globaldb.mappings import (
     LocationUnsupportedAsset,
 )
 
-# Cache models
-from rotkehlchen.db.models.globaldb.cache import GeneralCache, PriceHistory, UniqueCache
-
-# Contract models
-from rotkehlchen.db.models.globaldb.contracts import ContractABI, ContractData
+# Miscellaneous models
+from rotkehlchen.db.models.globaldb.misc import BinancePair, GlobalAddressBook
 
 # Settings models
 from rotkehlchen.db.models.globaldb.settings import DefaultRPCNode, GlobalSettings
-
-# Miscellaneous models
-from rotkehlchen.db.models.globaldb.misc import BinancePair, GlobalAddressBook
 
 __all__ = [
     # Base

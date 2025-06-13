@@ -1,8 +1,7 @@
 """Miscellaneous models for global database using SQLModel"""
 
-from typing import Optional
 
-from sqlalchemy import INTEGER, TEXT, VARCHAR, Column, ForeignKey
+from sqlalchemy import TEXT, Column, ForeignKey
 from sqlmodel import Field
 
 from rotkehlchen.db.models.globaldb.base import Base
@@ -14,9 +13,9 @@ class GlobalAddressBook(Base, table=True):
 
     name: str = Field(sa_column=Column(TEXT, nullable=False))
     address: str = Field(sa_column=Column(TEXT, primary_key=True, nullable=False))
-    blockchain: Optional[str] = Field(
+    blockchain: str | None = Field(
         default=None,
-        sa_column=Column(TEXT, primary_key=True)
+        sa_column=Column(TEXT, primary_key=True),
     )
 
     def __repr__(self) -> str:

@@ -32,7 +32,7 @@ class Eth2Validator(Base, table=True):
     daily_staking_details: list['Eth2DailyStakingDetails'] = Relationship(back_populates='validator')
 
     def __repr__(self) -> str:
-        return f"<Eth2Validator(identifier={self.identifier}, validator_index={self.validator_index})>"
+        return f'<Eth2Validator(identifier={self.identifier}, validator_index={self.validator_index})>'
 
 
 class Eth2DailyStakingDetails(Base, table=True):
@@ -54,7 +54,7 @@ class Eth2DailyStakingDetails(Base, table=True):
     validator: 'Eth2Validator' = Relationship(back_populates='daily_staking_details')
 
     def __repr__(self) -> str:
-        return f"<Eth2DailyStakingDetails(validator_index={self.validator_index}, timestamp={self.timestamp})>"
+        return f'<Eth2DailyStakingDetails(validator_index={self.validator_index}, timestamp={self.timestamp})>'
 
 
 class EthStakingEventInfo(Base, table=True):
@@ -76,7 +76,7 @@ class EthStakingEventInfo(Base, table=True):
     history_event: Optional['HistoryEvent'] = Relationship()
 
     def __repr__(self) -> str:
-        return f"<EthStakingEventInfo(identifier={self.identifier}, validator_index={self.validator_index})>"
+        return f'<EthStakingEventInfo(identifier={self.identifier}, validator_index={self.validator_index})>'
 
 
 class EthValidatorsDataCache(Base, table=True):
@@ -100,4 +100,4 @@ class EthValidatorsDataCache(Base, table=True):
     exit_pnl: str = Field(sa_column=Column(TEXT, nullable=False))
 
     def __repr__(self) -> str:
-        return f"<EthValidatorsDataCache(id={self.id}, validator_index={self.validator_index})>"
+        return f'<EthValidatorsDataCache(id={self.id}, validator_index={self.validator_index})>'

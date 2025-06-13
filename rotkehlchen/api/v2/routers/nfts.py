@@ -31,9 +31,9 @@ class NFTResponse(BaseModel):
 
 class ManualPriceRequest(BaseModel):
     """Request model for manual NFT price"""
-    asset: str = Field(..., description="NFT asset identifier")
-    price: str = Field(..., description="Price of the NFT")
-    price_asset: str = Field(..., description="Asset used for pricing")
+    asset: str = Field(..., description='NFT asset identifier')
+    price: str = Field(..., description='Price of the NFT')
+    price_asset: str = Field(..., description='Asset used for pricing')
 
 
 class NFTFilterRequest(BaseModel):
@@ -74,7 +74,7 @@ async def get_nfts(
             result={'task_id': 'mock-task-id'},
             message='NFT query task started',
         )
-    
+
     try:
         result = service.get_all_nfts(ignore_cache=ignore_cache)
         return NFTResponse(result=result)
@@ -86,7 +86,7 @@ async def get_nfts(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get NFTs: {str(e)}',
+            detail=f'Failed to get NFTs: {e!s}',
         ) from e
 
 
@@ -111,7 +111,7 @@ async def get_nft_balances(
             result={'task_id': 'mock-task-id'},
             message='NFT balance query task started',
         )
-    
+
     # Convert addresses
     parsed_addresses = None
     if owner_addresses:
@@ -121,9 +121,9 @@ async def get_nft_balances(
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f'Invalid address format: {str(e)}',
+                detail=f'Invalid address format: {e!s}',
             ) from e
-    
+
     # Create filter query
     filter_query = NFTFilterQuery(
         owner_addresses=parsed_addresses,
@@ -134,7 +134,7 @@ async def get_nft_balances(
         limit=limit,
         offset=offset,
     )
-    
+
     try:
         result = service.get_nft_balances(
             filter_query=filter_query,
@@ -144,7 +144,7 @@ async def get_nft_balances(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get NFT balances: {str(e)}',
+            detail=f'Failed to get NFT balances: {e!s}',
         ) from e
 
 
@@ -161,7 +161,7 @@ async def get_nfts_with_price(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get NFTs with price: {str(e)}',
+            detail=f'Failed to get NFTs with price: {e!s}',
         ) from e
 
 
@@ -187,7 +187,7 @@ async def add_manual_nft_price(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to add manual NFT price: {str(e)}',
+            detail=f'Failed to add manual NFT price: {e!s}',
         ) from e
 
 
@@ -209,5 +209,5 @@ async def delete_manual_nft_price(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to delete manual NFT price: {str(e)}',
+            detail=f'Failed to delete manual NFT price: {e!s}',
         ) from e

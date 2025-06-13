@@ -1,21 +1,21 @@
 """Configuration for v2 API tests"""
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, create_engine
 
 from rotkehlchen.api.v2.app import create_app
-from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.api.v2.dependencies import (
-    get_rotkehlchen,
+    get_accountant,
     get_chains_aggregator,
-    get_exchange_manager,
     get_data_handler,
     get_db_connection,
-    get_accountant,
+    get_exchange_manager,
     get_history_querying_manager,
-    get_task_manager,
+    get_rotkehlchen,
     get_rotki_notifier,
+    get_task_manager,
 )
 from rotkehlchen.db.drivers.gevent import DBConnection
 
@@ -34,11 +34,11 @@ def mock_rotkehlchen():
     mock_rotki.history_querying_manager = MagicMock()
     mock_rotki.rotki_notifier = MagicMock()
     mock_rotki.addressbook_prioritizer = MagicMock()
-    
+
     # Mock the database connection
     mock_db_conn = MagicMock(spec=DBConnection)
     mock_rotki.data.db.conn = mock_db_conn
-    
+
     return mock_rotki
 
 
@@ -46,7 +46,7 @@ def mock_rotkehlchen():
 def test_database():
     """Create test database"""
     # Create in-memory SQLite database for testing
-    engine = create_engine("sqlite:///:memory:")
+    engine = create_engine('sqlite:///:memory:')
     # TODO: Initialize schema
     return engine
 
@@ -62,7 +62,7 @@ def db_session(test_database):
 def app(mock_rotkehlchen, db_session):
     """Create FastAPI app for testing with mocked dependencies"""
     app = create_app()
-    
+
     # Override all the dependencies
     app.dependency_overrides[get_rotkehlchen] = lambda: mock_rotkehlchen
     app.dependency_overrides[get_chains_aggregator] = lambda: mock_rotkehlchen.chains_aggregator
@@ -73,14 +73,14 @@ def app(mock_rotkehlchen, db_session):
     app.dependency_overrides[get_history_querying_manager] = lambda: mock_rotkehlchen.history_querying_manager
     app.dependency_overrides[get_task_manager] = lambda: mock_rotkehlchen.task_manager
     app.dependency_overrides[get_rotki_notifier] = lambda: mock_rotkehlchen.rotki_notifier
-    
+
     # Mock the user authentication
     async def mock_logged_in_user():
-        return "testuser"
-    
+        return 'testuser'
+
     from rotkehlchen.api.v2.dependencies import require_logged_in_user
     app.dependency_overrides[require_logged_in_user] = mock_logged_in_user
-    
+
     return app
 
 
@@ -93,18 +93,18 @@ def client(app):
 @pytest.fixture
 def auth_headers():
     """Mock authentication headers"""
-    return {"X-API-Key": "test-api-key"}
+    return {'X-API-Key': 'test-api-key'}
 
 
 @pytest.fixture
 def mock_auth(app, monkeypatch):
     """Mock authentication for tests"""
     async def mock_require_logged_in_user(*args, **kwargs):
-        return "testuser"
-    
+        return 'testuser'
+
     # Patch the authentication dependency
     monkeypatch.setattr(
-        "rotkehlchen.api.v2.dependencies.require_logged_in_user",
+        'rotkehlchen.api.v2.dependencies.require_logged_in_user',
         mock_require_logged_in_user,
     )
     return app

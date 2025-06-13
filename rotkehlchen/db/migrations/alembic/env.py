@@ -5,15 +5,13 @@ It's designed to work alongside the existing manual upgrade system.
 """
 import logging
 from logging.config import fileConfig
-from pathlib import Path
-from typing import Any
 
 from alembic import context
 from sqlalchemy import create_engine, pool
 from sqlmodel import SQLModel
 
-from rotkehlchen.db.models.user import *  # noqa: F401,F403 - Import all models
-from rotkehlchen.db.models.globaldb import *  # noqa: F401,F403 - Import all models
+from rotkehlchen.db.models.globaldb import *  # noqa: F403 - Import all models
+from rotkehlchen.db.models.user import *  # noqa: F403 - Import all models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -40,7 +38,7 @@ def get_url() -> str:
     """Get database URL from environment or config."""
     # In production, this would read from Rotkehlchen's config
     # For now, we'll use a placeholder that should be overridden
-    return config.get_main_option("sqlalchemy.url")
+    return config.get_main_option('sqlalchemy.url')
 
 
 def run_migrations_offline() -> None:
@@ -59,7 +57,7 @@ def run_migrations_offline() -> None:
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
+        dialect_opts={'paramstyle': 'named'},
         render_as_batch=True,  # SQLite compatibility
     )
 
@@ -75,7 +73,7 @@ def run_migrations_online() -> None:
     """
     configuration = config.get_section(config.config_ini_section, {})
     configuration['url'] = get_url()
-    
+
     connectable = create_engine(
         configuration['url'],
         poolclass=pool.NullPool,

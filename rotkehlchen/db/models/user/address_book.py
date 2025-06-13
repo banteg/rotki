@@ -1,7 +1,7 @@
 """Address book models for user database using SQLModel"""
 
 
-from sqlalchemy import TEXT, VARCHAR, Column
+from sqlalchemy import TEXT, Column
 from sqlmodel import Field
 
 from rotkehlchen.db.models.user.base import Base

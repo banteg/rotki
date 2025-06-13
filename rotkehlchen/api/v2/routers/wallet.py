@@ -6,7 +6,6 @@ from pydantic import BaseModel
 
 from rotkehlchen.api.v2.dependencies import require_logged_in_user
 from rotkehlchen.api.v2.services.wallet import WalletService
-from rotkehlchen.types import Timestamp
 
 router = APIRouter()
 
@@ -59,7 +58,7 @@ async def get_wallet_balance(
             address=address,
             blockchain=blockchain,
         )
-        
+
         return WalletResponse(result=balance)
     except ValueError as e:
         raise HTTPException(
@@ -81,7 +80,7 @@ async def query_wallet_balances(
             blockchain=request_data.blockchain,
             ignore_cache=request_data.ignore_cache,
         )
-        
+
         return WalletResponse(result=balances)
     except ValueError as e:
         raise HTTPException(
@@ -103,7 +102,7 @@ async def get_interacted_addresses(
             address=address,
             blockchain=blockchain,
         )
-        
+
         return WalletResponse(result=interacted)
     except ValueError as e:
         raise HTTPException(
@@ -144,7 +143,7 @@ async def prepare_native_transfer(
             amount=amount,
             blockchain=blockchain,
         )
-        
+
         return WalletResponse(result=tx_data)
     except ValueError as e:
         raise HTTPException(
@@ -165,7 +164,7 @@ async def post_native_transfer(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='Token must be null for native transfers',
         )
-    
+
     return await prepare_native_transfer(
         _,
         service,
@@ -195,7 +194,7 @@ async def prepare_token_transfer(
             amount=amount,
             blockchain=blockchain,
         )
-        
+
         return WalletResponse(result=tx_data)
     except ValueError as e:
         raise HTTPException(
@@ -216,7 +215,7 @@ async def post_token_transfer(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail='Token is required for token transfers',
         )
-    
+
     return await prepare_token_transfer(
         _,
         service,

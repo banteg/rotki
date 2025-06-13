@@ -1,7 +1,7 @@
 """Names router for ENS and addressbook endpoints"""
 from typing import TYPE_CHECKING, Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from rotkehlchen.api.v2.dependencies import (
@@ -15,9 +15,8 @@ from rotkehlchen.api.v2.services.names import NamesService
 from rotkehlchen.chain.evm.types import string_to_evm_address
 from rotkehlchen.db.drivers.gevent import DBConnection
 from rotkehlchen.db.filtering import AddressbookFilterQuery
-from rotkehlchen.types import AddressbookType
 from rotkehlchen.errors.misc import InputError
-from rotkehlchen.types import ChecksumEvmAddress, OptionalChainAddress
+from rotkehlchen.types import AddressbookType, OptionalChainAddress
 
 if TYPE_CHECKING:
     from rotkehlchen.chain.aggregator import ChainsAggregator
@@ -108,7 +107,7 @@ async def reverse_ens_lookup(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f'Invalid address format: {str(e)}',
+            detail=f'Invalid address format: {e!s}',
         ) from e
 
     try:
@@ -125,7 +124,7 @@ async def reverse_ens_lookup(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to perform reverse ENS lookup: {str(e)}',
+            detail=f'Failed to perform reverse ENS lookup: {e!s}',
         ) from e
 
 
@@ -157,7 +156,7 @@ async def resolve_ens_name(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to resolve ENS name: {str(e)}',
+            detail=f'Failed to resolve ENS name: {e!s}',
         ) from e
 
 
@@ -179,7 +178,7 @@ async def get_ens_avatar(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get ENS avatar: {str(e)}',
+            detail=f'Failed to get ENS avatar: {e!s}',
         ) from e
 
 
@@ -210,7 +209,7 @@ async def search_names(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to search names: {str(e)}',
+            detail=f'Failed to search names: {e!s}',
         ) from e
 
 
@@ -249,7 +248,7 @@ async def get_addressbook_entries(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to get addressbook entries: {str(e)}',
+            detail=f'Failed to get addressbook entries: {e!s}',
         ) from e
 
 
@@ -287,7 +286,7 @@ async def add_addressbook_entries(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to add addressbook entries: {str(e)}',
+            detail=f'Failed to add addressbook entries: {e!s}',
         ) from e
 
 
@@ -325,7 +324,7 @@ async def update_addressbook_entries(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to update addressbook entries: {str(e)}',
+            detail=f'Failed to update addressbook entries: {e!s}',
         ) from e
 
 
@@ -374,5 +373,5 @@ async def delete_addressbook_entries(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to delete addressbook entries: {str(e)}',
+            detail=f'Failed to delete addressbook entries: {e!s}',
         ) from e

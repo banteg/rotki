@@ -47,7 +47,7 @@ async def get_snapshots(
 ) -> SnapshotsResponse:
     """Get all database snapshots"""
     snapshots_list = snapshots.get_all_snapshots()
-    
+
     return SnapshotsResponse(result=snapshots_list)
 
 
@@ -63,7 +63,7 @@ async def create_snapshot(
             name=snapshot_data.name,
             description=snapshot_data.description,
         )
-        
+
         return SnapshotsResponse(
             result=snapshot_info,
             message='Snapshot created successfully',
@@ -71,7 +71,7 @@ async def create_snapshot(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to create snapshot: {str(e)}',
+            detail=f'Failed to create snapshot: {e!s}',
         ) from e
 
 
@@ -79,17 +79,17 @@ async def create_snapshot(
 async def get_snapshot(
     _: Annotated[str, Depends(require_logged_in_user)],
     snapshots: Annotated[SnapshotsService, Depends(get_snapshots_service)],
-    timestamp: int = Path(..., description="Timestamp of the snapshot"),
+    timestamp: int = Path(..., description='Timestamp of the snapshot'),
 ) -> SnapshotsResponse:
     """Get a DB snapshot - Compatible with v1 GET /api/1/snapshots/<int:timestamp>"""
     snapshot = snapshots.get_snapshot(Timestamp(timestamp))
-    
+
     if not snapshot:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Snapshot not found',
         )
-    
+
     return SnapshotsResponse(result=snapshot)
 
 
@@ -97,17 +97,17 @@ async def get_snapshot(
 async def delete_snapshot(
     _: Annotated[str, Depends(require_logged_in_user)],
     snapshots: Annotated[SnapshotsService, Depends(get_snapshots_service)],
-    timestamp: int = Path(..., description="Timestamp of the snapshot"),
+    timestamp: int = Path(..., description='Timestamp of the snapshot'),
 ) -> SnapshotsResponse:
     """Delete a DB snapshot - Compatible with v1 DELETE /api/1/snapshots/<int:timestamp>"""
     success = snapshots.delete_snapshot(Timestamp(timestamp))
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail='Snapshot not found',
         )
-    
+
     return SnapshotsResponse(
         result={'success': True},
         message='Snapshot deleted successfully',
@@ -118,18 +118,18 @@ async def delete_snapshot(
 async def restore_snapshot(
     _: Annotated[str, Depends(require_logged_in_user)],
     snapshots: Annotated[SnapshotsService, Depends(get_snapshots_service)],
-    timestamp: int = Path(..., description="Timestamp of the snapshot"),
+    timestamp: int = Path(..., description='Timestamp of the snapshot'),
 ) -> SnapshotsResponse:
     """Restore from a snapshot"""
     try:
         success = snapshots.restore_snapshot(Timestamp(timestamp))
-        
+
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail='Snapshot not found',
             )
-        
+
         return SnapshotsResponse(
             result={'success': True},
             message='Snapshot restored successfully',
@@ -137,11 +137,12 @@ async def restore_snapshot(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to restore snapshot: {str(e)}',
+            detail=f'Failed to restore snapshot: {e!s}',
         ) from e
 
+
 # v1 compatibility endpoints
-@router.put("/")
+@router.put('/')
 async def import_snapshot_via_path(
     request_data: SnapshotImportRequest,
     _: Annotated[str, Depends(require_logged_in_user)],
@@ -153,10 +154,10 @@ async def import_snapshot_via_path(
             path=request_data.path,
             password=request_data.password,
         )
-        
+
         return SnapshotsResponse(
             result=result,
-            message="Snapshot imported successfully",
+            message='Snapshot imported successfully',
         )
     except ValueError as e:
         raise HTTPException(
@@ -170,7 +171,7 @@ async def import_snapshot_via_path(
         ) from e
 
 
-@router.post("/")
+@router.post('/')
 async def import_snapshot_via_upload(
     file: UploadFile = File(...),
     password: str | None = Form(None),
@@ -181,16 +182,16 @@ async def import_snapshot_via_upload(
     try:
         # Read file content
         content = await file.read()
-        
+
         result = service.import_snapshot_from_upload(
             content=content,
             filename=file.filename,
             password=password,
         )
-        
+
         return SnapshotsResponse(
             result=result,
-            message="Snapshot imported successfully",
+            message='Snapshot imported successfully',
         )
     except ValueError as e:
         raise HTTPException(
@@ -199,7 +200,7 @@ async def import_snapshot_via_upload(
         ) from e
 
 
-@router.patch("/{timestamp}")
+@router.patch('/{timestamp}')
 async def edit_snapshot(
     timestamp: int,
     request_data: SnapshotEditRequest,
@@ -213,16 +214,16 @@ async def edit_snapshot(
             name=request_data.name,
             description=request_data.description,
         )
-        
+
         if result:
             return SnapshotsResponse(
-                result={"success": True},
-                message="Snapshot updated successfully",
+                result={'success': True},
+                message='Snapshot updated successfully',
             )
         else:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Snapshot with timestamp {timestamp} not found",
+                detail=f'Snapshot with timestamp {timestamp} not found',
             )
     except ValueError as e:
         raise HTTPException(

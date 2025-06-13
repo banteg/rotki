@@ -223,7 +223,7 @@ async def edit_exchange(
             kraken_account_type=edit_data.kraken_account_type,
             binance_markets=edit_data.binance_markets,
         )
-        
+
         return ExchangeResponse(
             result={'success': True},
             message='Exchange updated successfully',
@@ -242,7 +242,7 @@ async def purge_all_exchange_data(
 ) -> ExchangeResponse:
     """Purge all exchange data - Compatible with v1 DELETE /api/1/exchanges/data"""
     exchange_service.purge_all_exchange_data()
-    
+
     return ExchangeResponse(
         result={'success': True},
         message='All exchange data purged successfully',
@@ -263,9 +263,9 @@ async def purge_exchange_data(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f'Invalid exchange location: {location}',
         )
-    
+
     exchange_service.purge_exchange_data(location_enum)
-    
+
     return ExchangeResponse(
         result={'success': True},
         message=f'Exchange data purged for {location}',
@@ -280,7 +280,7 @@ async def get_binance_pairs(
 ) -> ExchangeResponse:
     """Get all available Binance pairs - Compatible with v1 GET /api/1/exchanges/binance/pairs"""
     pairs = exchange_service.get_binance_pairs()
-    
+
     return ExchangeResponse(result={'pairs': pairs})
 
 
@@ -292,7 +292,7 @@ async def get_user_binance_pairs(
 ) -> ExchangeResponse:
     """Get user-configured Binance pairs - Compatible with v1 GET /api/1/exchanges/binance/pairs/<name>"""
     user_pairs = exchange_service.get_user_binance_pairs(name)
-    
+
     return ExchangeResponse(result={'pairs': user_pairs})
 
 
@@ -312,13 +312,13 @@ async def get_exchange_savings_history(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f'Invalid exchange location: {location}',
         )
-    
+
     history = exchange_service.get_exchange_savings_history(
         location=location_enum,
         from_timestamp=from_timestamp,
         to_timestamp=to_timestamp,
     )
-    
+
     return ExchangeResponse(result=history)
 
 
@@ -339,12 +339,12 @@ async def query_exchange_events(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f'Invalid exchange location: {location}',
         )
-    
+
     events = exchange_service.query_exchange_events(
         location=location_enum,
         from_timestamp=from_timestamp,
         to_timestamp=to_timestamp,
         event_type=event_type,
     )
-    
+
     return ExchangeResponse(result={'events': events})

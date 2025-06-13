@@ -108,13 +108,13 @@ async def get_specific_blockchain_balance(
 ) -> BalanceResponse:
     """Get balances for a specific blockchain - Compatible with v1 GET /api/1/balances/blockchains/<blockchain>"""
     blockchain_balances = balances_service._get_blockchain_balances()
-    
+
     location = Location(blockchain.upper())
     if location in blockchain_balances:
         result = {blockchain: blockchain_balances[location]}
     else:
         result = {}
-    
+
     return BalanceResponse(result={'balances': result})
 
 
@@ -200,7 +200,7 @@ async def add_manual_balances_bulk(
 ) -> BalanceResponse:
     """Add multiple manually tracked balances - Compatible with v1 PUT /api/1/balances/manual"""
     added_balances = []
-    
+
     for balance_data in balances_data:
         balance = balances_service.add_manual_balance(
             asset=Asset(balance_data.asset),
@@ -214,7 +214,7 @@ async def add_manual_balances_bulk(
             'amount': str(balance.amount),
             'location': balance.location.value,
         })
-    
+
     return BalanceResponse(
         result={'balances': added_balances},
         message=f'{len(added_balances)} manual balances added successfully',
@@ -236,7 +236,7 @@ async def edit_manual_balance(
         location=Location(balance_data.location),
         tags=balance_data.tags,
     )
-    
+
     return BalanceResponse(
         result={
             'identifier': balance.identifier,
@@ -256,7 +256,7 @@ async def delete_manual_balances(
 ) -> BalanceResponse:
     """Delete manually tracked balances - Compatible with v1 DELETE /api/1/balances/manual"""
     deleted_count = balances_service.delete_manual_balances(identifiers)
-    
+
     return BalanceResponse(
         result={'deleted': deleted_count},
         message=f'{deleted_count} manual balances deleted successfully',
@@ -291,7 +291,7 @@ async def get_historical_balance_v1(
 ) -> BalanceResponse:
     """Get historical balance for all assets at a timestamp - Compatible with v1 POST /api/1/balances/historical"""
     balances = balances_service.get_historical_balance_for_all_assets(timestamp)
-    
+
     return BalanceResponse(
         result={
             'assets': balances,
@@ -315,7 +315,7 @@ async def get_historical_asset_balance(
         from_timestamp=from_timestamp,
         to_timestamp=to_timestamp,
     )
-    
+
     return BalanceResponse(result={'entries': amounts})
 
 
@@ -326,7 +326,7 @@ async def get_historical_netvalue(
 ) -> BalanceResponse:
     """Get historical net value - Compatible with v1 POST /api/1/balances/historical/netvalue"""
     netvalue_data = balances_service.get_historical_netvalue()
-    
+
     return BalanceResponse(
         result={
             'times': netvalue_data['times'],

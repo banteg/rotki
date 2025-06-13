@@ -34,7 +34,7 @@ async def get_protocol_refresh_status(
 ) -> ProtocolsResponse:
     """Get a list of protocols with refreshable cache - Compatible with v1 GET /api/1/protocols/data/refresh"""
     status = service.get_refresh_status()
-    
+
     return ProtocolsResponse(result=status)
 
 
@@ -50,7 +50,7 @@ async def refresh_protocol_data(
             protocols=request_data.protocols,
             force_refresh=request_data.force_refresh,
         )
-        
+
         return ProtocolsResponse(
             result=result,
             message='Protocol data refresh initiated',

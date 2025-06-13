@@ -1,13 +1,10 @@
 """Main FastAPI application setup"""
-import argparse
 import logging
 from contextlib import asynccontextmanager
-from typing import Any
 
 import gevent
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import Session
 
 from rotkehlchen.api.v2.config import Settings
 from rotkehlchen.api.v2.routers import (
@@ -23,8 +20,8 @@ from rotkehlchen.api.v2.routers import (
     data,
     defi,
     eth2,
-    exchanges,
     exchange_rates,
+    exchanges,
     external_services,
     history,
     import_export,
@@ -51,9 +48,7 @@ from rotkehlchen.api.v2.routers import (
     watchers,
 )
 from rotkehlchen.api.v2.websocket import websocket_endpoint
-from rotkehlchen.api.websockets.notifier import RotkiNotifier
 from rotkehlchen.args import app_args
-from rotkehlchen.db.drivers.gevent import DBConnection
 from rotkehlchen.logging import RotkehlchenLogsAdapter, configure_logging
 from rotkehlchen.rotkehlchen import Rotkehlchen
 from rotkehlchen.utils.version_check import get_current_version
@@ -72,22 +67,22 @@ async def lifespan(app: FastAPI):  # noqa: RUF029
     )
     args = arg_parser.parse_args()
     configure_logging(args)
-    
+
     log.info('Starting Rotki v2 API server')
-    
+
     # Create Rotkehlchen instance
     rotkehlchen = Rotkehlchen(args)
     app.state.rotkehlchen = rotkehlchen
-    
+
     # Store the notifier for WebSocket connections
     app.state.rotki_notifier = rotkehlchen.rotki_notifier
-    
+
     # Start the main loop
     main_loop_greenlet = rotkehlchen.start()
     app.state.main_loop_greenlet = main_loop_greenlet
-    
+
     yield
-    
+
     # Cleanup on shutdown
     log.info('Shutting down Rotki v2 API server')
     rotkehlchen.shutdown()
@@ -165,5 +160,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def websocket(websocket: WebSocket):
         """WebSocket endpoint for real-time updates"""
         await websocket_endpoint(websocket)
-    
+
     return app

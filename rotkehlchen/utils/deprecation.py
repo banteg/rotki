@@ -1,12 +1,13 @@
 """Deprecation utilities for marking deprecated functions and methods."""
 import functools
 import warnings
-from typing import Any, Callable, TypeVar, cast
+from collections.abc import Callable
+from typing import Any, TypeVar, cast
 
 F = TypeVar('F', bound=Callable[..., Any])
 
 
-def deprecated(reason: str = "", version: str = "") -> Callable[[F], F]:
+def deprecated(reason: str = '', version: str = '') -> Callable[[F], F]:
     """Decorator to mark functions/methods as deprecated.
     
     Args:
@@ -21,16 +22,16 @@ def deprecated(reason: str = "", version: str = "") -> Callable[[F], F]:
     def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            message = f"Call to deprecated {func.__name__!r}"
+            message = f'Call to deprecated {func.__name__!r}'
             if version:
-                message += f" (deprecated since version {version})"
+                message += f' (deprecated since version {version})'
             if reason:
-                message += f". {reason}"
+                message += f'. {reason}'
             warnings.warn(
                 message,
                 category=DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             return func(*args, **kwargs)
-        return cast(F, wrapper)
+        return cast('F', wrapper)
     return decorator

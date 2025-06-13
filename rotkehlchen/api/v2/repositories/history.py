@@ -3,9 +3,9 @@
 Handles all database operations related to transaction history.
 """
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
-from sqlalchemy import and_, cast, func, or_, text
+from sqlalchemy import cast, func, or_, text
 from sqlalchemy.sql import Select
 from sqlmodel import Session, select
 
@@ -26,7 +26,7 @@ from rotkehlchen.types import Location, Timestamp
 
 class HistoryEventFilter:
     """Filter criteria for history events queries."""
-    
+
     def __init__(
         self,
         event_identifiers: list[str] | None = None,
@@ -66,10 +66,10 @@ class HistoryEventFilter:
 
 class HistoryRepository(BaseRepository[HistoryEvent]):
     """Repository for history-related database operations."""
-    
+
     def __init__(self, session: Session):
         super().__init__(session, HistoryEvent)
-    
+
     def _apply_filters(
         self,
         statement: Select[tuple[HistoryEvent]],
@@ -79,39 +79,39 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
         # Basic filters
         if filters.event_identifiers:
             statement = statement.where(HistoryEvent.event_identifier.in_(filters.event_identifiers))
-        
+
         if filters.from_ts:
             statement = statement.where(HistoryEvent.timestamp >= filters.from_ts)
-        
+
         if filters.to_ts:
             statement = statement.where(HistoryEvent.timestamp <= filters.to_ts)
-        
+
         if filters.location:
             statement = statement.where(HistoryEvent.location == filters.location.serialize_for_db())
-        
+
         if filters.locations:
             location_values = [loc.serialize_for_db() for loc in filters.locations]
             statement = statement.where(HistoryEvent.location.in_(location_values))
-        
+
         if filters.asset:
             statement = statement.where(HistoryEvent.asset == filters.asset)
-        
+
         if filters.assets:
             statement = statement.where(HistoryEvent.asset.in_(filters.assets))
-        
+
         if filters.event_types:
             statement = statement.where(HistoryEvent.type.in_(filters.event_types))
-        
+
         if filters.event_subtypes:
             statement = statement.where(HistoryEvent.subtype.in_(filters.event_subtypes))
-        
+
         if filters.entry_types:
             entry_type_values = [et.serialize_for_db() for et in filters.entry_types]
             statement = statement.where(HistoryEvent.entry_type.in_(entry_type_values))
-        
+
         if filters.exclude_ignored:
             statement = statement.where(HistoryEvent.ignored == 0)
-        
+
         # Address filter - check both location_label and evm_events_info.address
         if filters.addresses:
             statement = statement.outerjoin(EvmEventInfo)
@@ -120,23 +120,23 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
                 EvmEventInfo.address.in_(filters.addresses),
             ]
             statement = statement.where(or_(*address_conditions))
-        
+
         # EVM-specific filters
         if any([filters.tx_hashes, filters.counterparties, filters.products]):
             if EvmEventInfo not in [t.entity for t in statement.froms]:
                 statement = statement.outerjoin(EvmEventInfo)
-            
+
             if filters.tx_hashes:
                 statement = statement.where(EvmEventInfo.tx_hash.in_(filters.tx_hashes))
-            
+
             if filters.counterparties:
                 statement = statement.where(EvmEventInfo.counterparty.in_(filters.counterparties))
-            
+
             if filters.products:
                 statement = statement.where(EvmEventInfo.product.in_(filters.products))
-        
+
         return statement
-    
+
     def get_history_events(
         self,
         filters: HistoryEventFilter,
@@ -152,10 +152,10 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
         from the old DBHistoryEvents class.
         """
         statement = select(HistoryEvent)
-        
+
         # Apply filters
         statement = self._apply_filters(statement, filters)
-        
+
         # Apply ordering
         if ascending:
             statement = statement.order_by(
@@ -167,7 +167,7 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
                 HistoryEvent.timestamp.desc(),
                 HistoryEvent.sequence_index.desc(),
             )
-        
+
         # Handle grouping by event IDs
         if group_by_event_ids:
             # For group by event IDs, we need to limit by unique event_identifiers
@@ -177,7 +177,7 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
                 .distinct()
                 .subquery()
             )
-            
+
             if not has_premium:
                 # Apply limit to the subquery for free users
                 subquery = (
@@ -186,9 +186,9 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
                     .limit(FREE_HISTORY_EVENTS_LIMIT)
                     .subquery()
                 )
-            
+
             statement = statement.where(
-                HistoryEvent.event_identifier.in_(select(subquery.c.event_identifier))
+                HistoryEvent.event_identifier.in_(select(subquery.c.event_identifier)),
             )
         else:
             # Regular limit/offset
@@ -196,13 +196,13 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
                 statement = statement.limit(limit)
             elif not has_premium:
                 statement = statement.limit(FREE_HISTORY_EVENTS_LIMIT)
-            
+
             if offset:
                 statement = statement.offset(offset)
-        
+
         results = self.session.exec(statement)
         return list(results.all())
-    
+
     def get_history_events_count(
         self,
         filters: HistoryEventFilter,
@@ -221,34 +221,33 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
         else:
             # Count all events
             count_statement = select(func.count(HistoryEvent.identifier))
-        
+
         # Apply filters
         count_statement = self._apply_filters(count_statement, filters)
-        
+
         # Get total count without limit
         total_count = self.session.exec(count_statement).one()
-        
+
         # Get count with limit for free users
         if has_premium:
             limited_count = total_count
-        else:
-            if group_by_event_ids:
-                # For grouped events, limit applies to event identifiers
-                limited_statement = (
-                    select(func.count())
-                    .select_from(
-                        select(HistoryEvent.event_identifier)
-                        .distinct()
-                        .limit(FREE_HISTORY_EVENTS_LIMIT)
-                        .subquery()
-                    )
+        elif group_by_event_ids:
+            # For grouped events, limit applies to event identifiers
+            limited_statement = (
+                select(func.count())
+                .select_from(
+                    select(HistoryEvent.event_identifier)
+                    .distinct()
+                    .limit(FREE_HISTORY_EVENTS_LIMIT)
+                    .subquery(),
                 )
-                limited_count = min(total_count, self.session.exec(limited_statement).one())
-            else:
-                limited_count = min(total_count, FREE_HISTORY_EVENTS_LIMIT)
-        
+            )
+            limited_count = min(total_count, self.session.exec(limited_statement).one())
+        else:
+            limited_count = min(total_count, FREE_HISTORY_EVENTS_LIMIT)
+
         return limited_count, total_count
-    
+
     def add_history_event(
         self,
         event: HistoryEvent,
@@ -262,7 +261,7 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
             self.session.add(event)
             self.session.commit()
             self.session.refresh(event)
-            
+
             # Add any mapping values
             if mapping_values:
                 for name, value in mapping_values.items():
@@ -273,12 +272,12 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
                     )
                     self.session.add(mapping)
                 self.session.commit()
-            
+
             return event.identifier
         except Exception:
             self.session.rollback()
             return None
-    
+
     def edit_history_event(
         self,
         event: HistoryEvent,
@@ -286,17 +285,17 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
     ) -> None:
         """Edit an existing history event."""
         self.session.add(event)
-        
+
         if mark_customized:
             # Check if customized mapping exists
             existing_mapping = self.session.exec(
                 select(HistoryEventMapping).where(
                     (HistoryEventMapping.parent_identifier == event.identifier) &
                     (HistoryEventMapping.name == HISTORY_MAPPING_KEY_STATE) &
-                    (HistoryEventMapping.value == HISTORY_MAPPING_STATE_CUSTOMIZED)
-                )
+                    (HistoryEventMapping.value == HISTORY_MAPPING_STATE_CUSTOMIZED),
+                ),
             ).first()
-            
+
             if not existing_mapping:
                 # Add customized mapping
                 mapping = HistoryEventMapping(
@@ -305,9 +304,9 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
                     value=HISTORY_MAPPING_STATE_CUSTOMIZED,
                 )
                 self.session.add(mapping)
-        
+
         self.session.commit()
-    
+
     def delete_events_by_tx_hash(
         self,
         tx_hashes: list[bytes],
@@ -322,33 +321,33 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
                 select(HistoryEventMapping.parent_identifier)
                 .where(
                     (HistoryEventMapping.name == HISTORY_MAPPING_KEY_STATE) &
-                    (HistoryEventMapping.value == HISTORY_MAPPING_STATE_CUSTOMIZED)
+                    (HistoryEventMapping.value == HISTORY_MAPPING_STATE_CUSTOMIZED),
                 )
             )
             customized_ids = list(self.session.exec(customized_query).all())
-        
+
         # Build delete query
         delete_query = (
             select(HistoryEvent)
             .join(EvmEventInfo)
             .where(
                 (EvmEventInfo.tx_hash.in_(tx_hashes)) &
-                (HistoryEvent.location == location.serialize_for_db())
+                (HistoryEvent.location == location.serialize_for_db()),
             )
         )
-        
+
         if customized_ids:
             delete_query = delete_query.where(
-                HistoryEvent.identifier.notin_(customized_ids)
+                HistoryEvent.identifier.notin_(customized_ids),
             )
-        
+
         # Execute delete
         events_to_delete = self.session.exec(delete_query).all()
         for event in events_to_delete:
             self.session.delete(event)
-        
+
         self.session.commit()
-    
+
     def get_customized_event_identifiers(
         self,
         location: Location | None = None,
@@ -358,18 +357,18 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
             select(HistoryEventMapping.parent_identifier)
             .where(
                 (HistoryEventMapping.name == HISTORY_MAPPING_KEY_STATE) &
-                (HistoryEventMapping.value == HISTORY_MAPPING_STATE_CUSTOMIZED)
+                (HistoryEventMapping.value == HISTORY_MAPPING_STATE_CUSTOMIZED),
             )
         )
-        
+
         if location:
             query = (
                 query.join(HistoryEvent)
                 .where(HistoryEvent.location == location.serialize_for_db())
             )
-        
+
         return list(self.session.exec(query).all())
-    
+
     def find_missing_prices(
         self,
         from_ts: Timestamp | None = None,
@@ -385,19 +384,19 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
             .distinct()
             .where(
                 (HistoryEvent.usd_value == None) &
-                (cast(HistoryEvent.amount, text) != '0')
+                (cast(HistoryEvent.amount, text) != '0'),
             )
         )
-        
+
         if from_ts:
             query = query.where(HistoryEvent.timestamp >= from_ts)
-        
+
         if to_ts:
             query = query.where(HistoryEvent.timestamp <= to_ts)
-        
+
         results = self.session.exec(query)
         return [(asset, Timestamp(ts)) for asset, ts in results.all()]
-    
+
     def get_events_by_location_and_period(
         self,
         location: Location,
@@ -413,13 +412,13 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
             event_types=event_types,
         )
         return self.get_history_events(filters)
-    
+
     def find_by_event_identifier(self, event_identifier: str) -> list[HistoryEvent]:
         """Find events by event identifier."""
         statement = select(HistoryEvent).where(HistoryEvent.event_identifier == event_identifier)
         results = self.session.exec(statement)
         return list(results.all())
-    
+
     def find_by_tx_hash(self, tx_hash: bytes) -> list[HistoryEvent]:
         """Find events by transaction hash (for EVM events)."""
         statement = (
@@ -429,7 +428,7 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
         )
         results = self.session.exec(statement)
         return list(results.all())
-    
+
     def find_by_address(self, address: str) -> list[HistoryEvent]:
         """Find all events for an address."""
         statement = (
@@ -437,12 +436,12 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
             .outerjoin(EvmEventInfo)
             .where(
                 (HistoryEvent.location_label == address) |
-                (EvmEventInfo.address == address)
+                (EvmEventInfo.address == address),
             )
         )
         results = self.session.exec(statement)
         return list(results.all())
-    
+
     def find_by_timestamp_range(
         self,
         start: datetime | Timestamp,
@@ -453,14 +452,14 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
         # Convert datetime to timestamp if needed
         start_ts = int(start.timestamp()) if isinstance(start, datetime) else start
         end_ts = int(end.timestamp()) if isinstance(end, datetime) else end
-        
+
         filters = HistoryEventFilter(
             from_ts=start_ts,
             to_ts=end_ts,
             addresses=[address] if address else None,
         )
         return self.get_history_events(filters)
-    
+
     def find_by_type(self, event_type: str, subtype: str | None = None) -> list[HistoryEvent]:
         """Find all events of a specific type."""
         filters = HistoryEventFilter(
@@ -468,27 +467,27 @@ class HistoryRepository(BaseRepository[HistoryEvent]):
             event_subtypes=[subtype] if subtype else None,
         )
         return self.get_history_events(filters)
-    
+
     def find_by(self, **kwargs: Any) -> list[HistoryEvent]:
         """Find events by multiple criteria."""
         statement = select(HistoryEvent)
-        
+
         for key, value in kwargs.items():
             if hasattr(HistoryEvent, key):
                 statement = statement.where(getattr(HistoryEvent, key) == value)
-        
+
         results = self.session.exec(statement)
         return list(results.all())
-    
+
     def get_latest_events(self, limit: int = 100) -> list[HistoryEvent]:
         """Get the latest events."""
         filters = HistoryEventFilter()
         return self.get_history_events(filters, limit=limit, ascending=False)
-    
+
     def exists_by_event_identifier(self, event_identifier: str) -> bool:
         """Check if event exists by event identifier."""
         return len(self.find_by_event_identifier(event_identifier)) > 0
-    
+
     def get_ignored_events(self) -> list[HistoryEvent]:
         """Get all ignored events."""
         statement = select(HistoryEvent).where(HistoryEvent.ignored == 1)

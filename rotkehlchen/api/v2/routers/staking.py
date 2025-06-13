@@ -41,7 +41,7 @@ async def get_kraken_staking(
         from_timestamp=from_timestamp,
         to_timestamp=to_timestamp,
     )
-    
+
     return StakingResponse(result=staking_info)
 
 
@@ -63,10 +63,10 @@ async def query_kraken_staking(
                 from_timestamp=request_data.from_timestamp,
                 to_timestamp=request_data.to_timestamp,
             )
-        
+
         return StakingResponse(result=staking_info)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Failed to query Kraken staking: {str(e)}',
+            detail=f'Failed to query Kraken staking: {e!s}',
         ) from e

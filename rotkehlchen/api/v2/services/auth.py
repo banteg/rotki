@@ -42,26 +42,26 @@ class AuthService:
         """Authenticate using API key"""
         if not api_key or len(api_key) < 32:
             raise AuthenticationError('Invalid API key format')
-        
+
         # Hash the provided API key
         key_hash = self._hash_api_key(api_key)
-        
+
         # Look up the API key in the database
         try:
             api_key_record = self.user_repo.find_api_key_by_hash(key_hash)
-            
+
             if not api_key_record:
                 raise AuthenticationError('Invalid API key')
-            
+
             # Check if key is expired
             if api_key_record.expires_at and api_key_record.expires_at < datetime.now():
                 raise AuthenticationError('API key has expired')
-            
+
             # Update last used timestamp
             api_key_record.last_used = datetime.now()
             self.session.add(api_key_record)
             self.session.commit()
-            
+
             return api_key_record.username
         except Exception:
             # If the API key table doesn't exist or other DB issues
@@ -73,20 +73,20 @@ class AuthService:
         # In rotkehlchen, users are identified by their database existence
         # For now, we'll assume the user exists if we can access the database
         # TODO: Properly integrate with the user system
-        
+
         # Generate a secure random API key
         api_key = secrets.token_urlsafe(32)
-        
+
         # Hash the API key for storage
         key_hash = self._hash_api_key(api_key)
-        
+
         # Store the API key hash in the database
         api_key_record = self.user_repo.create_api_key(
             username=username,
             key_hash=key_hash,
             name=name or f"API Key {datetime.now().strftime('%Y-%m-%d')}",
         )
-        
+
         return {
             'api_key': api_key,  # Return plain key only once
             'key_id': api_key_record.id,
@@ -98,23 +98,23 @@ class AuthService:
         """Revoke an API key"""
         # Hash the API key to find it
         key_hash = self._hash_api_key(api_key)
-        
+
         # Find the API key
         api_key_record = self.user_repo.find_api_key_by_hash(key_hash)
         if not api_key_record:
             return False
-        
+
         # Delete the API key
         return self.user_repo.delete_api_key(api_key_record.id)
-    
+
     def revoke_api_key_by_id(self, key_id: int) -> bool:
         """Revoke an API key by its ID"""
         return self.user_repo.delete_api_key(key_id)
-    
+
     def list_api_keys(self, username: str) -> list[dict[str, Any]]:
         """List all API keys for a user"""
         api_keys = self.user_repo.get_user_api_keys(username)
-        
+
         return [
             {
                 'key_id': key.id,
@@ -125,7 +125,7 @@ class AuthService:
             }
             for key in api_keys
         ]
-    
+
     def _hash_api_key(self, api_key: str) -> str:
         """Hash an API key for secure storage"""
         return hashlib.sha256(api_key.encode()).hexdigest()

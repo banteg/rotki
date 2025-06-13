@@ -78,8 +78,8 @@ Async support         Hacked          Native          Clean
 """)
 
 # Show example API calls
-print("📝 EXAMPLE: Adding blockchain account with ENS name")
-print("-" * 50)
+print('📝 EXAMPLE: Adding blockchain account with ENS name')
+print('-' * 50)
 print("""
 V1 Request:
 POST /api/1/blockchains/eth/accounts
@@ -108,4 +108,4 @@ What happens in v2:
 5. ✅ Each step is small, focused, testable
 """)
 
-print("\n✅ Result: Same API, much better architecture!")
+print('\n✅ Result: Same API, much better architecture!')

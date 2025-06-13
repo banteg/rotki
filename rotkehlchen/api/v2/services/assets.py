@@ -627,30 +627,30 @@ class AssetsService:
     def delete_counterparty_mapping(self, counterparty: str, assets: list[str] | None = None) -> None:
         """Delete counterparty asset mappings"""
         # Would delete from database
-    
+
     def add_to_spam_whitelist(self, token: str) -> None:
         """Add a token to the spam false positive whitelist"""
         # Would store in database
         # For now, just validate the token exists
         if not self.asset_repo.check_asset_exists(token):
             raise ValueError(f'Token {token} not found')
-    
+
     def remove_from_spam_whitelist(self, token: str) -> None:
         """Remove a token from the spam false positive whitelist"""
         # Would delete from database
         # For now, just validate the token exists
         if not self.asset_repo.check_asset_exists(token):
             raise ValueError(f'Token {token} not found or not in whitelist')
-    
+
     def get_spam_whitelist(self) -> list[str]:
         """Get the list of tokens in the spam false positive whitelist"""
         # Would fetch from database
         return ['FAKE-TOKEN-1', 'FAKE-TOKEN-2', 'NOT-SPAM-TOKEN']
-    
+
     def mark_tokens_as_spam(self, tokens: list[str]) -> int:
         """Mark multiple EVM tokens as spam"""
         marked_count = 0
-        
+
         for token in tokens:
             try:
                 # Would update token spam status in database
@@ -659,9 +659,9 @@ class AssetsService:
             except Exception:
                 # Skip tokens that fail
                 pass
-        
+
         return marked_count
-    
+
     def unmark_token_as_spam(self, token: str) -> None:
         """Unmark an EVM token as spam"""
         # Would update token spam status in database

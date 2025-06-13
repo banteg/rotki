@@ -50,7 +50,7 @@ async def get_calendar_events(
 ) -> CalendarResponse:
     """Get calendar events within a time range"""
     events = service.get_events(from_timestamp, to_timestamp)
-    
+
     return CalendarResponse(result=events)
 
 
@@ -69,7 +69,7 @@ async def create_calendar_event(
             event_type=event_data.event_type,
             metadata=event_data.metadata,
         )
-        
+
         return CalendarResponse(
             result={'event_id': event_id},
             message='Calendar event created successfully',
@@ -88,7 +88,7 @@ async def get_reminders(
 ) -> CalendarResponse:
     """Get all active reminders"""
     reminders = service.get_reminders()
-    
+
     return CalendarResponse(result=reminders)
 
 
@@ -108,7 +108,7 @@ async def create_reminder(
             recurring=reminder_data.recurring,
             interval_days=reminder_data.interval_days,
         )
-        
+
         return CalendarResponse(
             result={'reminder_id': reminder_id},
             message='Reminder created successfully',
@@ -178,7 +178,7 @@ async def update_calendar_event(
             event_type=event_data.event_type,
             metadata=event_data.metadata,
         )
-        
+
         return CalendarResponse(
             result=updated_event,
             message='Calendar event updated successfully',
@@ -249,7 +249,7 @@ async def update_reminder(
             recurring=reminder_data.recurring,
             interval_days=reminder_data.interval_days,
         )
-        
+
         return CalendarResponse(
             result=updated_reminder,
             message='Reminder updated successfully',

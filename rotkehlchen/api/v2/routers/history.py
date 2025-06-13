@@ -1,7 +1,7 @@
 """History router for transaction history and events endpoints"""
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, UploadFile, File, Form
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from rotkehlchen.api.v2.dependencies import (
@@ -242,7 +242,7 @@ async def get_history(
         ascending=ascending,
         group_by_event_ids=group_by_event_ids,
     )
-    
+
     return HistoryResponse(result=results)
 
 
@@ -273,7 +273,7 @@ async def get_event_counterparties(
 ) -> HistoryResponse:
     """Get all unique counterparties from history events"""
     counterparties = history_service.get_unique_counterparties()
-    
+
     return HistoryResponse(result={'counterparties': counterparties})
 
 
@@ -293,7 +293,7 @@ async def get_event_products(
 ) -> HistoryResponse:
     """Get all unique products from history events"""
     products = history_service.get_unique_products()
-    
+
     return HistoryResponse(result={'products': products})
 
 
@@ -318,7 +318,7 @@ async def download_history(
         from_timestamp=from_timestamp,
         to_timestamp=to_timestamp,
     )
-    
+
     return HistoryResponse(
         result={'file_path': file_path},
         message='History data exported',
@@ -343,7 +343,7 @@ async def get_actionable_items(
 ) -> HistoryResponse:
     """Get actionable items from history"""
     items = history_service.get_actionable_items()
-    
+
     return HistoryResponse(result={'items': items})
 
 
@@ -363,7 +363,7 @@ async def get_history_debug_info(
 ) -> HistoryResponse:
     """Get debug information about history processing"""
     debug_info = history_service.get_debug_info()
-    
+
     return HistoryResponse(result=debug_info)
 
 
@@ -390,7 +390,7 @@ async def get_event_details(
 ) -> HistoryResponse:
     """Get detailed information for specific events"""
     details = history_service.get_event_details(event_identifier)
-    
+
     return HistoryResponse(result=details)
 
 
@@ -402,14 +402,14 @@ async def post_event_details(
 ) -> HistoryResponse:
     """Get detailed information for multiple events"""
     all_details = {}
-    
+
     for event_id in request_data.event_identifiers:
         details = history_service.get_event_details(
             event_id,
             ignore_cache=request_data.ignore_cache,
         )
         all_details[event_id] = details
-    
+
     return HistoryResponse(result={'events': all_details})
 
 
@@ -420,7 +420,7 @@ async def get_event_type_mappings(
 ) -> HistoryResponse:
     """Get mappings of event types to human-readable names"""
     mappings = history_service.get_event_type_mappings()
-    
+
     return HistoryResponse(result=mappings)
 
 
@@ -442,7 +442,7 @@ async def export_pnl_debug_data(
 ) -> HistoryResponse:
     """Export PnL debug data - Compatible with v1 POST /api/1/history/debug"""
     file_path = history_service.export_debug_data(directory_path)
-    
+
     return HistoryResponse(
         result={'file_path': file_path},
         message='Debug data exported',
@@ -457,7 +457,7 @@ async def import_pnl_debug_data_path(
 ) -> HistoryResponse:
     """Import PnL debug data from file path - Compatible with v1 PUT /api/1/history/debug"""
     result = history_service.import_debug_data(filepath)
-    
+
     return HistoryResponse(
         result=result,
         message='Debug data imported',
@@ -472,14 +472,14 @@ async def import_pnl_debug_data_upload(
 ) -> HistoryResponse:
     """Import PnL debug data from file upload - Compatible with v1 PATCH /api/1/history/debug"""
     # Save uploaded file temporarily
-    import tempfile
     import os
-    
+    import tempfile
+
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
-    
+
     try:
         result = history_service.import_debug_data(tmp_path)
         return HistoryResponse(
@@ -499,7 +499,7 @@ async def export_history_events_to_dir(
 ) -> HistoryResponse:
     """Export history events to a file in a directory - Compatible with v1 POST /api/1/history/events/export"""
     file_path = history_service.export_events_to_directory(directory_path)
-    
+
     return HistoryResponse(
         result={'file_path': file_path},
         message='History events exported',
@@ -513,7 +513,7 @@ async def download_history_events_csv(
 ) -> HistoryResponse:
     """Download history events as CSV - Compatible with v1 PUT /api/1/history/events/export"""
     csv_data = history_service.export_events_as_csv()
-    
+
     return HistoryResponse(
         result={'csv': csv_data},
         message='History events exported as CSV',
@@ -542,7 +542,7 @@ async def get_skipped_external_events(
 ) -> HistoryResponse:
     """Get summary of skipped events - Compatible with v1 GET /api/1/history/skipped_external_events"""
     skipped = history_service.get_skipped_external_events()
-    
+
     return HistoryResponse(result=skipped)
 
 
@@ -554,7 +554,7 @@ async def export_skipped_events_to_dir(
 ) -> HistoryResponse:
     """Export skipped events to a file - Compatible with v1 PUT /api/1/history/skipped_external_events"""
     file_path = history_service.export_skipped_events(directory_path)
-    
+
     return HistoryResponse(
         result={'file_path': file_path},
         message='Skipped events exported',
@@ -568,7 +568,7 @@ async def download_skipped_events_csv(
 ) -> HistoryResponse:
     """Download skipped events as CSV - Compatible with v1 PATCH /api/1/history/skipped_external_events"""
     csv_data = history_service.download_skipped_events_csv()
-    
+
     return HistoryResponse(
         result={'csv': csv_data},
         message='Skipped events CSV generated',
@@ -582,7 +582,7 @@ async def reprocess_skipped_events(
 ) -> HistoryResponse:
     """Reprocess skipped events - Compatible with v1 POST /api/1/history/skipped_external_events"""
     result = history_service.reprocess_skipped_events()
-    
+
     return HistoryResponse(
         result=result,
         message='Skipped events reprocessing started',
