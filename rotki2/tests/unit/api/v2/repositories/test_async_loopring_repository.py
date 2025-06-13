@@ -3,7 +3,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from rotki2.api.v2.repositories.async_loopring import AsyncLoopringRepository
+from rotki2.api.v2.repositories.loopring import LoopringRepository
 from rotki2.db.models.user.cache import MultiSettings
 from rotkehlchen.types import ChecksumEvmAddress
 
@@ -27,7 +27,7 @@ async def async_in_memory_db():
 @pytest_asyncio.fixture
 async def async_loopring_repo(async_in_memory_db):
     """Create async Loopring repository with test database."""
-    return AsyncLoopringRepository(async_in_memory_db)
+    return LoopringRepository(async_in_memory_db)
 
 
 @pytest.mark.asyncio

@@ -56,7 +56,7 @@ if TYPE_CHECKING:
     from rotkehlchen.db.dbhandler import DBHandler
 
 
-class AsyncHistoryEventsRepository:
+class HistoryEventsRepository:
     """Async repository for history events.
     
     Note: This is not a typical SQLModel repository as history events

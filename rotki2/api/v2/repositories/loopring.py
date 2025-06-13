@@ -10,7 +10,7 @@ from rotki2.db.models.user.cache import MultiSettings
 from rotkehlchen.types import ChecksumEvmAddress
 
 
-class AsyncLoopringRepository(AsyncBaseRepository[MultiSettings]):
+class LoopringRepository(AsyncBaseRepository[MultiSettings]):
     """Async repository for Loopring account mappings."""
     
     def __init__(self, session: AsyncSession):

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-class AsyncCacheRepository:
+class CacheRepository:
     """Async repository for cache operations.
     
     Note: This doesn't inherit from AsyncBaseRepository as it manages

@@ -4,7 +4,7 @@ Handles business logic for cache operations.
 """
 from typing import TYPE_CHECKING, Any
 
-from rotki2.api.v2.repositories.async_cache import AsyncCacheRepository
+from rotki2.api.v2.repositories.cache import CacheRepository
 from rotkehlchen.db.cache import DBCacheDynamic, DBCacheStatic
 from rotkehlchen.types import ChecksumEvmAddress, Timestamp
 
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class AsyncCacheService:
     """Async service for cache operations."""
     
-    def __init__(self, cache_repository: AsyncCacheRepository):
+    def __init__(self, cache_repository: CacheRepository):
         self.cache_repository = cache_repository
     
     # General cache operations

@@ -4,7 +4,7 @@ import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from rotki2.api.v2.repositories.async_history_events import AsyncHistoryEventsRepository
+from rotki2.api.v2.repositories.history_events import HistoryEventsRepository
 from rotki2.api.v2.services.async_history_events import AsyncHistoryEventsService
 from rotkehlchen.db.filtering import HistoryEventFilterQuery
 from rotkehlchen.errors.misc import InputError
@@ -19,14 +19,14 @@ from rotkehlchen.types import Location, Timestamp
 @pytest.fixture
 async def history_events_repository(
     async_session: AsyncSession,
-) -> AsyncHistoryEventsRepository:
+) -> HistoryEventsRepository:
     """Create an async history events repository instance."""
-    return AsyncHistoryEventsRepository(async_session)
+    return HistoryEventsRepository(async_session)
 
 
 @pytest.fixture
 async def history_events_service(
-    history_events_repository: AsyncHistoryEventsRepository,
+    history_events_repository: HistoryEventsRepository,
 ) -> AsyncHistoryEventsService:
     """Create an async history events service instance."""
     return AsyncHistoryEventsService(

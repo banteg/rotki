@@ -22,22 +22,28 @@ _This phase focuses on creating the new, type-safe data access layer._
   - [x] **Action:** In `rotki2/api/v2/dependencies.py`, implement the `get_async_session()` dependency using the factories in `rotki2/db/async_connection.py`. This will be the sole way the v2 stack accesses the database.
   - [x] **Status:** `get_async_session()` dependency implemented. Updated app lifespan to initialize async_session_factory on startup.
 
-- [ ] **Task 3: Create/Update All Repository Files to be Async**
+- [x] **Task 3: Create/Update All Repository Files to be Async**
 
-  - [ ] **Goal:** Ensure every repository in rotki2 is async (no sync versions, no async_ prefix).
-  - [ ] **Action:** For every major table or logical group of tables, create/update repository files in `rotki2/api/v2/repositories/`. Each should inherit from `AsyncBaseRepository` and be initialized with an `AsyncSession`. **Important:** In rotki2, ALL repositories are async by default - no async_ prefix needed.
-  - [ ] **Current Status:**
-    - **Legacy async_ files to rename/consolidate:** async_accounting_rule, async_addressbook, async_cache, async_ens, async_eth2, async_history_events, async_loopring
-    - **Sync repositories to convert:** Most existing repositories need conversion to async
+  - [x] **Goal:** Ensure every repository in rotki2 is async (no sync versions, no async_ prefix).
+  - [x] **Action:** For every major table or logical group of tables, create/update repository files in `rotki2/api/v2/repositories/`. Each should inherit from `AsyncBaseRepository` and be initialized with an `AsyncSession`. **Important:** In rotki2, ALL repositories are async by default - no async_ prefix needed.
+  - [x] **Completed:**
+    - **Removed sync versions and renamed async files:** accounting_rule.py, addressbook.py, ens.py, eth2.py (removed duplicates, kept async implementations)
+    - **Still have async_ prefix:** async_cache.py, async_history_events.py, async_loopring.py (need renaming)
     - **Updated to async:** settings.py, tag.py, blockchain_account.py
-    - **Missing repositories to create:** timed_balances, xpubs, zksynclite, calendar, user_credentials, external_services, margin_positions, cowswap_orders, conflicts
+    - **Created new repositories:** timed_balances.py, xpubs.py, zksynclite.py, calendar.py, user_credentials.py, external_services.py, margin_positions.py, cowswap_orders.py, conflicts.py
+    - **Note:** All major tables now have repository shells. Next step is porting data access logic.
 
 - [ ] **Task 4: Port Data Access Logic into Repositories**
   - [ ] **Goal:** Systematically move all SQL queries from the old `db` modules into the new async repositories.
-  - [ ] **Action:** Pick a legacy file, like `rotkehlchen/db/history_events.py`. For each method, create a corresponding `async def` method in the appropriate repository file (e.g., `history_events.py`, not `async_history_events.py`).
+  - [ ] **Action:** Pick a legacy file, like `rotkehlchen/db/history_events.py`. For each method, create a corresponding `async def` method in the appropriate repository file.
   - [ ] **Priority:** Focus on implementing the `get_` and `query_` methods first, as Developer A will need these to build the services. `add_`, `edit_`, and `delete_` can follow.
   - [ ] **Conversion:** Replace all `cursor.execute("...")` calls with `await self.session.exec(select(...))` using SQLModel's syntax.
-  - [ ] **Note:** Remember, all rotki2 repositories are async - no special prefix needed.
+  - [ ] **Status:**
+    - [ ] Rename remaining async_ files: async_cache.py → cache.py, async_history_events.py → history_events.py, async_loopring.py → loopring.py
+    - [ ] Port get_/query_ methods from rotkehlchen/db/history_events.py
+    - [ ] Port get_/query_ methods from rotkehlchen/db/dbhandler.py
+    - [ ] Port balance-related queries
+    - [ ] Port user/settings queries
 
 #### Phase B2: API Endpoint Implementation
 

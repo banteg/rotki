@@ -291,10 +291,10 @@ def get_async_addressbook_repository(
 
 def get_async_loopring_repository(
     session: Annotated[AsyncSession, Depends(get_async_session)],
-) -> 'AsyncLoopringRepository':
-    """Get AsyncLoopringRepository instance"""
-    from rotki2.api.v2.repositories.async_loopring import AsyncLoopringRepository
-    return AsyncLoopringRepository(session)
+) -> 'LoopringRepository':
+    """Get LoopringRepository instance"""
+    from rotki2.api.v2.repositories.loopring import LoopringRepository
+    return LoopringRepository(session)
 
 
 def get_async_accounting_rule_repository(
@@ -323,7 +323,7 @@ def get_async_addressbook_service(
 
 
 def get_async_loopring_service(
-    loopring_repository: Annotated['AsyncLoopringRepository', Depends(get_async_loopring_repository)],
+    loopring_repository: Annotated['LoopringRepository', Depends(get_async_loopring_repository)],
 ) -> 'AsyncLoopringService':
     """Get AsyncLoopringService instance"""
     from rotki2.api.v2.services.async_loopring import AsyncLoopringService
@@ -341,14 +341,14 @@ def get_async_accounting_rules_service(
 
 def get_async_history_events_repository(
     session: Annotated[AsyncSession, Depends(get_async_session)],
-) -> 'AsyncHistoryEventsRepository':
-    """Get AsyncHistoryEventsRepository instance"""
-    from rotki2.api.v2.repositories.async_history_events import AsyncHistoryEventsRepository
-    return AsyncHistoryEventsRepository(session)
+) -> 'HistoryEventsRepository':
+    """Get HistoryEventsRepository instance"""
+    from rotki2.api.v2.repositories.history_events import HistoryEventsRepository
+    return HistoryEventsRepository(session)
 
 
 def get_async_history_events_service(
-    history_events_repository: Annotated['AsyncHistoryEventsRepository', Depends(get_async_history_events_repository)],
+    history_events_repository: Annotated['HistoryEventsRepository', Depends(get_async_history_events_repository)],
     notifier: Annotated['RotkiNotifier', Depends(get_rotki_notifier)],
 ) -> 'AsyncHistoryEventsService':
     """Get AsyncHistoryEventsService instance"""

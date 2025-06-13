@@ -4,10 +4,8 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from rotki2.api.v2.repositories.async_history_events import (
-    AsyncHistoryEventsRepository,
-    HistoryEventFilter,
-)
+from rotki2.api.v2.repositories.history_events import HistoryEventsRepository
+from rotki2.api.v2.repositories.history import HistoryEventFilter
 from rotkehlchen.accounting.structures.balance import Balance
 from rotkehlchen.assets.asset import Asset
 from rotkehlchen.errors.misc import AccountingError, InputError
@@ -27,7 +25,7 @@ class AsyncHistoryService:
     def __init__(
         self,
         db: 'DatabaseDependency',
-        history_repo: AsyncHistoryEventsRepository,
+        history_repo: HistoryEventsRepository,
         history_manager: 'HistoryQueryingManager | None' = None,
         notifier: 'RotkiNotifier | None' = None,
     ):

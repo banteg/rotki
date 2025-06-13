@@ -10,7 +10,7 @@ from rotkehlchen.fval import FVal
 from rotkehlchen.history.events.structures.base import HistoryEvent, HistoryEventType
 from rotkehlchen.types import Location, Timestamp
 
-from rotki2.api.v2.repositories.async_history_events import AsyncHistoryEventsRepository
+from rotki2.api.v2.repositories.history_events import HistoryEventsRepository
 from rotki2.api.v2.repositories.history import HistoryEventFilter
 from rotki2.api.v2.services.async_history import AsyncHistoryService
 
@@ -26,7 +26,7 @@ def mock_db():
 @pytest.fixture
 def mock_history_repo():
     """Mock history repository"""
-    return AsyncMock(spec=AsyncHistoryEventsRepository)
+    return AsyncMock(spec=HistoryEventsRepository)
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 """Async HistoryEvents service for history event operations"""
 from typing import TYPE_CHECKING, Any, Optional
 
-from rotki2.api.v2.repositories.async_history_events import AsyncHistoryEventsRepository
+from rotki2.api.v2.repositories.history_events import HistoryEventsRepository
 from rotkehlchen.constants.limits import FREE_HISTORY_EVENTS_LIMIT
 from rotkehlchen.db.filtering import HistoryEventFilterQuery
 from rotkehlchen.errors.misc import InputError
@@ -17,7 +17,7 @@ class AsyncHistoryEventsService:
     
     def __init__(
         self,
-        history_events_repository: AsyncHistoryEventsRepository,
+        history_events_repository: HistoryEventsRepository,
         notifier: 'RotkiNotifier | None' = None,
     ):
         self.history_events_repository = history_events_repository

@@ -1,7 +1,7 @@
 """Async Loopring service for Loopring operations"""
 from typing import TYPE_CHECKING
 
-from rotki2.api.v2.repositories.async_loopring import AsyncLoopringRepository
+from rotki2.api.v2.repositories.loopring import LoopringRepository
 from rotkehlchen.types import ChecksumEvmAddress
 
 if TYPE_CHECKING:
@@ -13,7 +13,7 @@ class AsyncLoopringService:
     
     def __init__(
         self,
-        loopring_repository: AsyncLoopringRepository,
+        loopring_repository: LoopringRepository,
         loopring_exchange: 'Loopring | None' = None,
     ):
         self.loopring_repository = loopring_repository
