@@ -61,7 +61,13 @@ class AsyncHistoryEventsRepository:
     
     Note: This is not a typical SQLModel repository as history events
     use a complex multi-table structure that doesn't map cleanly to
-    SQLModel models.
+    SQLModel models. Raw SQL is used throughout this repository because:
+    
+    1. History events use a polymorphic multi-table inheritance pattern
+    2. Complex JOINs are required between history_events, evm_events_info, 
+       eth_staking_events_info, and history_events_mappings tables
+    3. Dynamic filter queries with variable WHERE clauses
+    4. Performance-critical operations requiring specific SQL optimizations
     """
     
     def __init__(self, session: AsyncSession):
@@ -89,6 +95,7 @@ class AsyncHistoryEventsRepository:
         # Insert into history_events base table
         serialized = event.serialize_for_db()
         
+        # Note: Raw SQL required for ON CONFLICT DO NOTHING RETURNING pattern
         query = text("""
             INSERT INTO history_events (
                 event_identifier, sequence_index, timestamp, location, location_label,
@@ -329,6 +336,7 @@ class AsyncHistoryEventsRepository:
             query_str += f' LIMIT {FREE_HISTORY_EVENTS_LIMIT}'
         
         # Build the full query
+        # Note: Complex multi-table JOINs with dynamic fields require raw SQL
         if isinstance(filter_query, EvmEventFilterQuery):
             base_query = f"""
                 SELECT

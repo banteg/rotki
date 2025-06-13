@@ -90,32 +90,52 @@ This is the most critical and extensive phase. The goal is to replace all direct
   - [x] Repeat the process for `db/addressbook.py` -> `AddressbookRepository`.
   - [x] Repeat the process for `db/loopring.py` -> `LoopringRepository`.
   - [x] Repeat the process for `db/accounting_rules.py` -> `AccountingRuleRepository`.
-  - [x] Repeat the process for `db/history_events.py` -> `HistoryRepository`.
-  - [ ] ...and so on for every file in `rotkehlchen/db/` that performs queries. The final goal is to make `DBHandler` obsolete.
+  - [x] Repeat the process for `db/history_events.py` -> `HistoryEventsRepository`.
+  - [x] Repeat the process for `db/eth2.py` -> `Eth2Repository` (validators, daily stats, performance).
+  - [ ] Repeat the process for `db/cache.py` -> `CacheRepository` (key-value cache, dynamic cache).
+  - [ ] Repeat the process for `db/settings.py` -> `SettingsRepository` (user settings management).
+  - [ ] Repeat the process for `db/evmtx.py` -> `EvmTransactionsRepository` (EVM transaction storage).
+  - [ ] Repeat the process for `db/queried_addresses.py` -> `QueriedAddressesRepository`.
+  - [ ] Repeat the process for `db/ranges.py` -> `RangesRepository` (query ranges tracking).
+  - [ ] Repeat the process for `db/calendar.py` -> `CalendarRepository` (calendar events, reminders).
+  - [ ] Repeat the process for `db/custom_assets.py` -> `CustomAssetsRepository`.
+  - [ ] Repeat the process for `db/reports.py` -> `ReportsRepository` (accounting reports).
+  - [ ] Repeat the process for `db/snapshots.py` -> `SnapshotsRepository` (balance snapshots).
+  - [ ] Repeat the process for `db/l2withl1feestx.py` -> `L2WithL1FeesRepository`.
+  - [ ] Repeat the process for `db/arbitrum_one_tx.py` -> `ArbitrumOneRepository`.
+  - [ ] Repeat the process for `db/unresolved_conflicts.py` -> `UnresolvedConflictsRepository`.
+  - [ ] **DBHandler Decomposition:** The final goal is to make `DBHandler` obsolete.
+  
+- [x] **Step 9: Fix Raw SQL Usage in Migrated Modules.**
+  - [x] Fix `async_history_events.py` - Extensive raw SQL usage with complex multi-table joins for history events operations (documented why raw SQL is kept).
+  - [x] Fix `async_eth2.py` - Complex ETH2 validator and staking queries with JOINs and UNIONs for statistical data (converted simple queries to ORM, documented complex ones).
+  - [x] Fix `async_accounting_rule.py` - Custom filter queries with raw SQL bindings for rule management (fixed to use ORM where possible).
+  - [x] Fix `async_addressbook.py` - Custom filter queries for address book entries with pagination (fixed to use ORM where possible).
+  - [x] Fix `asset_ignore.py` - Minor issues with model references causing fallback to raw SQL (fixed typos in model references).
 
 #### **Phase 2: Eradicate `gevent` and Embrace `anyio`**
 
 This can be done in parallel with Phase 1, but its full benefits are realized once the DAL migration is complete.
 
-- [ ] **Task Management:** Replace the `gevent`-based task manager.
+- [x] **Task Management:** Replace the `gevent`-based task manager.
 
-  - [ ] Analyze `greenlets/manager.py`. Its purpose is to spawn background tasks.
-  - [ ] Create a new task manager, `tasks/anyio_manager.py`, that uses an `anyio` task group (`anyio.create_task_group()`) to run background tasks.
-  - [ ] The new manager should provide similar functionality: starting tasks, tracking them, and retrieving results.
+  - [x] Analyze `greenlets/manager.py`. Its purpose is to spawn background tasks.
+  - [x] Create a new task manager, `tasks/anyio_manager.py`, that uses an `anyio` task group (`anyio.create_task_group()`) to run background tasks.
+  - [x] The new manager should provide similar functionality: starting tasks, tracking them, and retrieving results.
 
-- [ ] **Concurrency Primitives:** Replace `gevent` locks.
+- [x] **Concurrency Primitives:** Replace `gevent` locks.
 
-  - [ ] Search the codebase for `gevent.lock.Semaphore`.
-  - [ ] Replace each instance with an `anyio.Semaphore`. Note that `anyio` locks must be used within an `async` context (`async with lock:`).
+  - [x] Search the codebase for `gevent.lock.Semaphore`.
+  - [x] Replace each instance with an `anyio.Semaphore`. Note that `anyio` locks must be used within an `async` context (`async with lock:`).
 
-- [ ] **Network Calls:** Refactor blocking network calls.
+- [x] **Network Calls:** Refactor blocking network calls.
 
-  - [ ] Identify all places that use the synchronous `requests` library.
-  - [ ] Replace them with an async HTTP client like `httpx`.
-  - [ ] This is critical in modules under `exchanges/`, `externalapis/`, and `oracles/`.
+  - [x] Identify all places that use the synchronous `requests` library.
+  - [x] Replace them with an async HTTP client like `httpx`.
+  - [x] This is critical in modules under `exchanges/`, `externalapis/`, and `oracles/`.
 
-- [ ] **Entry Point:** Switch the web server to run in a standard `asyncio` context.
-  - [ ] Modify `api/v2/run.py` to use a standard `uvicorn` worker instead of a `gevent` worker. The `anyio` backend will handle the event loop.
+- [x] **Entry Point:** Switch the web server to run in a standard `asyncio` context.
+  - [x] Modify `api/v2/run.py` to use a standard `uvicorn` worker instead of a `gevent` worker. The `anyio` backend will handle the event loop.
 
 #### **Phase 3: Decompose God Objects (`Rotkehlchen` and `DBHandler`)**
 

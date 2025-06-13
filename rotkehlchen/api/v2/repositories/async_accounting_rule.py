@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import delete as sa_delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import select, text
 
 from rotkehlchen.api.v2.repositories.async_base import AsyncBaseRepository
 from rotkehlchen.chain.evm.accounting.structures import BaseEventSettings
@@ -227,7 +227,7 @@ class AsyncAccountingRuleRepository(AsyncBaseRepository[AccountingRule]):
             statement = statement.where(AccountingRule.counterparty == counterparty_value)
         
         result = await self.session.execute(statement)
-        return [row[0] for row in result.all()]
+        return result.scalars().all()
     
     async def get_rule_with_links(self, rule_id: int) -> tuple[AccountingRule, list[LinkedRuleProperty]] | None:
         """Get a rule with its linked properties."""
@@ -240,7 +240,7 @@ class AsyncAccountingRuleRepository(AsyncBaseRepository[AccountingRule]):
             LinkedRuleProperty.accounting_rule == rule_id
         )
         result = await self.session.execute(statement)
-        links = [row[0] for row in result.all()]
+        links = result.scalars().all()
         
         return rule, links
     
@@ -250,16 +250,17 @@ class AsyncAccountingRuleRepository(AsyncBaseRepository[AccountingRule]):
     ) -> tuple[list[AccountingRule], int]:
         """Get all accounting rules with optional filtering."""
         if filter_query:
+            # Note: Dynamic filter queries require raw SQL
             # Build filter query
             base_query, bindings = filter_query.prepare(with_pagination=False)
             count_query = f'SELECT COUNT(*) FROM accounting_rules {base_query}'
-            result = await self.session.execute(count_query, bindings)
+            result = await self.session.execute(text(count_query), bindings)
             total_found = result.scalar()
             
             # Get actual rules
             query, bindings = filter_query.prepare()
             query = f'SELECT * FROM accounting_rules {query}'
-            result = await self.session.execute(query, bindings)
+            result = await self.session.execute(text(query), bindings)
             
             rules = []
             for row in result:
@@ -277,10 +278,10 @@ class AsyncAccountingRuleRepository(AsyncBaseRepository[AccountingRule]):
             
             return rules, total_found
         else:
-            # Get all rules
+            # Get all rules using ORM
             statement = select(AccountingRule)
             result = await self.session.execute(statement)
-            rules = [row[0] for row in result.all()]
+            rules = result.scalars().all()
             return rules, len(rules)
     
     async def find_by(self, **kwargs) -> list[AccountingRule]:
@@ -292,4 +293,4 @@ class AsyncAccountingRuleRepository(AsyncBaseRepository[AccountingRule]):
                 statement = statement.where(getattr(AccountingRule, key) == value)
         
         results = await self.session.execute(statement)
-        return [row[0] for row in results.all()]
+        return results.scalars().all()

@@ -2,7 +2,7 @@
 from typing import TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import func, select
+from sqlmodel import func, select, text
 
 from rotkehlchen.api.v2.repositories.async_base import AsyncBaseRepository
 from rotkehlchen.db.models.user.address_book import AddressBook
@@ -34,26 +34,42 @@ class AsyncAddressBookRepository(AsyncBaseRepository[AddressBook]):
         Returns paginated addressbook entries for the given filter.
         If blockchain is None for a given pair, returns all entries for the pair's address.
         """
-        # First get total count
-        count_query, bindings = filter_query.prepare(with_pagination=False) if filter_query else ('', [])
-        count_statement = 'SELECT COUNT(*) FROM address_book ' + count_query
-        
-        # Execute raw SQL for count
-        result = await self.session.execute(count_statement, bindings)
-        total_found = result.scalar()
+        if filter_query:
+            # Note: Dynamic filter queries require raw SQL
+            # First get total count
+            count_query, bindings = filter_query.prepare(with_pagination=False)
+            count_statement = 'SELECT COUNT(*) FROM address_book ' + count_query
+            
+            # Execute raw SQL for count
+            result = await self.session.execute(text(count_statement), bindings)
+            total_found = result.scalar()
 
-        # Get actual entries
-        query, bindings = filter_query.prepare() if filter_query else ('', [])
-        query = 'SELECT address, name, blockchain FROM address_book ' + query
-        
-        result = await self.session.execute(query, bindings)
-        entries = [
-            AddressbookEntry(
-                address=ChecksumEvmAddress(row[0]),
-                name=row[1],
-                blockchain=SupportedBlockchain(row[2]) if row[2] != ANY_BLOCKCHAIN_ADDRESSBOOK_VALUE else None,
-            ) for row in result
-        ]
+            # Get actual entries
+            query, bindings = filter_query.prepare()
+            query = 'SELECT address, name, blockchain FROM address_book ' + query
+            
+            result = await self.session.execute(text(query), bindings)
+            entries = [
+                AddressbookEntry(
+                    address=ChecksumEvmAddress(row[0]),
+                    name=row[1],
+                    blockchain=SupportedBlockchain(row[2]) if row[2] != ANY_BLOCKCHAIN_ADDRESSBOOK_VALUE else None,
+                ) for row in result
+            ]
+        else:
+            # Use ORM when no filter is provided
+            statement = select(AddressBook)
+            result = await self.session.execute(statement)
+            all_entries = result.scalars().all()
+            
+            entries = [
+                AddressbookEntry(
+                    address=ChecksumEvmAddress(entry.address),
+                    name=entry.name,
+                    blockchain=SupportedBlockchain(entry.blockchain) if entry.blockchain != ANY_BLOCKCHAIN_ADDRESSBOOK_VALUE else None,
+                ) for entry in all_entries
+            ]
+            total_found = len(entries)
         
         return entries, total_found
 
@@ -74,8 +90,9 @@ class AsyncAddressBookRepository(AsyncBaseRepository[AddressBook]):
                     AddressBook.blockchain != ANY_BLOCKCHAIN_ADDRESSBOOK_VALUE,
                 )
                 result = await self.session.execute(statement)
-                for row in result:
-                    self.session.delete(row[0])
+                existing_entries = result.scalars().all()
+                for entry in existing_entries:
+                    self.session.delete(entry)
                 await self.session.commit()
 
             # Check if entry exists
@@ -161,8 +178,9 @@ class AsyncAddressBookRepository(AsyncBaseRepository[AddressBook]):
                 # Delete all entries for this address
                 statement = select(AddressBook).where(AddressBook.address == address)
                 result = await self.session.execute(statement)
-                for row in result:
-                    self.session.delete(row[0])
+                existing_entries = result.scalars().all()
+                for entry in existing_entries:
+                    self.session.delete(entry)
         
         await self.session.commit()
 
@@ -202,7 +220,7 @@ class AsyncAddressBookRepository(AsyncBaseRepository[AddressBook]):
         # Get all entries for this address
         statement = select(AddressBook).where(AddressBook.address == address)
         result = await self.session.execute(statement)
-        entries = [row[0] for row in result]
+        entries = result.scalars().all()
         
         if not entries:
             return  # No entries found
@@ -237,4 +255,4 @@ class AsyncAddressBookRepository(AsyncBaseRepository[AddressBook]):
                 statement = statement.where(getattr(AddressBook, key) == value)
         
         results = await self.session.execute(statement)
-        return [row[0] for row in results.all()]
+        return results.scalars().all()

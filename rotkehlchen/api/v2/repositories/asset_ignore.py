@@ -78,7 +78,7 @@ class AssetIgnoreRepository(BaseRepository[MultiSettings]):
 
     def get_ignored_assets(self) -> list[str]:
         """Get all ignored asset identifiers."""
-        stmt = select(MultiSettings).where(MultiSetting.name == 'ignored_asset')
+        stmt = select(MultiSettings).where(MultiSettings.name == 'ignored_asset')
         results = self.session.exec(stmt).all()
         return [setting.value for setting in results]
 
@@ -92,10 +92,10 @@ class AssetIgnoreRepository(BaseRepository[MultiSettings]):
 
     def find_by(self, **kwargs) -> list[MultiSettings]:
         """Find settings by criteria."""
-        stmt = select(MultiSettings).where(MultiSetting.name == 'ignored_asset')
+        stmt = select(MultiSettings).where(MultiSettings.name == 'ignored_asset')
 
         if 'value' in kwargs:
-            stmt = stmt.where(MultiSetting.value == kwargs['value'])
+            stmt = stmt.where(MultiSettings.value == kwargs['value'])
 
         results = self.session.exec(stmt)
         return list(results.all())
