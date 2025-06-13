@@ -25,17 +25,37 @@ class BlockchainResponse(BaseModel):
 
 class BlockchainAccountRequest(BaseModel):
     """Request model for adding blockchain accounts"""
-    accounts: list[str]
+    accounts: list[str] | None = None  # For bulk operations
+    address: str | None = None  # For single operations
+    label: str | None = None
     labels: list[str] | None = None
-    tags: list[list[str]] | None = None
+    tags: list[str] | None = None  # For single operations
+    tags_list: list[list[str]] | None = None  # For bulk operations, renamed to avoid conflict
 
     @field_validator('accounts')
     @classmethod
-    def validate_accounts(cls, v: list[str], values) -> list[str]:
+    def validate_accounts(cls, v: list[str] | None, values) -> list[str] | None:
         """Validate account addresses"""
-        if not v:
+        if v is not None and not v:
             raise ValueError('At least one account must be provided')
         return v
+
+
+class NodeRequest(BaseModel):
+    """Request model for adding RPC node"""
+    name: str
+    endpoint: str
+    weight: float = 1.0
+    active: bool = True
+
+
+class NodeUpdateRequest(BaseModel):
+    """Request model for updating RPC node"""
+    identifier: int
+    name: str | None = None
+    endpoint: str | None = None
+    weight: float | None = None
+    active: bool | None = None
 
 
 class EVMTransactionRequest(BaseModel):
@@ -129,11 +149,15 @@ async def add_blockchain_accounts(
             detail=f'Unsupported blockchain: {blockchain}',
         ) from None
 
+    accounts = account_data.accounts or []
+    labels = account_data.labels or []
+    tags_list = account_data.tags_list or []
+    
     added_accounts = blockchain_service.add_blockchain_accounts(
         blockchain=blockchain,
-        accounts=account_data.accounts,
-        labels=account_data.labels,
-        tags=account_data.tags,
+        accounts=accounts,
+        labels=labels,
+        tags=tags_list,
     )
 
     return BlockchainResponse(
@@ -166,6 +190,179 @@ async def remove_blockchain_accounts(
     return BlockchainResponse(
         result={'removed': removed_count},
         message=f'Removed {removed_count} accounts',
+    )
+
+
+@router.patch('/{blockchain}/accounts')
+async def edit_blockchain_accounts(
+    blockchain: str,
+    accounts_data: list[BlockchainAccountRequest],
+    _: Annotated[str, Depends(require_logged_in_user)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+) -> BlockchainResponse:
+    """Edit accounts for a specific blockchain - Compatible with v1 PATCH /api/1/blockchains/<blockchain>/accounts"""
+    try:
+        blockchain_enum = SupportedBlockchain(blockchain.upper())
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'Unsupported blockchain: {blockchain}',
+        ) from None
+
+    edited_accounts = []
+    for account_data in accounts_data:
+        edited = blockchain_service.edit_blockchain_account(
+            blockchain=blockchain,
+            address=account_data.address,
+            label=account_data.label,
+            tags=account_data.tags,
+        )
+        edited_accounts.append(edited)
+
+    return BlockchainResponse(
+        result={'accounts': edited_accounts},
+        message=f'Edited {len(edited_accounts)} accounts',
+    )
+
+
+@router.get('/{blockchain}/nodes')
+async def get_blockchain_nodes(
+    blockchain: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+) -> BlockchainResponse:
+    """Get RPC nodes for a specific blockchain - Compatible with v1 GET /api/1/blockchains/<blockchain>/nodes"""
+    try:
+        blockchain_enum = SupportedBlockchain(blockchain.upper())
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'Unsupported blockchain: {blockchain}',
+        ) from None
+
+    nodes = blockchain_service.get_blockchain_nodes(blockchain)
+    
+    return BlockchainResponse(result={'nodes': nodes})
+
+
+@router.put('/{blockchain}/nodes')
+async def add_blockchain_node(
+    blockchain: str,
+    node_data: NodeRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+) -> BlockchainResponse:
+    """Add RPC node for a specific blockchain - Compatible with v1 PUT /api/1/blockchains/<blockchain>/nodes"""
+    try:
+        blockchain_enum = SupportedBlockchain(blockchain.upper())
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'Unsupported blockchain: {blockchain}',
+        ) from None
+
+    node = blockchain_service.add_blockchain_node(
+        blockchain=blockchain,
+        name=node_data.name,
+        endpoint=node_data.endpoint,
+        weight=node_data.weight,
+        active=node_data.active,
+    )
+    
+    return BlockchainResponse(
+        result={'node': node},
+        message='Node added successfully',
+    )
+
+
+@router.patch('/{blockchain}/nodes')
+async def update_blockchain_node(
+    blockchain: str,
+    node_data: NodeUpdateRequest,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+) -> BlockchainResponse:
+    """Update RPC node for a specific blockchain - Compatible with v1 PATCH /api/1/blockchains/<blockchain>/nodes"""
+    try:
+        blockchain_enum = SupportedBlockchain(blockchain.upper())
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'Unsupported blockchain: {blockchain}',
+        ) from None
+
+    node = blockchain_service.update_blockchain_node(
+        blockchain=blockchain,
+        identifier=node_data.identifier,
+        name=node_data.name,
+        endpoint=node_data.endpoint,
+        weight=node_data.weight,
+        active=node_data.active,
+    )
+    
+    return BlockchainResponse(
+        result={'node': node},
+        message='Node updated successfully',
+    )
+
+
+@router.delete('/{blockchain}/nodes')
+async def delete_blockchain_node(
+    blockchain: str,
+    identifier: int,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+) -> BlockchainResponse:
+    """Delete RPC node for a specific blockchain - Compatible with v1 DELETE /api/1/blockchains/<blockchain>/nodes"""
+    try:
+        blockchain_enum = SupportedBlockchain(blockchain.upper())
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'Unsupported blockchain: {blockchain}',
+        ) from None
+
+    success = blockchain_service.delete_blockchain_node(blockchain, identifier)
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='Node not found',
+        )
+    
+    return BlockchainResponse(
+        result={'success': True},
+        message='Node deleted successfully',
+    )
+
+
+@router.post('/{blockchain}/nodes')
+async def connect_blockchain_node(
+    blockchain: str,
+    node_id: int,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    blockchain_service: Annotated[BlockchainService, Depends(get_blockchain_service)],
+) -> BlockchainResponse:
+    """Connect to RPC node for a specific blockchain - Compatible with v1 POST /api/1/blockchains/<blockchain>/nodes"""
+    try:
+        blockchain_enum = SupportedBlockchain(blockchain.upper())
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'Unsupported blockchain: {blockchain}',
+        ) from None
+
+    result = blockchain_service.connect_blockchain_node(blockchain, node_id)
+    
+    if not result['success']:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result.get('error', 'Failed to connect to node'),
+        )
+    
+    return BlockchainResponse(
+        result=result,
+        message='Connected to node successfully',
     )
 
 

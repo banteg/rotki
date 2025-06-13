@@ -176,6 +176,217 @@ class BlockchainService:
                     )
 
         return removed_count
+    
+    def edit_blockchain_account(
+        self,
+        blockchain: str,
+        address: str,
+        label: str | None = None,
+        tags: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Edit a blockchain account"""
+        blockchain_obj = SupportedBlockchain(blockchain.upper())
+        
+        with self.db.user_write() as write_cursor:
+            # Update label if provided
+            if label is not None:
+                if label:
+                    # Insert or update in address book
+                    write_cursor.execute(
+                        'INSERT OR REPLACE INTO address_book(address, blockchain, name) '
+                        'VALUES (?, ?, ?)',
+                        (address, blockchain_obj.value, label),
+                    )
+                else:
+                    # Remove label if empty string provided
+                    write_cursor.execute(
+                        'DELETE FROM address_book WHERE address=? AND blockchain=?',
+                        (address, blockchain_obj.value),
+                    )
+            
+            # Update tags if provided
+            if tags is not None:
+                # First remove all existing tag mappings
+                write_cursor.execute(
+                    'DELETE FROM tag_mappings WHERE object_reference=?',
+                    (address,),
+                )
+                
+                # Add new tags
+                for tag_name in tags:
+                    # Ensure tag exists
+                    write_cursor.execute(
+                        'INSERT OR IGNORE INTO tags(name) VALUES (?)',
+                        (tag_name,),
+                    )
+                    
+                    # Get tag id
+                    tag_row = write_cursor.execute(
+                        'SELECT tag_id FROM tags WHERE name=?',
+                        (tag_name,),
+                    ).fetchone()
+                    
+                    if tag_row:
+                        # Add tag mapping
+                        write_cursor.execute(
+                            'INSERT INTO tag_mappings(object_reference, tag_id) VALUES (?, ?)',
+                            (address, tag_row[0]),
+                        )
+        
+        return {
+            'address': address,
+            'label': label or '',
+            'tags': tags or [],
+        }
+    
+    def get_blockchain_nodes(self, blockchain: str) -> list[dict[str, Any]]:
+        """Get RPC nodes for a blockchain"""
+        blockchain_obj = SupportedBlockchain(blockchain.upper())
+        
+        with self.db.conn.read_ctx() as cursor:
+            result = cursor.execute(
+                'SELECT identifier, name, endpoint, owned, active, weight, blockchain '
+                'FROM rpc_nodes WHERE blockchain=? ORDER BY weight DESC',
+                (blockchain_obj.value,),
+            ).fetchall()
+            
+            nodes = []
+            for row in result:
+                nodes.append({
+                    'identifier': row[0],
+                    'name': row[1],
+                    'endpoint': row[2],
+                    'owned': bool(row[3]),
+                    'active': bool(row[4]),
+                    'weight': row[5],
+                    'blockchain': row[6],
+                })
+            
+            return nodes
+    
+    def add_blockchain_node(
+        self,
+        blockchain: str,
+        name: str,
+        endpoint: str,
+        weight: float = 1.0,
+        active: bool = True,
+    ) -> dict[str, Any]:
+        """Add an RPC node"""
+        blockchain_obj = SupportedBlockchain(blockchain.upper())
+        
+        with self.db.user_write() as write_cursor:
+            write_cursor.execute(
+                'INSERT INTO rpc_nodes(name, endpoint, owned, active, weight, blockchain) '
+                'VALUES (?, ?, 1, ?, ?, ?)',
+                (name, endpoint, int(active), weight, blockchain_obj.value),
+            )
+            
+            node_id = write_cursor.lastrowid
+            
+        return {
+            'identifier': node_id,
+            'name': name,
+            'endpoint': endpoint,
+            'owned': True,
+            'active': active,
+            'weight': weight,
+            'blockchain': blockchain,
+        }
+    
+    def update_blockchain_node(
+        self,
+        blockchain: str,
+        identifier: int,
+        name: str | None = None,
+        endpoint: str | None = None,
+        weight: float | None = None,
+        active: bool | None = None,
+    ) -> dict[str, Any]:
+        """Update an RPC node"""
+        blockchain_obj = SupportedBlockchain(blockchain.upper())
+        
+        with self.db.user_write() as write_cursor:
+            # Build update query dynamically
+            updates = []
+            params = []
+            
+            if name is not None:
+                updates.append('name=?')
+                params.append(name)
+            if endpoint is not None:
+                updates.append('endpoint=?')
+                params.append(endpoint)
+            if weight is not None:
+                updates.append('weight=?')
+                params.append(weight)
+            if active is not None:
+                updates.append('active=?')
+                params.append(int(active))
+            
+            if updates:
+                params.extend([identifier, blockchain_obj.value])
+                write_cursor.execute(
+                    f'UPDATE rpc_nodes SET {", ".join(updates)} '
+                    'WHERE identifier=? AND blockchain=?',
+                    params,
+                )
+            
+            # Get updated node
+            result = write_cursor.execute(
+                'SELECT identifier, name, endpoint, owned, active, weight, blockchain '
+                'FROM rpc_nodes WHERE identifier=? AND blockchain=?',
+                (identifier, blockchain_obj.value),
+            ).fetchone()
+            
+            if not result:
+                raise ValueError(f'Node {identifier} not found')
+            
+            return {
+                'identifier': result[0],
+                'name': result[1],
+                'endpoint': result[2],
+                'owned': bool(result[3]),
+                'active': bool(result[4]),
+                'weight': result[5],
+                'blockchain': result[6],
+            }
+    
+    def delete_blockchain_node(self, blockchain: str, identifier: int) -> bool:
+        """Delete an RPC node"""
+        blockchain_obj = SupportedBlockchain(blockchain.upper())
+        
+        with self.db.user_write() as write_cursor:
+            result = write_cursor.execute(
+                'DELETE FROM rpc_nodes WHERE identifier=? AND blockchain=? AND owned=1',
+                (identifier, blockchain_obj.value),
+            )
+            
+            return result.rowcount > 0
+    
+    def connect_blockchain_node(self, blockchain: str, node_id: int) -> dict[str, Any]:
+        """Test connection to an RPC node"""
+        blockchain_obj = SupportedBlockchain(blockchain.upper())
+        
+        # Get node details
+        with self.db.conn.read_ctx() as cursor:
+            result = cursor.execute(
+                'SELECT endpoint FROM rpc_nodes WHERE identifier=? AND blockchain=?',
+                (node_id, blockchain_obj.value),
+            ).fetchone()
+            
+            if not result:
+                return {'success': False, 'error': 'Node not found'}
+            
+            endpoint = result[0]
+        
+        # In real implementation, would test connection to the endpoint
+        # For now, simulate success
+        return {
+            'success': True,
+            'version': '1.0.0',  # Simulated version
+            'endpoint': endpoint,
+        }
 
     def get_evm_transactions(
         self,

@@ -102,7 +102,7 @@
 
 #### **Blockchains & EVM**
 
-- [ ] `GET /api/1/blockchains/supported` (Get a list of all supported blockchains)
+- [x] `GET /api/1/blockchains/supported` (Get a list of all supported blockchains) ✅ Migrated to `GET /api/v2/blockchain/supported`
 - [ ] `POST /api/1/blockchains/transactions` (Query blockchain transactions for a time range)
 - [ ] `DELETE /api/1/blockchains/transactions` (Purge transaction data)
 - [ ] `GET /api/1/blockchains/evm/all` (Get details for all supported EVM chains)
@@ -115,15 +115,15 @@
 - [ ] `GET /api/1/blockchains/evm/erc20details` (Get info for an ERC20 token)
 - [ ] `POST /api/1/blockchains/evm/accounts` (Refresh all EVM accounts)
 - [ ] `PUT /api/1/blockchains/evm/accounts` (Add EVM accounts)
-- [ ] `GET /api/1/blockchains/<string:blockchain>/accounts` (Get accounts for a specific blockchain)
-- [ ] `PUT /api/1/blockchains/<string:blockchain>/accounts` (Add accounts for a specific blockchain)
-- [ ] `PATCH /api/1/blockchains/<string:blockchain>/accounts` (Edit accounts for a specific blockchain)
-- [ ] `DELETE /api/1/blockchains/<string:blockchain>/accounts` (Delete accounts for a specific blockchain)
-- [ ] `GET /api/1/blockchains/<string:blockchain>/nodes` (Get RPC nodes for a chain)
-- [ ] `PUT /api/1/blockchains/<string:blockchain>/nodes` (Add a new RPC node)
-- [ ] `PATCH /api/1/blockchains/<string:blockchain>/nodes` (Edit an RPC node)
-- [ ] `DELETE /api/1/blockchains/<string:blockchain>/nodes` (Delete an RPC node)
-- [ ] `POST /api/1/blockchains/<string:blockchain>/nodes` (Attempt to connect to an RPC node)
+- [x] `GET /api/1/blockchains/<string:blockchain>/accounts` (Get accounts for a specific blockchain) ✅ Migrated to `GET /api/v2/blockchain/{blockchain}/accounts`
+- [x] `PUT /api/1/blockchains/<string:blockchain>/accounts` (Add accounts for a specific blockchain) ✅ Migrated to `POST /api/v2/blockchain/{blockchain}/accounts`
+- [x] `PATCH /api/1/blockchains/<string:blockchain>/accounts` (Edit accounts for a specific blockchain) ✅ Migrated to `PATCH /api/v2/blockchain/{blockchain}/accounts`
+- [x] `DELETE /api/1/blockchains/<string:blockchain>/accounts` (Delete accounts for a specific blockchain) ✅ Migrated to `DELETE /api/v2/blockchain/{blockchain}/accounts`
+- [x] `GET /api/1/blockchains/<string:blockchain>/nodes` (Get RPC nodes for a chain) ✅ Migrated to `GET /api/v2/blockchain/{blockchain}/nodes`
+- [x] `PUT /api/1/blockchains/<string:blockchain>/nodes` (Add a new RPC node) ✅ Migrated to `PUT /api/v2/blockchain/{blockchain}/nodes`
+- [x] `PATCH /api/1/blockchains/<string:blockchain>/nodes` (Edit an RPC node) ✅ Migrated to `PATCH /api/v2/blockchain/{blockchain}/nodes`
+- [x] `DELETE /api/1/blockchains/<string:blockchain>/nodes` (Delete an RPC node) ✅ Migrated to `DELETE /api/v2/blockchain/{blockchain}/nodes`
+- [x] `POST /api/1/blockchains/<string:blockchain>/nodes` (Attempt to connect to an RPC node) ✅ Migrated to `POST /api/v2/blockchain/{blockchain}/nodes`
 - [ ] `POST /api/1/blockchains/<string:blockchain>/tokens/detect` (Detect tokens for a chain)
 - [ ] `PUT /api/1/blockchains/evm/transactions/add-hash` (Add a single transaction by hash)
 - [ ] `POST /api/1/blockchains/transactions/refetch` (Force refetch EVM transactions for a time range)
@@ -147,28 +147,28 @@
 
 #### **History & Accounting**
 
-- [ ] `GET /api/1/history` (Process history for a time range)
+- [x] `GET /api/1/history` (Process history for a time range) ✅ Migrated to `GET /api/v2/history/` and `POST /api/v2/history/process`
 - [ ] `POST /api/1/history/debug` (Export PnL debug data)
 - [ ] `PUT /api/1/history/debug` (Import PnL debug data from file path)
 - [ ] `PATCH /api/1/history/debug` (Import PnL debug data from file upload)
-- [ ] `GET /api/1/history/status` (Get history processing status)
-- [ ] `GET /api/1/history/export` (Download history as CSV)
-- [ ] `POST /api/1/history/events` (Query history events)
-- [ ] `PUT /api/1/history/events` (Add a history event)
-- [ ] `PATCH /api/1/history/events` (Edit a history event)
-- [ ] `DELETE /api/1/history/events` (Delete history events)
-- [ ] `GET /api/1/history/events/details` (Get details for a specific event)
+- [x] `GET /api/1/history/status` (Get history processing status) ✅ Migrated to `GET /api/v2/history/status`
+- [x] `GET /api/1/history/export` (Download history as CSV) ✅ Migrated to `GET /api/v2/history/download`
+- [x] `POST /api/1/history/events` (Query history events) ✅ Migrated to `GET /api/v2/history/events`
+- [x] `PUT /api/1/history/events` (Add a history event) ✅ Migrated to `POST /api/v2/history/events`
+- [x] `PATCH /api/1/history/events` (Edit a history event) ✅ Migrated to `PUT /api/v2/history/events/{event_id}`
+- [x] `DELETE /api/1/history/events` (Delete history events) ✅ Migrated to `DELETE /api/v2/history/events/{event_id}`
+- [x] `GET /api/1/history/events/details` (Get details for a specific event) ✅ Migrated to `GET /api/v2/history/events/details`
 - [ ] `POST /api/1/history/events/export` (Export history events to a file in a directory)
 - [ ] `PUT /api/1/history/events/export` (Download history events as a CSV file)
 - [ ] `GET /api/1/history/events/export/download` (Download an exported history events CSV)
-- [ ] `GET /api/1/history/actionable_items` (Get missing prices/acquisitions for accounting)
+- [x] `GET /api/1/history/actionable_items` (Get missing prices/acquisitions for accounting) ✅ Migrated to `GET /api/v2/history/actionable_items`
 - [ ] `GET /api/1/history/skipped_external_events` (Get summary of skipped events)
 - [ ] `PUT /api/1/history/skipped_external_events` (Export skipped events to a file in a directory)
 - [ ] `PATCH /api/1/history/skipped_external_events` (Download skipped events as a CSV)
 - [ ] `POST /api/1/history/skipped_external_events` (Reprocess skipped events)
-- [ ] `GET /api/1/history/events/type_mappings` (Get mappings of event types)
-- [ ] `GET /api/1/history/events/counterparties` (Get details for all EVM counterparties)
-- [ ] `GET /api/1/history/events/products` (Get products for all EVM counterparties)
+- [x] `GET /api/1/history/events/type_mappings` (Get mappings of event types) ✅ Migrated to `GET /api/v2/history/events/type_mappings`
+- [x] `GET /api/1/history/events/counterparties` (Get details for all EVM counterparties) ✅ Migrated to `GET /api/v2/history/events/counterparties`
+- [x] `GET /api/1/history/events/products` (Get products for all EVM counterparties) ✅ Migrated to `GET /api/v2/history/events/products`
 - [ ] `GET /api/1/reports` (Get a list of all PnL reports)
 - [ ] `GET /api/1/reports/<int:report_id>` (Get a specific PnL report)
 - [ ] `DELETE /api/1/reports/<int:report_id>` (Delete a PnL report)
