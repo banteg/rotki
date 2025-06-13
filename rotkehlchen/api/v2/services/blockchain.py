@@ -1,5 +1,5 @@
 """Blockchain service for blockchain-related operations"""
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.chain.accounts import BlockchainAccountData
@@ -8,12 +8,23 @@ from rotkehlchen.errors.misc import InputError
 from rotkehlchen.types import ChecksumEvmAddress, SupportedBlockchain
 from rotkehlchen.utils.hexbytes import hexstring_to_bytes
 
+if TYPE_CHECKING:
+    from rotkehlchen.api.v2.repositories.blockchain_account import BlockchainAccountRepository
+    from rotkehlchen.api.v2.repositories.tag import TagRepository
+
 
 class BlockchainService:
     """Service for blockchain operations"""
 
-    def __init__(self, db_service: DatabaseService):
+    def __init__(
+        self,
+        db_service: DatabaseService,
+        blockchain_account_repo: 'BlockchainAccountRepository | None' = None,
+        tag_repo: 'TagRepository | None' = None,
+    ):
         self.db = db_service
+        self.blockchain_account_repo = blockchain_account_repo
+        self.tag_repo = tag_repo
 
     def get_blockchain_accounts(self, blockchain: str) -> list[BlockchainAccountData]:
         """Get accounts for a specific blockchain with labels and tags"""
@@ -22,15 +33,34 @@ class BlockchainService:
         except ValueError as e:
             raise InputError(f'Unsupported blockchain: {blockchain}') from e
 
+        # Use repository if available
+        if self.blockchain_account_repo and self.tag_repo:
+            accounts = self.blockchain_account_repo.get_accounts_by_blockchain(blockchain_obj)
+            result = []
+            
+            for account in accounts:
+                # Get tags for the account
+                object_ref = f"{blockchain_obj.value}_{account.account}"
+                tags = self.tag_repo.get_tags_for_object(object_ref)
+                tag_names = [tag.name for tag in tags] if tags else None
+                
+                result.append(BlockchainAccountData(
+                    chain=blockchain_obj,
+                    address=account.account,
+                    label=account.label,
+                    tags=tag_names,
+                ))
+            
+            return result
+
+        # Fallback to direct SQL query
         result = []
         with self.db.conn.read_ctx() as cursor:
             # Query blockchain accounts with tags and labels
             query = cursor.execute(
-                "SELECT A.account, C.name, group_concat(B.tag_name,',') "
+                "SELECT A.account, A.label, group_concat(B.tag,',') "
                 "FROM blockchain_accounts AS A "
-                "LEFT OUTER JOIN tag_mappings AS B ON B.object_reference = A.account "
-                "LEFT OUTER JOIN address_book AS C ON C.address = A.account "
-                "AND A.blockchain = C.blockchain "
+                "LEFT OUTER JOIN tag_mappings AS B ON B.object_reference = A.blockchain || '_' || A.account "
                 "WHERE A.blockchain=? GROUP BY A.account;",
                 (blockchain_obj.value,),
             )

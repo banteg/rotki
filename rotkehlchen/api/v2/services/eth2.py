@@ -1,23 +1,46 @@
 """ETH2 service for Ethereum 2.0 staking operations"""
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.types import ChecksumEvmAddress, Timestamp
+
+if TYPE_CHECKING:
+    from rotkehlchen.api.v2.repositories.eth2_validator import Eth2ValidatorRepository
 
 
 class ETH2Service:
     """Service for handling ETH2 staking operations"""
     
-    def __init__(self, db_service: DatabaseService):
+    def __init__(
+        self,
+        db_service: DatabaseService,
+        eth2_validator_repo: 'Eth2ValidatorRepository | None' = None,
+    ):
         self.db = db_service
+        self.eth2_validator_repo = eth2_validator_repo
     
     def get_validators(self) -> list[dict[str, Any]]:
         """Get all tracked ETH2 validators"""
-        validators = []
+        # Use repository if available
+        if self.eth2_validator_repo:
+            validators = self.eth2_validator_repo.get_validators_by_owner()
+            return [
+                {
+                    'validator_index': v.validator_index,
+                    'public_key': v.public_key,
+                    'ownership_proportion': str(v.ownership_proportion) if v.ownership_proportion else '1.0',
+                    'withdrawal_address': v.withdrawal_address,
+                    'activation_timestamp': v.activation_timestamp,
+                }
+                for v in validators
+            ]
         
+        # Fallback to direct SQL
+        validators = []
         with self.db.conn.read_ctx() as cursor:
             cursor.execute(
-                '''SELECT validator_index, public_key, ownership_proportion
+                '''SELECT validator_index, public_key, ownership_proportion,
+                          withdrawal_address, activation_timestamp
                    FROM eth2_validators
                    ORDER BY validator_index''',
             )
@@ -26,7 +49,9 @@ class ETH2Service:
                 validators.append({
                     'validator_index': row[0],
                     'public_key': row[1],
-                    'ownership_proportion': str(row[2]),
+                    'ownership_proportion': str(row[2]) if row[2] else '1.0',
+                    'withdrawal_address': row[3],
+                    'activation_timestamp': row[4],
                 })
         
         return validators
@@ -35,8 +60,23 @@ class ETH2Service:
         self,
         index: int,
         ownership_proportion: str = "1.0",
+        withdrawal_address: ChecksumEvmAddress | None = None,
     ) -> int:
         """Add a validator by index"""
+        # Use repository if available
+        if self.eth2_validator_repo:
+            existing = self.eth2_validator_repo.get_validator_by_index(index)
+            if existing:
+                raise ValueError(f"Validator {index} already tracked")
+            
+            validator = self.eth2_validator_repo.add_validator(
+                validator_index=index,
+                public_key='',  # Will be fetched from chain
+                withdrawal_address=withdrawal_address,
+            )
+            return validator.validator_index
+        
+        # Fallback to direct SQL
         with self.db.conn.write_ctx() as cursor:
             # Check if validator already exists
             cursor.execute(
@@ -49,9 +89,9 @@ class ETH2Service:
             # Add validator
             cursor.execute(
                 '''INSERT INTO eth2_validators 
-                   (validator_index, ownership_proportion)
-                   VALUES (?, ?)''',
-                (index, ownership_proportion),
+                   (validator_index, ownership_proportion, withdrawal_address)
+                   VALUES (?, ?, ?)''',
+                (index, ownership_proportion, withdrawal_address),
             )
             return index
     
@@ -85,6 +125,11 @@ class ETH2Service:
     
     def remove_validator(self, validator_id: int) -> bool:
         """Remove a tracked validator"""
+        # Use repository if available
+        if self.eth2_validator_repo:
+            return self.eth2_validator_repo.remove_validator(validator_id)
+        
+        # Fallback to direct SQL
         with self.db.conn.write_ctx() as cursor:
             cursor.execute(
                 'DELETE FROM eth2_validators WHERE validator_index = ?',

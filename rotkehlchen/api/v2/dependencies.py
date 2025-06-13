@@ -5,10 +5,13 @@ from fastapi import Depends, HTTPException, Request, status
 from sqlmodel import Session
 
 from rotkehlchen.api.v2.repositories.accounting_rule import AccountingRuleRepository
+from rotkehlchen.api.v2.repositories.addressbook import AddressBookRepository
 from rotkehlchen.api.v2.repositories.blockchain_account import BlockchainAccountRepository
 from rotkehlchen.api.v2.repositories.eth2_validator import Eth2ValidatorRepository
 from rotkehlchen.api.v2.repositories.evm_transaction import EvmTransactionRepository
 from rotkehlchen.api.v2.repositories.nft import NFTRepository
+from rotkehlchen.api.v2.repositories.settings import MultiSettingsRepository, SettingsRepository
+from rotkehlchen.api.v2.repositories.tag import TagRepository
 from rotkehlchen.api.v2.services.auth import AuthService
 from rotkehlchen.api.v2.services.database import DatabaseService
 from rotkehlchen.db.drivers.gevent import DBConnection
@@ -212,3 +215,31 @@ def get_eth2_validator_repository(
 ) -> Eth2ValidatorRepository:
     """Get Eth2ValidatorRepository instance"""
     return Eth2ValidatorRepository(session)
+
+
+def get_tag_repository(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> TagRepository:
+    """Get TagRepository instance"""
+    return TagRepository(session)
+
+
+def get_settings_repository(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> SettingsRepository:
+    """Get SettingsRepository instance"""
+    return SettingsRepository(session)
+
+
+def get_multi_settings_repository(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> MultiSettingsRepository:
+    """Get MultiSettingsRepository instance"""
+    return MultiSettingsRepository(session)
+
+
+def get_addressbook_repository(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> AddressBookRepository:
+    """Get AddressBookRepository instance"""
+    return AddressBookRepository(session)

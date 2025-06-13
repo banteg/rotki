@@ -10,6 +10,7 @@ from rotkehlchen.premium.premium import premium_create_and_verify
 from rotkehlchen.types import ChecksumEvmAddress
 
 if TYPE_CHECKING:
+    from rotkehlchen.api.v2.repositories.nft import NFTRepository
     from rotkehlchen.chain.aggregator import ChainsAggregator
     from rotkehlchen.chain.ethereum.modules.nft.nfts import Nfts
     from rotkehlchen.data_handler import DataHandler
@@ -21,10 +22,12 @@ class NFTService:
     def __init__(
         self,
         db_connection: DBConnection,
+        nft_repository: 'NFTRepository | None' = None,
         chains_aggregator: 'ChainsAggregator | None' = None,
         data_handler: 'DataHandler | None' = None,
     ):
         self.db_connection = db_connection
+        self.nft_repository = nft_repository
         self.chains_aggregator = chains_aggregator
         self.data = data_handler
         self._nft_module: 'Nfts | None' = None
@@ -134,12 +137,28 @@ class NFTService:
         if asset_obj.asset_type != AssetType.NFT:
             raise ValueError(f'{asset} is not an NFT')
             
-        # Add the manual price
-        self.nft_module.add_nft_with_price(
-            nft=asset_obj,
-            price=FVal(price),
-            price_asset=Asset(price_asset),
-        )
+        # If we have a repository, use it to update the price
+        if self.nft_repository:
+            updated_nft = self.nft_repository.update_nft_price(
+                identifier=asset,
+                price_asset=price_asset,
+                price_in_asset=price,
+                manual_price=True,
+            )
+            if not updated_nft:
+                # NFT not in database, add it via the module
+                self.nft_module.add_nft_with_price(
+                    nft=asset_obj,
+                    price=FVal(price),
+                    price_asset=Asset(price_asset),
+                )
+        else:
+            # Fallback to module method
+            self.nft_module.add_nft_with_price(
+                nft=asset_obj,
+                price=FVal(price),
+                price_asset=Asset(price_asset),
+            )
         
         return {'message': f'Manual price added for NFT {asset}'}
 

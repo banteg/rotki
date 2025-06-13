@@ -1,6 +1,6 @@
 # Rotkehlchen API V2 Migration Status
 
-_Last updated: 2025-06-13 11:10:17 UTC_
+_Last updated: 2025-06-13 11:33:18 UTC_
 
 ---
 
@@ -8,9 +8,9 @@ _Last updated: 2025-06-13 11:10:17 UTC_
 
 | Area                        | Status      | Notes                                    |
 | --------------------------- | ----------- | ---------------------------------------- |
-| **API Endpoint Migration**  | 30%         | 98 of 328 v1 endpoints migrated |
+| **API Endpoint Migration**  | 29%         | 94 of 328 v1 endpoints migrated |
 | **Legacy Dependency Score** | 23          | 23 legacy imports found in v2 code |
-| **Architecture Health**     | ⚠️ 93 Alerts | 93 files have incorrect dependencies |
+| **Architecture Health**     | ⚠️ 75 Alerts | 75 files have incorrect dependencies |
 
 
 ---
@@ -18,9 +18,9 @@ _Last updated: 2025-06-13 11:10:17 UTC_
 ## 1. API Endpoint Migration Details
 
 - **Total V1 Endpoints:** 328
-- **Migrated:** 98
-- **Pending:** 230
-- **Migration Progress:** 29.9%
+- **Migrated:** 94
+- **Pending:** 234
+- **Migration Progress:** 28.7%
 
 <details>
 <summary><b>❌ Endpoints Pending Migration (Click to expand)</b></summary>
@@ -118,6 +118,7 @@ _Last updated: 2025-06-13 11:10:17 UTC_
 | GET | `/history/events/type_mappings` |
 | GET | `/history/skipped_external_events` |
 | GET | `/import` |
+| GET | `/info` |
 | GET | `/locations/all` |
 | GET | `/locations/associated` |
 | GET | `/messages` |
@@ -125,6 +126,7 @@ _Last updated: 2025-06-13 11:10:17 UTC_
 | GET | `/oracles` |
 | GET | `/oracles/{oracle}/cache` |
 | GET | `/periodic` |
+| GET | `/ping` |
 | GET | `/premium` |
 | GET | `/protocols/data/refresh` |
 | GET | `/queried_addresses` |
@@ -216,6 +218,7 @@ _Last updated: 2025-06-13 11:10:17 UTC_
 | POST | `/history/events/query/exchange` |
 | POST | `/history/events/type_mappings` |
 | POST | `/history/skipped_external_events` |
+| POST | `/info` |
 | POST | `/locations/all` |
 | POST | `/locations/associated` |
 | POST | `/messages` |
@@ -223,6 +226,7 @@ _Last updated: 2025-06-13 11:10:17 UTC_
 | POST | `/oracles` |
 | POST | `/oracles/{oracle}/cache` |
 | POST | `/periodic` |
+| POST | `/ping` |
 | POST | `/premium` |
 | POST | `/premium/sync` |
 | POST | `/protocols/data/refresh` |
@@ -299,7 +303,6 @@ _Last updated: 2025-06-13 11:10:17 UTC_
 | GET | `/history/events` |
 | GET | `/history/export` |
 | GET | `/history/status` |
-| GET | `/info` |
 | GET | `/names` |
 | GET | `/names/addressbook/{book_type}` |
 | GET | `/names/ens/resolve` |
@@ -307,7 +310,6 @@ _Last updated: 2025-06-13 11:10:17 UTC_
 | GET | `/nfts` |
 | GET | `/nfts/balances` |
 | GET | `/nfts/prices` |
-| GET | `/ping` |
 | GET | `/premium/sync` |
 | GET | `/reports` |
 | GET | `/reports/{report_id}` |
@@ -341,14 +343,12 @@ _Last updated: 2025-06-13 11:10:17 UTC_
 | POST | `/history/export` |
 | POST | `/history/status` |
 | POST | `/import` |
-| POST | `/info` |
 | POST | `/names` |
 | POST | `/names/ens/resolve` |
 | POST | `/names/ens/reverse` |
 | POST | `/nfts` |
 | POST | `/nfts/balances` |
 | POST | `/nfts/prices` |
-| POST | `/ping` |
 | POST | `/reports` |
 | POST | `/reports/{report_id}/data` |
 | POST | `/settings` |
@@ -503,45 +503,9 @@ _Last updated: 2025-06-13 11:10:17 UTC_
 
 ## 3. Architecture Health Check
 
-**Total Violations Found:** 93
+**Total Violations Found:** 75
 
 ### Architecture Violations 🚨
-
-#### Repositories Layer Violations
-
-**`api/v2/repositories/asset.py`** (2 violations):
-  - Line 9: `rotkehlchen.api.v2.repositories.base` - Repositories should not import from rotkehlchen.api.v2.repositories.base
-  - Line 10: `rotkehlchen.assets.types` - Repositories should not import from rotkehlchen.assets.types
-
-**`api/v2/repositories/asset_ignore.py`** (2 violations):
-  - Line 7: `rotkehlchen.api.v2.repositories.base` - Repositories should not import from rotkehlchen.api.v2.repositories.base
-  - Line 8: `rotkehlchen.assets.asset` - Repositories should not import from rotkehlchen.assets.asset
-
-**`api/v2/repositories/balance.py`** (1 violations):
-  - Line 10: `rotkehlchen.api.v2.repositories.base` - Repositories should not import from rotkehlchen.api.v2.repositories.base
-
-**`api/v2/repositories/balance_source.py`** (5 violations):
-  - Line 5: `rotkehlchen.accounting.structures.balance` - Repositories should not import from rotkehlchen.accounting.structures.balance
-  - Line 6: `rotkehlchen.assets.asset` - Repositories should not import from rotkehlchen.assets.asset
-  - Line 7: `rotkehlchen.fval` - Repositories should not import from rotkehlchen.fval
-  - Line 70: `rotkehlchen.fval` - Repositories should not import from rotkehlchen.fval
-  - Line 102: `rotkehlchen.inquirer` - Repositories should not import from rotkehlchen.inquirer
-
-**`api/v2/repositories/ens.py`** (1 violations):
-  - Line 9: `rotkehlchen.api.v2.repositories.base` - Repositories should not import from rotkehlchen.api.v2.repositories.base
-
-**`api/v2/repositories/globaldb_asset.py`** (3 violations):
-  - Line 7: `rotkehlchen.assets.asset` - Repositories should not import from rotkehlchen.assets.asset
-  - Line 8: `rotkehlchen.db.filtering` - Repositories should not import from rotkehlchen.db.filtering
-  - Line 9: `rotkehlchen.globaldb.handler` - Repositories should not import from rotkehlchen.globaldb.handler
-
-**`api/v2/repositories/history.py`** (3 violations):
-  - Line 12: `rotkehlchen.api.v2.repositories.base` - Repositories should not import from rotkehlchen.api.v2.repositories.base
-  - Line 14: `rotkehlchen.db.constants` - Repositories should not import from rotkehlchen.db.constants
-  - Line 23: `rotkehlchen.history.events.structures.base` - Repositories should not import from rotkehlchen.history.events.structures.base
-
-**`api/v2/repositories/user.py`** (1 violations):
-  - Line 9: `rotkehlchen.api.v2.repositories.base` - Repositories should not import from rotkehlchen.api.v2.repositories.base
 
 #### Routers Layer Violations
 
@@ -676,6 +640,6 @@ _Last updated: 2025-06-13 11:10:17 UTC_
 
 Based on this analysis:
 
-1. **Complete endpoint migration**: 230 endpoints still need to be migrated to v2
+1. **Complete endpoint migration**: 234 endpoints still need to be migrated to v2
 2. **Eliminate legacy dependencies**: Refactor 14 files to use the new repository pattern
-3. **Fix architecture violations**: Address 93 violations to maintain clean architecture
+3. **Fix architecture violations**: Address 75 violations to maintain clean architecture
