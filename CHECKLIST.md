@@ -148,9 +148,9 @@ The `Accountant` orchestrates the entire process.
 
 ### **Definition of Done**
 
-- [ ] All classes and functions from `rotkehlchen/accounting/` have been ported to `rotki2/accounting/`.
-- [ ] All ported code is fully asynchronous, using `async/await` and `anyio` where appropriate.
-- [ ] All direct database access has been replaced by calls to the appropriate repositories (e.g., `AccountingRuleRepository`, `ReportsRepository`).
-- [ ] The new `AccountingService` correctly orchestrates the `Accountant` and its components.
+- [x] All classes and functions from `rotkehlchen/accounting/` have been ported to `rotki2/accounting/`.
+- [x] All ported code is fully asynchronous, using `async/await` and `anyio` where appropriate.
+- [x] All direct database access has been replaced by calls to the appropriate repositories (e.g., `AccountingRuleRepository`, `ReportsRepository`).
+- [x] The new `AccountingService` correctly orchestrates the `Accountant` and its components.
 - [ ] Unit and integration tests for the new accounting module are written and pass.
 - [ ] A full accounting run on a sample dataset produces the same P&L report as the v1 system.
