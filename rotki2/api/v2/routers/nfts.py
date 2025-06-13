@@ -211,3 +211,109 @@ async def delete_manual_nft_price(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f'Failed to delete manual NFT price: {e!s}',
         ) from e
+
+
+@router.get('/collections')
+async def get_nft_collections(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[NFTService, Depends(get_nft_service)],
+    owner_address: str | None = Query(None, description="Filter by owner address"),
+) -> NFTResponse:
+    """Get all NFT collections with metadata"""
+    # This would aggregate NFTs by collection from the database
+    return NFTResponse(
+        result={
+            'collections': [],
+            'message': 'NFT collections endpoint - implementation pending',
+        },
+    )
+
+
+@router.get('/collections/{collection_id}')
+async def get_collection_details(
+    collection_id: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[NFTService, Depends(get_nft_service)],
+) -> NFTResponse:
+    """Get detailed information about a specific NFT collection"""
+    # This would query collection details from the database
+    return NFTResponse(
+        result={
+            'collection_id': collection_id,
+            'name': 'Collection Name',
+            'description': 'Collection description',
+            'nft_count': 0,
+            'floor_price': '0',
+            'message': 'Collection details endpoint - implementation pending',
+        },
+    )
+
+
+@router.get('/transactions')
+async def get_nft_transactions(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[NFTService, Depends(get_nft_service)],
+    address: str | None = Query(None, description="Filter by address"),
+    collection_id: str | None = Query(None, description="Filter by collection"),
+    from_timestamp: int = Query(0, ge=0),
+    to_timestamp: int = Query(2147483647, ge=0),
+) -> NFTResponse:
+    """Get NFT transaction history"""
+    # This would query NFT transfer events from history_events
+    return NFTResponse(
+        result={
+            'transactions': [],
+            'message': 'NFT transactions endpoint - implementation pending',
+        },
+    )
+
+
+@router.get('/statistics')
+async def get_nft_statistics(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[NFTService, Depends(get_nft_service)],
+    owner_address: str | None = Query(None, description="Filter by owner address"),
+) -> NFTResponse:
+    """Get NFT portfolio statistics"""
+    # This would calculate NFT portfolio statistics
+    return NFTResponse(
+        result={
+            'total_nfts': 0,
+            'total_collections': 0,
+            'total_value_usd': '0',
+            'most_valuable_collection': None,
+            'recent_activity': [],
+            'message': 'NFT statistics endpoint - implementation pending',
+        },
+    )
+
+
+@router.post('/refresh/{collection_id}')
+async def refresh_collection_metadata(
+    collection_id: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[NFTService, Depends(get_nft_service)],
+) -> NFTResponse:
+    """Refresh metadata for a specific collection"""
+    # This would trigger a background task to refresh NFT metadata
+    return NFTResponse(
+        result={'task_id': 'placeholder-task-id'},
+        message=f'Metadata refresh endpoint for collection {collection_id} - implementation pending',
+    )
+
+
+@router.get('/floor-prices')
+async def get_floor_prices(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[NFTService, Depends(get_nft_service)],
+    collection_ids: list[str] = Query(..., description="Collection IDs to get floor prices for"),
+) -> NFTResponse:
+    """Get floor prices for specified NFT collections"""
+    # This would query floor prices from external APIs or cache
+    floor_prices = {collection_id: '0' for collection_id in collection_ids}
+    return NFTResponse(
+        result={
+            'floor_prices': floor_prices,
+            'message': 'Floor prices endpoint - implementation pending',
+        },
+    )

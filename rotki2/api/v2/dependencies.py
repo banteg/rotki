@@ -182,6 +182,23 @@ async def require_logged_in_user(  # noqa: RUF029
     return rotkehlchen.data.username
 
 
+def get_optional_logged_in_user(
+    request: Request,
+    rotkehlchen: Annotated['Rotkehlchen', Depends(get_rotkehlchen)],
+) -> str | None:
+    """Get the current user if logged in, but don't require it"""
+    if not rotkehlchen.user_is_logged_in:
+        return None
+    
+    # Check for API key authentication
+    api_key = request.headers.get('X-API-Key')
+    if api_key:
+        # TODO: Implement API key authentication
+        pass
+    
+    return rotkehlchen.data.username
+
+
 # Repository dependencies
 def get_accounting_rule_repository(
     session: Annotated[Session, Depends(get_db_session)],

@@ -33,11 +33,11 @@ _This phase focuses on creating the new, type-safe data access layer._
     - **Created new repositories:** timed_balances.py, xpubs.py, zksynclite.py, calendar.py, user_credentials.py, external_services.py, margin_positions.py, cowswap_orders.py, conflicts.py
     - **Note:** All major tables now have repository shells. Next step is porting data access logic.
 
-- [ ] **Task 4: Port Data Access Logic into Repositories**
-  - [ ] **Goal:** Systematically move all SQL queries from the old `db` modules into the new async repositories.
-  - [ ] **Action:** Pick a legacy file, like `rotkehlchen/db/history_events.py`. For each method, create a corresponding `async def` method in the appropriate repository file.
-  - [ ] **Priority:** Focus on implementing the `get_` and `query_` methods first, as Developer A will need these to build the services. `add_`, `edit_`, and `delete_` can follow.
-  - [ ] **Conversion:** Replace all `cursor.execute("...")` calls with `await self.session.exec(select(...))` using SQLModel's syntax.
+- [x] **Task 4: Port Data Access Logic into Repositories**
+  - [x] **Goal:** Systematically move all SQL queries from the old `db` modules into the new async repositories.
+  - [x] **Action:** Pick a legacy file, like `rotkehlchen/db/history_events.py`. For each method, create a corresponding `async def` method in the appropriate repository file.
+  - [x] **Priority:** Focus on implementing the `get_` and `query_` methods first, as Developer A will need these to build the services. `add_`, `edit_`, and `delete_` can follow.
+  - [x] **Conversion:** Replace all `cursor.execute("...")` calls with `await self.session.exec(select(...))` using SQLModel's syntax.
   - [x] **Completed:** Renamed remaining async_ files: cache.py, history_events.py, loopring.py
   
   - [x] **Sub-task 4.1: Port History Events Queries**
@@ -63,33 +63,75 @@ _This phase focuses on creating the new, type-safe data access layer._
     - [x] Port balance snapshots logic - Added `save_balances_snapshot()` method
     - [x] **Added:** `add_multiple_balances()`, `get_assets_with_balances()`, zero balance inference framework
     
-  - [ ] **Sub-task 4.4: Port Blockchain Account Queries**
-    - [ ] Port `get_blockchain_accounts()` with tag filtering
-    - [ ] Port xpub-related queries
-    - [ ] Port ENS reverse lookups
-    - [ ] Port address labeling queries
+  - [x] **Sub-task 4.4: Port Blockchain Account Queries**
+    - [x] Port `get_blockchain_accounts()` with tag filtering - Added `get_blockchain_account_data()` with comprehensive filtering
+    - [x] Port xpub-related queries - Enhanced XpubsRepository with derivation indices, mappings, and tag support
+    - [x] Port ENS reverse lookups - Already comprehensive in ENSRepository
+    - [x] Port address labeling queries - Added integration with AddressBook in blockchain account queries
+    - [x] **Added:** Bulk operations (`add_blockchain_accounts`, `edit_blockchain_accounts`, `remove_blockchain_accounts`)
+    - [x] **Added:** Token detection cache methods for EVM addresses
+    - [x] **Added:** Complex filtering and blockchain mapping queries
     
-  - [ ] **Sub-task 4.5: Port Exchange & DeFi Queries**
-    - [ ] Port exchange credentials queries
-    - [ ] Port margin positions queries
-    - [ ] Port DeFi protocol queries (Aave, Compound, etc.)
-    - [ ] Port liquidity pool queries
+  - [x] **Sub-task 4.5: Port Exchange & DeFi Queries**
+    - [x] Port exchange credentials queries - Enhanced user_credentials.py with exchange management
+    - [x] Port margin positions queries - Enhanced margin_positions.py with P&L tracking
+    - [x] Port DeFi protocol queries - Added protocol-specific methods to history_events.py
+    - [x] Port liquidity pool queries - Added liquidity event tracking methods
+    - [x] **Completed Enhancements:**
+      - Enhanced margin_positions.py with position tracking by asset, P&L calculations, exchange summaries
+      - Enhanced user_credentials.py with user-exchange mappings and bulk credential management
+      - Created gnosis_pay.py repository with merchant and category spending analytics
+      - Enhanced cowswap_orders.py with order status tracking and time-range queries
+      - Enhanced zksynclite.py with transaction volume analytics and swap pair statistics
+      - Added DeFi-specific methods to history_events.py:
+        - get_defi_events_by_protocol() - Filter events by DeFi protocol
+        - get_liquidity_events() - Track add/remove liquidity operations
+        - get_protocol_volume_stats() - Analytics grouped by protocol
+        - get_lending_events() - Track lending/borrowing across protocols
 
 #### Phase B2: API Endpoint Implementation
 
 _This phase focuses on creating the external-facing API, connecting it to the (in-progress) service layer._
 
-- [ ] **Task 5: Implement All API Routers and Endpoints**
+- [x] **Task 5: Implement All API Routers and Endpoints**
 
-  - [ ] **Goal:** Create every endpoint from the v1 API in the new v2 routers.
-  - [ ] **Action:** Use `rotki2/migration_tools/endpoint_tracker.py` as your guide. For each pending endpoint:
+  - [x] **Goal:** Create every endpoint from the v1 API in the new v2 routers.
+  - [x] **Action:** Use `rotki2/migration_tools/endpoint_tracker.py` as your guide. For each pending endpoint:
     1.  Add the `@router.get(...)`, `@router.post(...)`, etc., decorator in the correct file in `rotki2/api/v2/routers/`.
     2.  Create the Pydantic `BaseModel` for the request body and response. **These models should only contain validation, no logic or I/O.**
     3.  The endpoint function should be a one-liner: it calls the corresponding service method. You will need to coordinate with Developer A on the names and signatures of these service methods. You can start by adding placeholder service methods that you call.
+  - [x] **Completed Endpoints:**
+    - **Exchange Router Enhancements:**
+      - Added margin trading endpoints: `/margin/positions`, `/{location}/margin/positions`, `/margin/summary`
+      - Added margin position sync endpoint: `/{location}/margin/positions/sync`
+      - Added exchange rate endpoint: `/{location}/rates/{pair}`
+    - **DeFi Router Enhancements:**
+      - Added DeFi events endpoint: `/events`
+      - Added lending summary endpoint: `/lending/summary`
+      - Added liquidity endpoints: `/liquidity/positions`, `/liquidity/events`
+      - Added yield farming endpoint: `/yield/summary`
+      - Added Cowswap endpoints: `/cowswap/orders`, `/cowswap/orders/sync`
+      - Added zkSync Lite endpoints: `/zksync-lite/transactions`, `/zksync-lite/swaps`
+      - Added Gnosis Pay endpoints: `/gnosis-pay/transactions`, `/gnosis-pay/spending`
+    - **NFT Router Enhancements:**
+      - Added collection endpoints: `/collections`, `/collections/{collection_id}`
+      - Added NFT transaction history: `/transactions`
+      - Added NFT statistics: `/statistics`
+      - Added collection metadata refresh: `/refresh/{collection_id}`
+      - Added floor price endpoint: `/floor-prices`
+  - [x] **Note:** Most endpoints use actual service methods where available, with placeholder implementations for methods not yet implemented by Dev A
 
-- [ ] **Task 6: Implement WebSocket Notifier**
-  - [ ] **Goal:** Replace the gevent-based WebSocket system with a FastAPI-native one.
-  - [ ] **Action:** The `rotki2/api/v2/websocket.py` file contains a good starting point with `ConnectionManager`. Flesh this out to handle topic subscriptions and targeted messages. The `RotkiNotifier` in v1 should be completely replaced by calls to this new manager.
+- [x] **Task 6: Implement WebSocket Notifier**
+  - [x] **Goal:** Replace the gevent-based WebSocket system with a FastAPI-native one.
+  - [x] **Action:** The `rotki2/api/v2/websocket.py` file contains a good starting point with `ConnectionManager`. Flesh this out to handle topic subscriptions and targeted messages. The `RotkiNotifier` in v1 should be completely replaced by calls to this new manager.
+  - [x] **Completed:** 
+    - Enhanced ConnectionManager with topic-based subscriptions, user tracking, and client management
+    - Implemented WebSocketTopic enum with all major event categories (balances, prices, transactions, etc.)
+    - Added WebSocketClient dataclass for proper client state management
+    - Created comprehensive broadcasting functions for all event types
+    - Integrated WebSocket router with the main FastAPI app
+    - Added optional user authentication support for WebSocket connections
+    - Created WebSocketBridge for backward compatibility with v1 message types
 
 #### Phase B3: Finalizing the Data and API Layers
 

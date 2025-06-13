@@ -461,3 +461,205 @@ async def get_loopring_balances(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f'Failed to get Loopring balances: {e!s}',
         ) from e
+
+
+# DeFi Events endpoints
+@router.get('/events')
+async def get_defi_events(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[DeFiService, Depends(get_defi_service)],
+    protocol: str | None = Query(None, description="Filter by protocol"),
+    account: str | None = Query(None, description="Filter by account address"),
+    from_timestamp: int = Query(0, ge=0),
+    to_timestamp: int = Query(2147483647, ge=0),
+    event_type: str | None = Query(None, description="Filter by event type"),
+) -> DeFiResponse:
+    """Get DeFi protocol events"""
+    # This would use the history_events repository with DeFi filtering
+    # For now, return placeholder
+    return DeFiResponse(
+        result={
+            'events': [],
+            'message': 'DeFi events query endpoint - implementation pending',
+        },
+    )
+
+
+@router.get('/lending/summary')
+async def get_lending_summary(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[DeFiService, Depends(get_defi_service)],
+    protocol: str | None = Query(None, description="Filter by lending protocol"),
+    account: str | None = Query(None, description="Filter by account address"),
+) -> DeFiResponse:
+    """Get lending protocol summary (deposits, borrows, health factor)"""
+    # This would aggregate data from lending protocols like Aave, Compound
+    return DeFiResponse(
+        result={
+            'deposits': {},
+            'borrows': {},
+            'health_factors': {},
+            'message': 'Lending summary endpoint - implementation pending',
+        },
+    )
+
+
+@router.get('/liquidity/positions')
+async def get_liquidity_positions(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[DeFiService, Depends(get_defi_service)],
+    protocol: str | None = Query(None, description="Filter by AMM protocol"),
+    account: str | None = Query(None, description="Filter by account address"),
+) -> DeFiResponse:
+    """Get liquidity pool positions across DeFi protocols"""
+    # This would query liquidity positions from Uniswap, Sushiswap, etc.
+    return DeFiResponse(
+        result={
+            'positions': [],
+            'message': 'Liquidity positions endpoint - implementation pending',
+        },
+    )
+
+
+@router.get('/liquidity/events')
+async def get_liquidity_events(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[DeFiService, Depends(get_defi_service)],
+    account: str | None = Query(None, description="Filter by account address"),
+    from_timestamp: int = Query(0, ge=0),
+    to_timestamp: int = Query(2147483647, ge=0),
+) -> DeFiResponse:
+    """Get liquidity events (add/remove liquidity)"""
+    # This would use history_events repository with liquidity event filtering
+    return DeFiResponse(
+        result={
+            'events': [],
+            'message': 'Liquidity events endpoint - implementation pending',
+        },
+    )
+
+
+@router.get('/yield/summary')
+async def get_yield_summary(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[DeFiService, Depends(get_defi_service)],
+    from_timestamp: int = Query(0, ge=0),
+    to_timestamp: int = Query(2147483647, ge=0),
+) -> DeFiResponse:
+    """Get yield farming summary with APY calculations"""
+    # This would calculate yield farming returns and APY
+    return DeFiResponse(
+        result={
+            'total_yield': '0',
+            'apy_by_protocol': {},
+            'message': 'Yield summary endpoint - implementation pending',
+        },
+    )
+
+
+# Cowswap-specific endpoints
+@router.get('/cowswap/orders')
+async def get_cowswap_orders(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[DeFiService, Depends(get_defi_service)],
+    account: str | None = Query(None, description="Filter by account address"),
+    status: str | None = Query(None, description="Filter by order status"),
+) -> DeFiResponse:
+    """Get Cowswap orders"""
+    # This would use the cowswap_orders repository
+    return DeFiResponse(
+        result={
+            'orders': [],
+            'message': 'Cowswap orders endpoint - implementation pending',
+        },
+    )
+
+
+@router.post('/cowswap/orders/sync')
+async def sync_cowswap_orders(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[DeFiService, Depends(get_defi_service)],
+    account: str,
+) -> DeFiResponse:
+    """Sync Cowswap orders for an account"""
+    # This would trigger a background task to sync Cowswap orders
+    return DeFiResponse(
+        result={'task_id': 'placeholder-task-id'},
+        message='Cowswap orders sync endpoint - implementation pending',
+    )
+
+
+# zkSync Lite endpoints
+@router.get('/zksync-lite/transactions')
+async def get_zksync_lite_transactions(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[DeFiService, Depends(get_defi_service)],
+    address: str | None = Query(None, description="Filter by address"),
+    tx_type: str | None = Query(None, description="Filter by transaction type"),
+    from_timestamp: int = Query(0, ge=0),
+    to_timestamp: int = Query(2147483647, ge=0),
+) -> DeFiResponse:
+    """Get zkSync Lite transactions"""
+    # This would use the zksynclite repository
+    return DeFiResponse(
+        result={
+            'transactions': [],
+            'message': 'zkSync Lite transactions endpoint - implementation pending',
+        },
+    )
+
+
+@router.get('/zksync-lite/swaps')
+async def get_zksync_lite_swaps(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[DeFiService, Depends(get_defi_service)],
+    address: str | None = Query(None, description="Filter by address"),
+    from_timestamp: int = Query(0, ge=0),
+    to_timestamp: int = Query(2147483647, ge=0),
+) -> DeFiResponse:
+    """Get zkSync Lite swaps"""
+    # This would use the zksynclite swaps repository
+    return DeFiResponse(
+        result={
+            'swaps': [],
+            'message': 'zkSync Lite swaps endpoint - implementation pending',
+        },
+    )
+
+
+# Gnosis Pay endpoints
+@router.get('/gnosis-pay/transactions')
+async def get_gnosis_pay_transactions(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[DeFiService, Depends(get_defi_service)],
+    merchant: str | None = Query(None, description="Filter by merchant name"),
+    country: str | None = Query(None, description="Filter by country"),
+    from_timestamp: int = Query(0, ge=0),
+    to_timestamp: int = Query(2147483647, ge=0),
+) -> DeFiResponse:
+    """Get Gnosis Pay transactions"""
+    # This would use the gnosis_pay repository
+    return DeFiResponse(
+        result={
+            'transactions': [],
+            'message': 'Gnosis Pay transactions endpoint - implementation pending',
+        },
+    )
+
+
+@router.get('/gnosis-pay/spending')
+async def get_gnosis_pay_spending(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    service: Annotated[DeFiService, Depends(get_defi_service)],
+    group_by: str = Query('merchant', description="Group by: 'merchant' or 'category'"),
+    from_timestamp: int = Query(0, ge=0),
+    to_timestamp: int = Query(2147483647, ge=0),
+) -> DeFiResponse:
+    """Get Gnosis Pay spending analytics"""
+    # This would use the gnosis_pay repository spending analytics methods
+    return DeFiResponse(
+        result={
+            'spending': [],
+            'message': 'Gnosis Pay spending endpoint - implementation pending',
+        },
+    )

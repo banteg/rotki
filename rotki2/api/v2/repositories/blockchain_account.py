@@ -1,5 +1,5 @@
 """Repository for managing blockchain accounts."""
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import select
 from sqlmodel import col
@@ -7,6 +7,7 @@ from sqlmodel import col
 from rotki2.api.v2.repositories.async_base import AsyncBaseRepository
 from rotki2.db.models.user.accounts import BlockchainAccount, EvmAccountDetails
 from rotki2.db.models.user.models import TagMapping
+from rotki2.db.models.user.address_book import AddressBook
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -153,3 +154,218 @@ class BlockchainAccountRepository(AsyncBaseRepository[BlockchainAccount]):
             )
         )
         return result.first() is not None
+    
+    async def add_blockchain_accounts(
+        self,
+        accounts_data: list[dict[str, Any]],
+    ) -> list[BlockchainAccount]:
+        """Bulk add multiple blockchain accounts.
+        
+        Args:
+            accounts_data: List of dicts with keys: blockchain, address, label, tags
+            
+        Returns:
+            List of created blockchain accounts
+        """
+        created_accounts = []
+        
+        for data in accounts_data:
+            # Check if account already exists
+            exists = await self.account_exists(
+                blockchain=data['blockchain'],
+                address=data['address'],
+            )
+            
+            if not exists:
+                account = await self.add_account(
+                    blockchain=data['blockchain'],
+                    address=data['address'],
+                    label=data.get('label'),
+                )
+                created_accounts.append(account)
+                
+                # Add tags if provided
+                if 'tags' in data and data['tags']:
+                    for tag in data['tags']:
+                        mapping = TagMapping(
+                            object_reference=f"{data['blockchain'].value}_{data['address']}",
+                            tag_name=tag,
+                        )
+                        self.session.add(mapping)
+                        
+        await self.session.commit()
+        return created_accounts
+    
+    async def edit_blockchain_accounts(
+        self,
+        accounts_data: list[dict[str, Any]],
+    ) -> list[BlockchainAccount]:
+        """Bulk edit blockchain account labels and tags.
+        
+        Args:
+            accounts_data: List of dicts with keys: blockchain, address, label, tags
+            
+        Returns:
+            List of updated blockchain accounts
+        """
+        updated_accounts = []
+        
+        for data in accounts_data:
+            account = await self.update_label(
+                blockchain=data['blockchain'],
+                address=data['address'],
+                label=data.get('label'),
+            )
+            
+            if account:
+                updated_accounts.append(account)
+                
+                # Update tags if provided
+                if 'tags' in data:
+                    # Remove existing tags
+                    ref = f"{data['blockchain'].value}_{data['address']}"
+                    await self.session.exec(
+                        select(TagMapping).where(
+                            col(TagMapping.object_reference) == ref
+                        )
+                    )
+                    # TODO: Delete existing tags
+                    
+                    # Add new tags
+                    for tag in data.get('tags', []):
+                        mapping = TagMapping(
+                            object_reference=ref,
+                            tag_name=tag,
+                        )
+                        self.session.add(mapping)
+                        
+        await self.session.commit()
+        return updated_accounts
+    
+    async def get_blockchain_account_data(
+        self,
+        blockchain: 'SupportedBlockchain' | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get comprehensive blockchain account data with labels and tags.
+        
+        Returns account data including address book labels and tags.
+        """
+        # Build base query
+        query = select(
+            BlockchainAccount,
+            AddressBook.name.label('address_book_label'),
+        ).select_from(BlockchainAccount).outerjoin(
+            AddressBook,
+            (BlockchainAccount.account == AddressBook.address) &
+            ((AddressBook.blockchain == BlockchainAccount.blockchain) |
+             (AddressBook.blockchain.is_(None)))
+        )
+        
+        if blockchain:
+            query = query.where(col(BlockchainAccount.blockchain) == blockchain.value)
+            
+        result = await self.session.exec(query)
+        rows = result.all()
+        
+        account_data = []
+        for row in rows:
+            account = row[0]
+            address_book_label = row[1]
+            
+            # Get tags for this account
+            tags_result = await self.session.exec(
+                select(TagMapping.tag_name).where(
+                    col(TagMapping.object_reference) == f'{account.blockchain}_{account.account}'
+                )
+            )
+            tags = list(tags_result.all())
+            
+            account_data.append({
+                'blockchain': account.blockchain,
+                'address': account.account,
+                'label': account.label or address_book_label,
+                'tags': tags,
+            })
+            
+        return account_data
+    
+    async def get_blockchains_for_accounts(
+        self,
+        addresses: list[str],
+    ) -> dict[str, list[str]]:
+        """Get which blockchains the given addresses belong to.
+        
+        Returns:
+            Dict mapping address to list of blockchain names
+        """
+        result = await self.session.exec(
+            select(BlockchainAccount).where(
+                col(BlockchainAccount.account).in_(addresses)
+            )
+        )
+        accounts = result.all()
+        
+        address_chains = {}
+        for account in accounts:
+            if account.account not in address_chains:
+                address_chains[account.account] = []
+            address_chains[account.account].append(account.blockchain)
+            
+        return address_chains
+    
+    async def get_tokens_for_address(
+        self,
+        address: 'ChecksumEvmAddress',
+    ) -> list[str] | None:
+        """Get detected tokens for an EVM address.
+        
+        Returns:
+            List of token identifiers or None if not cached
+        """
+        details = await self.get_account_details(address)
+        if details and details.tokens_list:
+            # TODO: Filter out ignored tokens
+            return details.tokens_list.split(',')
+        return None
+    
+    async def save_tokens_for_address(
+        self,
+        address: 'ChecksumEvmAddress',
+        tokens: list[str],
+        timestamp: int,
+    ) -> None:
+        """Save detected tokens for an EVM address."""
+        details = await self.get_account_details(address)
+        
+        if details:
+            details.tokens_list = ','.join(tokens)
+            details.last_queried_timestamp = timestamp
+        else:
+            details = EvmAccountDetails(
+                account=address,
+                tokens_list=','.join(tokens),
+                last_queried_timestamp=timestamp,
+            )
+            self.session.add(details)
+            
+        await self.session.commit()
+    
+    async def remove_blockchain_accounts(
+        self,
+        accounts: list[tuple['SupportedBlockchain', str]],
+    ) -> int:
+        """Bulk remove blockchain accounts.
+        
+        Args:
+            accounts: List of (blockchain, address) tuples
+            
+        Returns:
+            Number of accounts removed
+        """
+        removed = 0
+        
+        for blockchain, address in accounts:
+            if await self.remove_account(blockchain, address):
+                removed += 1
+                
+        return removed

@@ -169,3 +169,56 @@ class UserCredentialMappingsRepository(AsyncBaseRepository[UserCredentialMapping
             await self.delete(mapping)
             return True
         return False
+
+    async def get_user_exchanges(self, username: str) -> list[str]:
+        """Get all exchanges that a user has credentials for.
+        
+        Args:
+            username: The username
+            
+        Returns:
+            List of exchange service names
+        """
+        # First get all credential names for the user
+        credential_names = await self.get_credentials_for_user(username)
+        
+        if not credential_names:
+            return []
+        
+        # Then get unique services from those credentials
+        result = await self.session.exec(
+            select(UserCredential.service).where(
+                col(UserCredential.name).in_(credential_names)
+            ).distinct()
+        )
+        
+        return list(result.all())
+
+    async def delete_credential(self, name: str) -> bool:
+        """Delete a credential and all its mappings.
+        
+        Args:
+            name: The credential name
+            
+        Returns:
+            True if deleted, False if not found
+        """
+        # First delete all mappings
+        await self.session.exec(
+            select(UserCredentialMapping).where(
+                col(UserCredentialMapping.credential_name) == name
+            ).delete()
+        )
+        
+        # Then delete the credential
+        result = await self.session.exec(
+            select(UserCredential).where(
+                col(UserCredential.name) == name
+            )
+        )
+        credential = result.first()
+        
+        if credential:
+            await self.delete(credential)
+            return True
+        return False

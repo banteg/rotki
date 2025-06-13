@@ -128,3 +128,136 @@ class MarginPositionsRepository(AsyncBaseRepository[MarginPosition]):
             return position
             
         return None
+
+    async def get_positions_by_asset(
+        self,
+        asset: str,
+        exchange: str | None = None,
+    ) -> list[MarginPosition]:
+        """Get all margin positions for a specific asset.
+        
+        Args:
+            asset: The asset identifier
+            exchange: Optional exchange filter
+            
+        Returns:
+            List of margin positions
+        """
+        query = select(MarginPosition).where(
+            col(MarginPosition.asset) == asset
+        )
+        
+        if exchange:
+            query = query.where(col(MarginPosition.exchange) == exchange)
+            
+        query = query.order_by(MarginPosition.open_time.desc())
+        
+        result = await self.session.exec(query)
+        return list(result.all())
+
+    async def get_positions_in_range(
+        self,
+        start_timestamp: int,
+        end_timestamp: int,
+        exchange: str | None = None,
+    ) -> list[MarginPosition]:
+        """Get margin positions opened within a timestamp range.
+        
+        Args:
+            start_timestamp: Start of the time range
+            end_timestamp: End of the time range
+            exchange: Optional exchange filter
+            
+        Returns:
+            List of margin positions
+        """
+        query = select(MarginPosition).where(
+            col(MarginPosition.open_time) >= start_timestamp,
+            col(MarginPosition.open_time) <= end_timestamp,
+        )
+        
+        if exchange:
+            query = query.where(col(MarginPosition.exchange) == exchange)
+            
+        query = query.order_by(MarginPosition.open_time)
+        
+        result = await self.session.exec(query)
+        return list(result.all())
+
+    async def get_total_profit_loss(
+        self,
+        exchange: str | None = None,
+        start_timestamp: int | None = None,
+        end_timestamp: int | None = None,
+    ) -> dict[str, str]:
+        """Calculate total profit/loss from closed positions.
+        
+        Args:
+            exchange: Optional exchange filter
+            start_timestamp: Optional start timestamp for close time
+            end_timestamp: Optional end timestamp for close time
+            
+        Returns:
+            Dict with total_profit_loss and position_count
+        """
+        from sqlalchemy import func
+        
+        query = select(
+            func.sum(MarginPosition.profit_loss).label('total_profit_loss'),
+            func.count(MarginPosition.identifier).label('position_count'),
+        ).where(
+            col(MarginPosition.close_time).is_not(None),
+            col(MarginPosition.profit_loss).is_not(None),
+        )
+        
+        if exchange:
+            query = query.where(col(MarginPosition.exchange) == exchange)
+        if start_timestamp:
+            query = query.where(col(MarginPosition.close_time) >= start_timestamp)
+        if end_timestamp:
+            query = query.where(col(MarginPosition.close_time) <= end_timestamp)
+        
+        result = await self.session.exec(query)
+        row = result.first()
+        
+        return {
+            'total_profit_loss': str(row[0] or 0),
+            'position_count': str(row[1] or 0),
+        }
+
+    async def get_margin_summary_by_exchange(self) -> list[dict[str, str]]:
+        """Get margin position summary grouped by exchange.
+        
+        Returns:
+            List of dicts with exchange, open_count, closed_count, total_profit_loss
+        """
+        from sqlalchemy import case, func
+        
+        query = select(
+            MarginPosition.exchange,
+            func.sum(
+                case(
+                    (col(MarginPosition.close_time).is_(None), 1),
+                    else_=0,
+                )
+            ).label('open_count'),
+            func.sum(
+                case(
+                    (col(MarginPosition.close_time).is_not(None), 1),
+                    else_=0,
+                )
+            ).label('closed_count'),
+            func.sum(MarginPosition.profit_loss).label('total_profit_loss'),
+        ).group_by(MarginPosition.exchange)
+        
+        result = await self.session.exec(query)
+        
+        return [
+            {
+                'exchange': row[0],
+                'open_count': str(row[1] or 0),
+                'closed_count': str(row[2] or 0),
+                'total_profit_loss': str(row[3] or 0),
+            }
+            for row in result.all()
+        ]

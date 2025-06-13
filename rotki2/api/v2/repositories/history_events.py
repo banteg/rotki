@@ -666,3 +666,184 @@ class HistoryEventsRepository:
                 }
         
         return None
+
+    async def get_defi_events_by_protocol(
+        self,
+        protocol: str,
+        account: str | None = None,
+        start_timestamp: int | None = None,
+        end_timestamp: int | None = None,
+    ) -> list[HistoryEvent]:
+        """Get DeFi events for a specific protocol.
+        
+        Args:
+            protocol: The DeFi protocol name (e.g., 'uniswap', 'aave', 'compound')
+            account: Optional account address filter
+            start_timestamp: Optional start timestamp
+            end_timestamp: Optional end timestamp
+            
+        Returns:
+            List of DeFi history events
+        """
+        from rotki2.db.models.user.history import EvmEventInfo
+        
+        query = select(HistoryEvent).join(
+            EvmEventInfo,
+            HistoryEvent.identifier == EvmEventInfo.identifier
+        ).where(
+            col(EvmEventInfo.counterparty) == protocol
+        )
+        
+        if account:
+            query = query.where(col(HistoryEvent.location_label) == account)
+        if start_timestamp:
+            query = query.where(col(HistoryEvent.timestamp) >= start_timestamp)
+        if end_timestamp:
+            query = query.where(col(HistoryEvent.timestamp) <= end_timestamp)
+            
+        query = query.order_by(HistoryEvent.timestamp.desc())
+        
+        result = await self.session.exec(query)
+        return list(result.all())
+
+    async def get_liquidity_events(
+        self,
+        account: str | None = None,
+        event_types: list[str] | None = None,
+        start_timestamp: int | None = None,
+        end_timestamp: int | None = None,
+    ) -> list[HistoryEvent]:
+        """Get liquidity-related events (add/remove liquidity).
+        
+        Args:
+            account: Optional account address filter
+            event_types: Optional list of event types to filter (e.g., ['deposit', 'withdrawal'])
+            start_timestamp: Optional start timestamp
+            end_timestamp: Optional end timestamp
+            
+        Returns:
+            List of liquidity history events
+        """
+        from rotki2.db.models.user.enums import HistoryEventSubType
+        
+        # Default liquidity event types
+        if event_types is None:
+            event_types = [
+                HistoryEventSubType.DEPOSIT_ASSET,
+                HistoryEventSubType.REMOVE_ASSET,
+                HistoryEventSubType.RECEIVE_WRAPPED,
+                HistoryEventSubType.RETURN_WRAPPED,
+            ]
+        
+        query = select(HistoryEvent).where(
+            col(HistoryEvent.event_subtype).in_(event_types)
+        )
+        
+        if account:
+            query = query.where(col(HistoryEvent.location_label) == account)
+        if start_timestamp:
+            query = query.where(col(HistoryEvent.timestamp) >= start_timestamp)
+        if end_timestamp:
+            query = query.where(col(HistoryEvent.timestamp) <= end_timestamp)
+            
+        query = query.order_by(HistoryEvent.timestamp.desc())
+        
+        result = await self.session.exec(query)
+        return list(result.all())
+
+    async def get_protocol_volume_stats(
+        self,
+        start_timestamp: int | None = None,
+        end_timestamp: int | None = None,
+    ) -> list[dict[str, str]]:
+        """Get transaction volume statistics grouped by DeFi protocol.
+        
+        Args:
+            start_timestamp: Optional start timestamp
+            end_timestamp: Optional end timestamp
+            
+        Returns:
+            List of dicts with protocol, event_count, and unique_addresses
+        """
+        from rotki2.db.models.user.history import EvmEventInfo
+        from sqlalchemy import func
+        
+        query = select(
+            EvmEventInfo.counterparty,
+            func.count(HistoryEvent.identifier).label('event_count'),
+            func.count(func.distinct(HistoryEvent.location_label)).label('unique_addresses'),
+        ).join(
+            HistoryEvent,
+            EvmEventInfo.identifier == HistoryEvent.identifier
+        ).where(
+            col(EvmEventInfo.counterparty).is_not(None)
+        ).group_by(EvmEventInfo.counterparty)
+        
+        if start_timestamp:
+            query = query.where(col(HistoryEvent.timestamp) >= start_timestamp)
+        if end_timestamp:
+            query = query.where(col(HistoryEvent.timestamp) <= end_timestamp)
+        
+        result = await self.session.exec(query)
+        
+        return [
+            {
+                'protocol': row[0],
+                'event_count': str(row[1]),
+                'unique_addresses': str(row[2]),
+            }
+            for row in result.all()
+        ]
+
+    async def get_lending_events(
+        self,
+        account: str | None = None,
+        protocol: str | None = None,
+        start_timestamp: int | None = None,
+        end_timestamp: int | None = None,
+    ) -> list[HistoryEvent]:
+        """Get lending/borrowing events from DeFi protocols.
+        
+        Args:
+            account: Optional account address filter
+            protocol: Optional protocol filter (e.g., 'aave', 'compound')
+            start_timestamp: Optional start timestamp
+            end_timestamp: Optional end timestamp
+            
+        Returns:
+            List of lending/borrowing history events
+        """
+        from rotki2.db.models.user.enums import HistoryEventSubType
+        from rotki2.db.models.user.history import EvmEventInfo
+        
+        lending_subtypes = [
+            HistoryEventSubType.DEPOSIT_ASSET,
+            HistoryEventSubType.REMOVE_ASSET,
+            HistoryEventSubType.BORROW,
+            HistoryEventSubType.PAYBACK_DEBT,
+            HistoryEventSubType.LIQUIDATE,
+            HistoryEventSubType.GENERATE_DEBT,
+            HistoryEventSubType.RECEIVE_WRAPPED,
+        ]
+        
+        query = select(HistoryEvent).where(
+            col(HistoryEvent.event_subtype).in_(lending_subtypes)
+        )
+        
+        if protocol:
+            query = query.join(
+                EvmEventInfo,
+                HistoryEvent.identifier == EvmEventInfo.identifier
+            ).where(col(EvmEventInfo.counterparty) == protocol)
+        
+        if account:
+            query = query.where(col(HistoryEvent.location_label) == account)
+        if start_timestamp:
+            query = query.where(col(HistoryEvent.timestamp) >= start_timestamp)
+        if end_timestamp:
+            query = query.where(col(HistoryEvent.timestamp) <= end_timestamp)
+            
+        query = query.order_by(HistoryEvent.timestamp.desc())
+        
+        result = await self.session.exec(query)
+        return list(result.all())

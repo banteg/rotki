@@ -46,6 +46,7 @@ from rotki2.api.v2.routers import (
     users,
     wallet,
     watchers,
+    websocket,
 )
 from rotki2.api.v2.websocket import websocket_endpoint
 from rotkehlchen.args import app_args
@@ -168,11 +169,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(staking.router, prefix='/api/v2/staking', tags=['staking'])
     app.include_router(wallet.router, prefix='/api/v2/wallet', tags=['wallet'])
     app.include_router(protocols.router, prefix='/api/v2/protocols', tags=['protocols'])
-
-    # WebSocket endpoint
-    @app.websocket('/api/v2/ws')
-    async def websocket(websocket: WebSocket):
-        """WebSocket endpoint for real-time updates"""
-        await websocket_endpoint(websocket)
+    app.include_router(websocket.router, prefix='/api/v2', tags=['websocket'])
 
     return app

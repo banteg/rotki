@@ -12,6 +12,7 @@ from rotki2.api.v2.services.database import DatabaseService
 from rotki2.api.v2.services.exchanges import ExchangeService
 from rotkehlchen.exchanges.constants import SUPPORTED_EXCHANGES
 from rotkehlchen.types import Location
+from rotkehlchen.utils.misc import ts_now
 
 router = APIRouter()
 
@@ -348,3 +349,208 @@ async def query_exchange_events(
     )
 
     return ExchangeResponse(result={'events': events})
+
+
+# Margin trading endpoints
+@router.get('/margin/positions')
+async def get_all_margin_positions(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
+    from_timestamp: int = Query(0, ge=0),
+    to_timestamp: int = Query(2147483647, ge=0),
+) -> ExchangeResponse:
+    """Get all margin positions across all exchanges"""
+    # Would need to query all configured exchanges for margin positions
+    all_positions = []
+    exchanges = exchange_service.get_configured_exchanges()
+    
+    for exchange in exchanges:
+        try:
+            location_enum = Location(exchange.location)
+            positions = await exchange_service.query_margin_positions(
+                name=exchange.name,
+                location=location_enum,
+                from_timestamp=from_timestamp,
+                to_timestamp=to_timestamp,
+            )
+            all_positions.extend(positions)
+        except Exception:
+            # Skip exchanges that don't support margin or have errors
+            continue
+    
+    return ExchangeResponse(result={'positions': all_positions})
+
+
+@router.get('/{location}/margin/positions')
+async def get_exchange_margin_positions(
+    location: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
+    from_timestamp: int = Query(0, ge=0),
+    to_timestamp: int = Query(2147483647, ge=0),
+) -> ExchangeResponse:
+    """Get margin positions for a specific exchange"""
+    try:
+        location_enum = Location(location)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'Invalid exchange location: {location}',
+        )
+    
+    # Get exchange by location
+    exchanges = exchange_service.get_configured_exchanges()
+    exchange_names = [e.name for e in exchanges if e.location == location]
+    
+    if not exchange_names:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'No configured exchange found for location: {location}',
+        )
+    
+    all_positions = []
+    for name in exchange_names:
+        try:
+            positions = await exchange_service.query_margin_positions(
+                name=name,
+                location=location_enum,
+                from_timestamp=from_timestamp,
+                to_timestamp=to_timestamp,
+            )
+            all_positions.extend(positions)
+        except Exception as e:
+            # Log error but continue with other exchanges
+            continue
+    
+    return ExchangeResponse(result={'positions': all_positions})
+
+
+@router.post('/{location}/margin/positions/sync')
+async def sync_margin_positions(
+    location: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
+) -> ExchangeResponse:
+    """Sync margin positions from exchange"""
+    try:
+        location_enum = Location(location)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'Invalid exchange location: {location}',
+        )
+    
+    # Get exchange by location and query fresh data
+    exchanges = exchange_service.get_configured_exchanges()
+    exchange_names = [e.name for e in exchanges if e.location == location]
+    
+    if not exchange_names:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'No configured exchange found for location: {location}',
+        )
+    
+    synced_count = 0
+    for name in exchange_names:
+        try:
+            # Query latest margin positions
+            positions = await exchange_service.query_margin_positions(
+                name=name,
+                location=location_enum,
+                from_timestamp=0,
+                to_timestamp=None,
+            )
+            synced_count += len(positions)
+        except Exception:
+            continue
+    
+    return ExchangeResponse(
+        result={'synced_positions': synced_count},
+        message=f'Synced {synced_count} margin positions',
+    )
+
+
+@router.get('/margin/summary')
+async def get_margin_summary(
+    _: Annotated[str, Depends(require_logged_in_user)],
+    exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
+    from_timestamp: int = Query(0, ge=0),
+    to_timestamp: int = Query(2147483647, ge=0),
+) -> ExchangeResponse:
+    """Get margin trading summary with P&L calculations"""
+    # Query margin positions from all exchanges
+    exchanges = exchange_service.get_configured_exchanges()
+    all_positions = []
+    
+    for exchange in exchanges:
+        try:
+            location_enum = Location(exchange.location)
+            positions = await exchange_service.query_margin_positions(
+                name=exchange.name,
+                location=location_enum,
+                from_timestamp=from_timestamp,
+                to_timestamp=to_timestamp,
+            )
+            all_positions.extend(positions)
+        except Exception:
+            continue
+    
+    # Calculate summary statistics
+    total_profit_loss = sum(
+        float(p.profit_loss) for p in all_positions 
+        if hasattr(p, 'profit_loss') and p.profit_loss
+    )
+    open_positions = [p for p in all_positions if not hasattr(p, 'close_time') or p.close_time is None]
+    closed_positions = [p for p in all_positions if hasattr(p, 'close_time') and p.close_time is not None]
+    
+    summary = {
+        'total_positions': len(all_positions),
+        'open_positions': len(open_positions),
+        'closed_positions': len(closed_positions),
+        'total_profit_loss': str(total_profit_loss),
+        'profit_loss_by_exchange': {},
+    }
+    
+    # Group P&L by exchange
+    for exchange in exchanges:
+        exchange_positions = [
+            p for p in all_positions 
+            if hasattr(p, 'location') and p.location == exchange.location
+        ]
+        exchange_pnl = sum(
+            float(p.profit_loss) for p in exchange_positions 
+            if hasattr(p, 'profit_loss') and p.profit_loss
+        )
+        if exchange_pnl != 0:
+            summary['profit_loss_by_exchange'][exchange.location] = str(exchange_pnl)
+    
+    return ExchangeResponse(result=summary)
+
+
+# Exchange rates endpoints
+@router.get('/{location}/rates/{pair}')
+async def get_exchange_rate(
+    location: str,
+    pair: str,
+    _: Annotated[str, Depends(require_logged_in_user)],
+    exchange_service: Annotated[ExchangeService, Depends(get_exchange_service)],
+) -> ExchangeResponse:
+    """Get current exchange rate for a trading pair"""
+    try:
+        location_enum = Location(location)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'Invalid exchange location: {location}',
+        )
+    
+    # This would need to be implemented by querying the exchange
+    # For now, return a placeholder
+    return ExchangeResponse(
+        result={
+            'pair': pair,
+            'rate': '1.0',
+            'timestamp': ts_now(),
+        },
+        message='Exchange rate query not yet implemented',
+    )
